@@ -63,7 +63,12 @@ pub fn mpf_bernoulli_huge(
   v = @mpf.mpf_mul(v, zeta_eta_series(n, p), p, @mpf.round_nearest)
   v = @mpf.mpf_mul(
     v,
-    @mpf.mpf_pow_int(@libelefun.mpf_pi(piprec, @mpf.round_nearest), -n, p, @mpf.round_nearest),
+    @mpf.mpf_pow_int(
+      @libelefun.mpf_pi(piprec, @mpf.round_nearest),
+      -n,
+      p,
+      @mpf.round_nearest,
+    ),
     p,
     @mpf.round_nearest,
   )
@@ -153,8 +158,24 @@ fn zeta_even_via_bernoulli(n : Int, p : Int) -> @mpf.RawMpf {
 ///|
 fn zeta_eta_series(n : Int, p : Int) -> @mpf.RawMpf {
   let mut eta = @mpf.fzero
+  let mut max_terms = 64 + p * 3
+  if n <= 3 {
+    max_terms += p * 8
+  } else if n <= 7 {
+    max_terms += p * 4
+  }
+  if max_terms < 512 {
+    max_terms = 512
+  }
+  if max_terms > 3000000 {
+    max_terms = 3000000
+  }
+  let mut conv_bits = p + 14
+  if conv_bits > p + 192 {
+    conv_bits = p + 192
+  }
   let mut k = 1
-  while k < 200000 {
+  while k < max_terms {
     let odd = 2 * k - 1
     let even = 2 * k
     let odd_term = @mpf.mpf_div(
@@ -171,7 +192,8 @@ fn zeta_eta_series(n : Int, p : Int) -> @mpf.RawMpf {
     )
     let term = @mpf.mpf_sub(odd_term, even_term, p, @mpf.round_nearest)
     eta = @mpf.mpf_add(eta, term, p, @mpf.round_nearest)
-    if tiny_enough(@mpf.mpf_abs(term, p, @mpf.round_nearest), p + 10) && k > 8 {
+    if tiny_enough(@mpf.mpf_abs(term, p, @mpf.round_nearest), conv_bits) &&
+      k > 8 {
       break
     }
     k += 1
@@ -193,6 +215,8 @@ pub fn mpf_zeta_int(n : Int, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
   let p = wp(prec) + 16
   let z = if (n & 1) == 0 {
     zeta_even_via_bernoulli(n, p)
+  } else if n <= 7 || p >= 220 {
+    zeta_euler_maclaurin_real(@mpf.from_int(n), p)
   } else {
     zeta_eta_series(n, p)
   }
@@ -623,14 +647,22 @@ fn zeta_eta_real(s : @mpf.RawMpf, p : Int) -> @mpf.RawMpf {
     p + 16
   } else {
     let bits = -(pole_dist.exp + pole_dist.bc)
-    if bits > 0 { bits } else { 0 }
+    if bits > 0 {
+      bits
+    } else {
+      0
+    }
   }
-  let mut max_terms = 64 + p * 2 + pole_bits * 2
-  if max_terms < 256 {
-    max_terms = 256
+  let mut max_terms = 96 + p * 3 + pole_bits * 4
+  if max_terms < 512 {
+    max_terms = 512
   }
-  if max_terms > 1200000 {
-    max_terms = 1200000
+  if max_terms > 4000000 {
+    max_terms = 4000000
+  }
+  let mut conv_bits = p + 10 + pole_bits
+  if conv_bits > p + 384 {
+    conv_bits = p + 384
   }
   let mut eta = @mpf.fzero
   let mut k = 1
@@ -647,7 +679,7 @@ fn zeta_eta_real(s : @mpf.RawMpf, p : Int) -> @mpf.RawMpf {
       @mpf.mpf_neg(term_abs, p, @mpf.round_nearest)
     }
     eta = @mpf.mpf_add(eta, term, p, @mpf.round_nearest)
-    if tiny_enough(@mpf.mpf_abs(term_abs, p, @mpf.round_nearest), p + 8) &&
+    if tiny_enough(@mpf.mpf_abs(term_abs, p, @mpf.round_nearest), conv_bits) &&
       k > 24 {
       break
     }
@@ -658,20 +690,35 @@ fn zeta_eta_real(s : @mpf.RawMpf, p : Int) -> @mpf.RawMpf {
 
 ///|
 fn zeta_euler_maclaurin_real(s : @mpf.RawMpf, p : Int) -> @mpf.RawMpf {
+  let pole_dist = @mpf.mpf_abs(
+    @mpf.mpf_sub(s, @mpf.fone, p, @mpf.round_nearest),
+    p,
+    @mpf.round_nearest,
+  )
+  let pole_bits = if @mpf.is_zero(pole_dist) {
+    p + 16
+  } else {
+    let bits = -(pole_dist.exp + pole_dist.bc)
+    if bits > 0 {
+      bits
+    } else {
+      0
+    }
+  }
   let top = s.exp + s.bc
-  let mut n = 12 + p / 6 + (if top > 0 { top } else { 0 })
+  let mut n = 12 + p / 4 + pole_bits * 2 + 2 * (if top > 0 { top } else { 0 })
   if n < 12 {
     n = 12
   }
-  if n > 256 {
-    n = 256
+  if n > 4096 {
+    n = 4096
   }
-  let mut terms = 4 + p / 20
-  if terms < 4 {
-    terms = 4
+  let mut terms = 6 + p / 10 + pole_bits / 2
+  if terms < 6 {
+    terms = 6
   }
-  if terms > 28 {
-    terms = 28
+  if terms > 256 {
+    terms = 256
   }
   let n_mpf = @mpf.from_int(n)
   let mut sum = @mpf.fzero
@@ -731,7 +778,11 @@ fn zeta_euler_maclaurin_real(s : @mpf.RawMpf, p : Int) -> @mpf.RawMpf {
       @mpf.round_nearest,
     )
     corr = @mpf.mpf_add(corr, corr_term, p, @mpf.round_nearest)
-    if m >= 3 && tiny_enough(@mpf.mpf_abs(corr_term, p, @mpf.round_nearest), p + 8) {
+    if m >= 4 &&
+      tiny_enough(
+        @mpf.mpf_abs(corr_term, p, @mpf.round_nearest),
+        p + 12 + pole_bits,
+      ) {
       break
     }
   }
@@ -889,11 +940,37 @@ pub fn mpf_zeta(
     return @mpf.mpf_pos(z, prec, rnd)
   }
   let p = wp(prec) + 24
-  if @mpf.mpf_lt(@mpf.fone, s) {
-    let z = zeta_euler_maclaurin_real(s, p)
+  let pole_dist = @mpf.mpf_abs(
+    @mpf.mpf_sub(s, @mpf.fone, p, @mpf.round_nearest),
+    p,
+    @mpf.round_nearest,
+  )
+  let half = @mpf.from_man_exp(1N, -1, 0, @mpf.round_down)
+  if @mpf.mpf_lt(@mpf.fzero, s) &&
+    (@mpf.mpf_lt(@mpf.fone, s) || @mpf.mpf_lt(pole_dist, half)) {
+    let pole_dist = @mpf.mpf_abs(
+      @mpf.mpf_sub(s, @mpf.fone, p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    )
+    let pole_bits = if @mpf.is_zero(pole_dist) {
+      p + 16
+    } else {
+      let bits = -(pole_dist.exp + pole_dist.bc)
+      if bits > 0 {
+        bits
+      } else {
+        0
+      }
+    }
+    let mut p_work = p + 24 + pole_bits * 2
+    if p_work > p + 1024 {
+      p_work = p + 1024
+    }
+    let z = zeta_euler_maclaurin_real(s, p_work)
     if alt {
       return @mpf.mpf_pos(
-        @mpf.mpf_mul(z, zeta_alt_factor(s, p), p, @mpf.round_nearest),
+        @mpf.mpf_mul(z, zeta_alt_factor(s, p_work), p_work, @mpf.round_nearest),
         prec,
         rnd,
       )
@@ -1001,12 +1078,7 @@ fn hurwitz_power_sum_em(x : @mpf.RawMpf, s : Int, p : Int) -> @mpf.RawMpf {
       p,
       @mpf.round_nearest,
     )
-    let xpow = @mpf.mpf_pow_int(
-      xn,
-      -(s + two_r - 1),
-      p,
-      @mpf.round_nearest,
-    )
+    let xpow = @mpf.mpf_pow_int(xn, -(s + two_r - 1), p, @mpf.round_nearest)
     let term = @mpf.mpf_mul(
       coeff,
       @mpf.mpf_mul(poch, xpow, p, @mpf.round_nearest),
@@ -1057,11 +1129,7 @@ pub fn mpf_psi(
     abort("mpf_psi: poles at non-positive integers")
   }
   match maybe_integer(x) {
-    Some(n) => {
-      if n <= 0 {
-        abort("mpf_psi: poles at non-positive integers")
-      }
-    }
+    Some(n) => if n <= 0 { abort("mpf_psi: poles at non-positive integers") }
     None => ()
   }
   let p = wp(prec) + 24
@@ -1072,12 +1140,7 @@ pub fn mpf_psi(
     while y.sign == 1 {
       let mut term = @mpf.mpf_div(
         fact,
-        @libelefun.mpf_pow(
-          y,
-          @mpf.from_int(m + 1),
-          p,
-          @mpf.round_nearest,
-        ),
+        @libelefun.mpf_pow(y, @mpf.from_int(m + 1), p, @mpf.round_nearest),
         p,
         @mpf.round_nearest,
       )
@@ -1089,12 +1152,7 @@ pub fn mpf_psi(
     }
   }
   let sum = hurwitz_power_sum_em(y, m + 1, p)
-  let mut val = @mpf.mpf_mul(
-    fact,
-    sum,
-    p,
-    @mpf.round_nearest,
-  )
+  let mut val = @mpf.mpf_mul(fact, sum, p, @mpf.round_nearest)
   if (m & 1) == 0 {
     val = @mpf.mpf_neg(val, p, @mpf.round_nearest)
   }

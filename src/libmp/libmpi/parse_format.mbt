@@ -8,6 +8,15 @@ fn dps_to_prec_approx(dps : Int) -> Int {
 }
 
 ///|
+fn prec_to_dps_approx(prec : Int) -> Int {
+  if prec <= 0 {
+    15
+  } else {
+    prec * 30103 / 100000 + 1
+  }
+}
+
+///|
 fn strip_spaces(s : String) -> String {
   let mut out = ""
   for c in s {
@@ -170,20 +179,24 @@ pub fn mpi_to_str_opts(
   mode? : String = "brackets",
   use_spaces? : Bool = true,
   error_dps? : Int = 4,
+  left_bracket? : String = "[",
+  right_bracket? : String = "]",
+  base? : Int = 10,
+  binary_exp? : Bool = false,
 ) -> String {
   let sp = if use_spaces { " " } else { "" }
-  let a_str = @mpf.to_str_opts(s.lo, dps~)
-  let b_str = @mpf.to_str_opts(s.hi, dps~)
+  let a_str = @mpf.to_str_opts(s.lo, dps~, base~, binary_exp~)
+  let b_str = @mpf.to_str_opts(s.hi, dps~, base~, binary_exp~)
   match mode {
     "plusminus" => {
       let p = dps_to_prec_approx(dps)
       let mid = mpi_mid(s, p)
       let delta_half = @mpf.mpf_shift(mpi_delta(s, p), -1)
-      @mpf.to_str_opts(mid, dps~) +
+      @mpf.to_str_opts(mid, dps~, base~, binary_exp~) +
       sp +
       "+-" +
       sp +
-      @mpf.to_str_opts(delta_half, dps~)
+      @mpf.to_str_opts(delta_half, dps~, base~, binary_exp~)
     }
     "percent" => {
       let p = dps_to_prec_approx(dps)
@@ -196,19 +209,19 @@ pub fn mpi_to_str_opts(
         let den = @mpf.mpf_mul_int(mid, 2, p + 12, @mpf.round_nearest)
         @mpf.mpf_div(num, den, p + 12, @mpf.round_nearest)
       }
-      @mpf.to_str_opts(mid, dps~) +
+      @mpf.to_str_opts(mid, dps~, base~, binary_exp~) +
       sp +
       "(" +
-      @mpf.to_str_opts(percent, dps=error_dps) +
+      @mpf.to_str_opts(percent, dps=error_dps, base~, binary_exp~) +
       "%)"
     }
-    "brackets" => "[" + a_str + "," + sp + b_str + "]"
+    "brackets" => left_bracket + a_str + "," + sp + b_str + right_bracket
     "diff" => {
       let mut left = a_str
       let mut right = b_str
       if left == right {
-        left = @mpf.to_str_opts(s.lo, dps=dps + 3)
-        right = @mpf.to_str_opts(s.hi, dps=dps + 3)
+        left = @mpf.to_str_opts(s.lo, dps=dps + 3, base~, binary_exp~)
+        right = @mpf.to_str_opts(s.hi, dps=dps + 3, base~, binary_exp~)
       }
       let (lm, le) = split_exp_string(left)
       let (rm, re) = split_exp_string(right)
@@ -219,13 +232,20 @@ pub fn mpi_to_str_opts(
           let ltail = substring(lm, i, lm.length())
           let rtail = substring(rm, i, rm.length())
           let exp_suffix = if le is "" { "" } else { "e" + le }
-          prefix + "[" + ltail + "," + sp + rtail + "]" + exp_suffix
+          prefix +
+          left_bracket +
+          ltail +
+          "," +
+          sp +
+          rtail +
+          right_bracket +
+          exp_suffix
         } else {
           let exp_suffix = if le is "" { "" } else { "e" + le }
-          lm + "[]" + exp_suffix
+          lm + left_bracket + right_bracket + exp_suffix
         }
       } else {
-        "[" + left + "," + sp + right + "]"
+        left_bracket + left + "," + sp + right + right_bracket
       }
     }
     _ => abort("mpi_to_str_opts: unknown mode")
@@ -234,5 +254,11 @@ pub fn mpi_to_str_opts(
 
 ///|
 pub fn mpi_to_str(s : RawMpi, dps? : Int = 15) -> String {
+  mpi_to_str_opts(s, dps~)
+}
+
+///|
+pub fn mpi_str(s : RawMpi, prec : Int) -> String {
+  let dps = prec_to_dps_approx(prec) + 5
   mpi_to_str_opts(s, dps~)
 }

@@ -20,7 +20,13 @@ pub fn mpci_div(RawMpci, RawMpci, Int) -> RawMpci
 
 pub fn mpci_exp(RawMpci, Int) -> RawMpci
 
+pub fn mpci_factorial(RawMpci, Int) -> RawMpci
+
+pub fn mpci_gamma(RawMpci, Int) -> RawMpci
+
 pub fn mpci_log(RawMpci, Int) -> RawMpci
+
+pub fn mpci_loggamma(RawMpci, Int) -> RawMpci
 
 pub fn mpci_make(RawMpi, RawMpi) -> RawMpci
 
@@ -35,6 +41,8 @@ pub fn mpci_pos(RawMpci, Int) -> RawMpci
 pub fn mpci_pow(RawMpci, RawMpci, Int) -> RawMpci
 
 pub fn mpci_pow_int(RawMpci, Int, Int) -> RawMpci
+
+pub fn mpci_rgamma(RawMpci, Int) -> RawMpci
 
 pub fn mpci_sin(RawMpci, Int) -> RawMpci
 
@@ -70,9 +78,13 @@ pub fn mpi_eq(RawMpi, RawMpi) -> Bool
 
 pub fn mpi_exp(RawMpi, Int) -> RawMpi
 
+pub fn mpi_factorial(RawMpi, Int) -> RawMpi
+
 pub fn mpi_from_mpf(@mpf.RawMpf) -> RawMpi
 
 pub fn mpi_from_str(String, prec? : Int) -> RawMpi
+
+pub fn mpi_gamma(RawMpi, Int) -> RawMpi
 
 pub fn mpi_ge(RawMpi, RawMpi) -> Bool
 
@@ -81,6 +93,8 @@ pub fn mpi_gt(RawMpi, RawMpi) -> Bool
 pub fn mpi_le(RawMpi, RawMpi) -> Bool
 
 pub fn mpi_log(RawMpi, Int) -> RawMpi
+
+pub fn mpi_loggamma(RawMpi, Int) -> RawMpi
 
 pub fn mpi_lt(RawMpi, RawMpi) -> Bool
 
@@ -108,6 +122,8 @@ pub fn mpi_pow(RawMpi, RawMpi, Int) -> RawMpi
 
 pub fn mpi_pow_int(RawMpi, Int, Int) -> RawMpi
 
+pub fn mpi_rgamma(RawMpi, Int) -> RawMpi
+
 pub fn mpi_shift(RawMpi, Int) -> RawMpi
 
 pub fn mpi_sin(RawMpi, Int) -> RawMpi
@@ -116,13 +132,15 @@ pub fn mpi_sqrt(RawMpi, Int) -> RawMpi
 
 pub fn mpi_square(RawMpi, prec? : Int) -> RawMpi
 
+pub fn mpi_str(RawMpi, Int) -> String
+
 pub fn mpi_sub(RawMpi, RawMpi, prec? : Int) -> RawMpi
 
 pub fn mpi_tan(RawMpi, Int) -> RawMpi
 
 pub fn mpi_to_str(RawMpi, dps? : Int) -> String
 
-pub fn mpi_to_str_opts(RawMpi, dps? : Int, mode? : String, use_spaces? : Bool, error_dps? : Int) -> String
+pub fn mpi_to_str_opts(RawMpi, dps? : Int, mode? : String, use_spaces? : Bool, error_dps? : Int, left_bracket? : String, right_bracket? : String, base? : Int, binary_exp? : Bool) -> String
 
 pub let mpi_zero : RawMpi
 

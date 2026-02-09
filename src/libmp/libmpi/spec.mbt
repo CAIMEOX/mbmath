@@ -192,7 +192,17 @@ pub fn mpi_to_str_opts(
   mode? : String = "brackets",
   use_spaces? : Bool = true,
   error_dps? : Int = 4,
+  left_bracket? : String = "[",
+  right_bracket? : String = "]",
+  base? : Int = 10,
+  binary_exp? : Bool = false,
 ) -> String {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpi_str(s : RawMpi, prec : Int) -> String {
   ...
 }
 

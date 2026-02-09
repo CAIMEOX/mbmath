@@ -128,6 +128,11 @@ test "mpi_from_str variants" {
     @mpf.from_str("1.23e-8"),
     @mpf.from_str("1.46e-8"),
   )
+  assert_mpi_eq(
+    mpi_from_str("12[3.4,5.9]e4"),
+    @mpf.from_str("123.4e4"),
+    @mpf.from_str("125.9e4"),
+  )
 }
 
 ///|
@@ -138,6 +143,20 @@ test "mpi_to_str_opts modes" {
     mpi_to_str_opts(x, dps=2, mode="percent").has_prefix("1.5 (33.33"),
   )
   assert_eq(mpi_to_str_opts(x, dps=2, mode="brackets"), "[1.0, 2.0]")
+  assert_eq(
+    mpi_to_str_opts(x, dps=2, mode="brackets", use_spaces=false),
+    "[1.0,2.0]",
+  )
+  assert_eq(
+    mpi_to_str_opts(
+      x,
+      dps=2,
+      mode="brackets",
+      left_bracket="<",
+      right_bracket=">",
+    ),
+    "<1.0, 2.0>",
+  )
   let y = mpi_make(
     @mpf.from_str("5.2582327113062393041"),
     @mpf.from_str("5.2582327113062749951"),
@@ -146,6 +165,17 @@ test "mpi_to_str_opts modes" {
   assert_true(diff.has_prefix("5.2582327113062"))
   assert_true(diff.contains("["))
   assert_true(diff.contains(","))
+  let exp_diff = mpi_to_str_opts(
+    mpi_make(@mpf.from_str("1e123"), @mpf.from_str("1e129")),
+    dps=30,
+    mode="diff",
+  )
+  assert_true(exp_diff.has_prefix("["))
+  assert_true(exp_diff.contains(","))
+  assert_true(exp_diff.contains("e+"))
+  let s = mpi_str(interval(1, 2), 80)
+  assert_true(s.has_prefix("["))
+  assert_true(s.contains(","))
 }
 
 ///|

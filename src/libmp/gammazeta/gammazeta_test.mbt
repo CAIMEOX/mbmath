@@ -34,7 +34,9 @@ test "mpf_bernoulli_huge subset" {
   )
   let b100_auto = mpf_bernoulli(100, 220, @mpf.round_nearest)
   assert_true(
-    @mpf.to_str_opts(b100_auto, dps=24).has_prefix("-2.83822495706937069592642e+78"),
+    @mpf.to_str_opts(b100_auto, dps=24).has_prefix(
+      "-2.83822495706937069592642e+78",
+    ),
   )
 }
 
@@ -248,6 +250,32 @@ test "mpf gamma/zeta negative real subset" {
     ).has_prefix("-0.828796644234"),
   )
   assert_eq(mpf_psi(1, @mpf.finf, 120, @mpf.round_nearest), @mpf.fzero)
+}
+
+///|
+test "mpf zeta higher precision subset" {
+  assert_true(
+    @mpf.to_str_opts(mpf_zeta_int(3, 260, @mpf.round_nearest), dps=30).has_prefix(
+      "1.2020569031595942853997381615",
+    ),
+  )
+  assert_true(
+    @mpf.to_str_opts(mpf_zeta_int(5, 260, @mpf.round_nearest), dps=30).has_prefix(
+      "1.0369277551433699263313654864",
+    ),
+  )
+  let s_near_1 = @mpf.from_str("1.0001", prec=360, rnd=@mpf.round_nearest)
+  let z_near_1 = @mpf.to_str_opts(
+    mpf_zeta(s_near_1, 260, @mpf.round_nearest),
+    dps=25,
+  )
+  assert_true(z_near_1.has_prefix("10000.5772229464376290700"))
+  let s_near_1_minus = @mpf.from_str("0.999", prec=360, rnd=@mpf.round_nearest)
+  let eta_near_1 = @mpf.to_str_opts(
+    mpf_altzeta(s_near_1_minus, 260, @mpf.round_nearest),
+    dps=24,
+  )
+  assert_true(eta_near_1.has_prefix("0.69298727896833835736749"))
 }
 
 ///|
