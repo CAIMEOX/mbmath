@@ -1,0 +1,221 @@
+///|
+test "normalize exact strips trailing zeros" {
+  let x = normalize(0, 12N, 0, 4, 0, round_down)
+  assert_eq(x.sign, 0)
+  assert_eq(x.man, 3N)
+  assert_eq(x.exp, 2)
+  assert_eq(x.bc, 2)
+}
+
+///|
+test "normalize precision rounding directions" {
+  let pos_floor = normalize(0, 13N, 0, 4, 3, round_floor)
+  assert_eq(pos_floor.sign, 0)
+  assert_eq(pos_floor.man, 3N)
+  assert_eq(pos_floor.exp, 2)
+  let pos_up = normalize(0, 13N, 0, 4, 3, round_up)
+  assert_eq(pos_up.sign, 0)
+  assert_eq(pos_up.man, 7N)
+  assert_eq(pos_up.exp, 1)
+  let neg_floor = normalize(1, 13N, 0, 4, 3, round_floor)
+  assert_eq(neg_floor.sign, 1)
+  assert_eq(neg_floor.man, 7N)
+  assert_eq(neg_floor.exp, 1)
+  let neg_ceiling = normalize(1, 13N, 0, 4, 3, round_ceiling)
+  assert_eq(neg_ceiling.sign, 1)
+  assert_eq(neg_ceiling.man, 3N)
+  assert_eq(neg_ceiling.exp, 2)
+}
+
+///|
+test "mpf add/sub/mul" {
+  let a = from_int(3)
+  let b = from_man_exp(5N, -1, 0, round_down)
+  let sum = mpf_add(a, b, 20, round_nearest)
+  assert_eq(sum.sign, 0)
+  assert_eq(sum.man, 11N)
+  assert_eq(sum.exp, -1)
+  let diff = mpf_sub(a, b, 20, round_nearest)
+  assert_eq(diff.sign, 0)
+  assert_eq(diff.man, 1N)
+  assert_eq(diff.exp, -1)
+  let prod = mpf_mul(a, b, 20, round_nearest)
+  assert_eq(prod.sign, 0)
+  assert_eq(prod.man, 15N)
+  assert_eq(prod.exp, -1)
+}
+
+///|
+test "mpf div 1 over 3 rounding" {
+  let one = from_int(1)
+  let neg_one = from_int(-1)
+  let three = from_int(3)
+  let d_floor = mpf_div(one, three, 7, round_floor)
+  assert_eq(d_floor.sign, 0)
+  assert_eq(d_floor.man, 85N)
+  assert_eq(d_floor.exp, -8)
+  let d_ceiling = mpf_div(one, three, 7, round_ceiling)
+  assert_eq(d_ceiling.sign, 0)
+  assert_eq(d_ceiling.man, 43N)
+  assert_eq(d_ceiling.exp, -7)
+  let d_neg_floor = mpf_div(neg_one, three, 7, round_floor)
+  assert_eq(d_neg_floor.sign, 1)
+  assert_eq(d_neg_floor.man, 43N)
+  assert_eq(d_neg_floor.exp, -7)
+}
+
+///|
+test "mpf arithmetic special values" {
+  assert_true(is_nan(mpf_add(fnan, finf, 20, round_nearest)))
+  assert_eq(mpf_add(finf, from_int(1), 20, round_nearest), finf)
+  assert_eq(mpf_sub(finf, fninf, 20, round_nearest), finf)
+  assert_true(is_nan(mpf_add(finf, fninf, 20, round_nearest)))
+  assert_true(is_nan(mpf_sub(finf, finf, 20, round_nearest)))
+  assert_eq(mpf_mul(finf, from_int(-3), 20, round_nearest), fninf)
+  assert_eq(mpf_mul(fninf, from_int(-3), 20, round_nearest), finf)
+  assert_true(is_nan(mpf_mul(finf, fzero, 20, round_nearest)))
+  assert_true(is_nan(mpf_mul(fnan, from_int(2), 20, round_nearest)))
+  assert_eq(mpf_div(finf, from_int(-2), 20, round_nearest), fninf)
+  assert_eq(mpf_div(from_int(2), finf, 20, round_nearest), fzero)
+  assert_eq(mpf_div(fzero, finf, 20, round_nearest), fzero)
+  assert_true(is_nan(mpf_div(finf, finf, 20, round_nearest)))
+  assert_true(is_nan(mpf_div(from_int(2), fnan, 20, round_nearest)))
+  assert_true(is_nan(mpf_div(fzero, fnan, 20, round_nearest)))
+}
+
+///|
+test "mpf unary and compare helpers" {
+  let x = from_man_exp(5N, -1, 0, round_down)
+  let y = from_int(-3)
+  assert_eq(mpf_pos(x, 10, round_nearest), x)
+  assert_eq(mpf_neg(x, 0, round_nearest), from_man_exp(-5N, -1, 0, round_down))
+  assert_eq(mpf_abs(y, 0, round_nearest), from_int(3))
+  assert_eq(mpf_neg(finf, 20, round_nearest), fninf)
+  assert_eq(mpf_abs(fninf, 20, round_nearest), finf)
+  assert_eq(mpf_sign(fnan), 0)
+  assert_eq(mpf_sign(fzero), 0)
+  assert_eq(mpf_sign(finf), 1)
+  assert_eq(mpf_sign(fninf), -1)
+  assert_true(mpf_eq(from_int(7), from_str("7.0")))
+  assert_false(mpf_eq(fnan, fnan))
+  assert_eq(mpf_cmp(from_int(-2), from_int(3)), -1)
+  assert_eq(mpf_cmp(from_int(3), from_int(3)), 0)
+  assert_eq(mpf_cmp(fnan, from_int(0)), -1)
+  assert_eq(mpf_cmp(from_int(0), fnan), 1)
+  assert_true(mpf_lt(from_int(-1), from_int(0)))
+  assert_true(mpf_le(from_int(-1), from_int(-1)))
+  assert_true(mpf_gt(from_int(2), from_int(1)))
+  assert_true(mpf_ge(from_int(2), from_int(2)))
+  assert_false(mpf_lt(fnan, from_int(0)))
+}
+
+///|
+test "mpf integer helpers" {
+  assert_eq(mpf_shift(from_int(3), 5), from_int(96))
+  assert_eq(mpf_mul_int(from_str("1.5"), 4, 40, round_nearest), from_int(6))
+  assert_eq(mpf_mul_int(from_int(5), -2, 40, round_nearest), from_int(-10))
+  assert_eq(
+    mpf_rdiv_int(3, from_int(8), 40, round_nearest),
+    from_man_exp(3N, -3, 0, round_down),
+  )
+  assert_true(is_nan(mpf_mul_int(finf, 0, 40, round_nearest)))
+  assert_eq(mpf_shift(finf, 100), finf)
+}
+
+///|
+test "mpf floor ceil nint frac" {
+  let x = from_str("3.75")
+  let y = from_str("-3.25")
+  assert_eq(mpf_floor(x, 0, round_nearest), from_int(3))
+  assert_eq(mpf_ceil(x, 0, round_nearest), from_int(4))
+  assert_eq(mpf_nint(x, 0, round_nearest), from_int(4))
+  assert_eq(mpf_frac(x, 40, round_nearest), from_man_exp(3N, -2, 0, round_down))
+  assert_eq(mpf_floor(y, 0, round_nearest), from_int(-4))
+  assert_eq(mpf_ceil(y, 0, round_nearest), from_int(-3))
+  assert_eq(mpf_nint(y, 0, round_nearest), from_int(-3))
+  assert_eq(mpf_nint(from_str("2.5"), 0, round_nearest), from_int(2))
+  assert_eq(mpf_nint(from_str("-2.5"), 0, round_nearest), from_int(-2))
+  assert_eq(mpf_floor(finf, 0, round_nearest), finf)
+  assert_true(is_nan(mpf_frac(finf, 20, round_nearest)))
+}
+
+///|
+test "mpf mod and sum helpers" {
+  assert_eq(
+    mpf_mod(from_str("5.5"), from_int(2), 40, round_nearest),
+    from_str("1.5"),
+  )
+  assert_eq(
+    mpf_mod(from_str("-5.5"), from_int(2), 40, round_nearest),
+    from_str("0.5"),
+  )
+  assert_eq(mpf_mod(from_str("1.5"), finf, 40, round_nearest), from_str("1.5"))
+  assert_true(is_nan(mpf_mod(finf, from_int(2), 40, round_nearest)))
+  let xs : Array[RawMpf] = [from_int(1), from_int(2), from_int(3)]
+  assert_eq(mpf_sum(xs, 40, round_nearest), from_int(6))
+  let ys : Array[RawMpf] = [from_int(-2), from_int(3), from_int(-4)]
+  assert_eq(mpf_sum(ys, 40, round_nearest, absolute=true), from_int(9))
+}
+
+///|
+test "mpf_hypot basic" {
+  assert_eq(mpf_hypot(from_int(3), from_int(4), 50, round_nearest), from_int(5))
+  assert_eq(mpf_hypot(fzero, from_int(-2), 50, round_nearest), from_int(2))
+}
+
+///|
+test "panic mpf_mod by zero" {
+  ignore(mpf_mod(from_int(1), fzero, 20, round_nearest))
+}
+
+///|
+test "mpf pow_int basic and special values" {
+  assert_eq(mpf_pow_int(from_int(2), 10, 20, round_nearest), from_int(1024))
+  assert_eq(
+    mpf_pow_int(from_int(2), -3, 20, round_nearest),
+    from_man_exp(1N, -3, 0, round_down),
+  )
+  assert_eq(mpf_pow_int(from_int(-2), 3, 20, round_nearest), from_int(-8))
+  assert_eq(mpf_pow_int(finf, 2, 20, round_nearest), finf)
+  assert_eq(mpf_pow_int(fninf, 3, 20, round_nearest), fninf)
+  assert_eq(mpf_pow_int(fninf, 2, 20, round_nearest), finf)
+  assert_eq(mpf_pow_int(finf, -1, 20, round_nearest), fzero)
+  assert_eq(mpf_pow_int(fnan, 0, 20, round_nearest), fone)
+  assert_true(is_nan(mpf_pow_int(fnan, 2, 20, round_nearest)))
+}
+
+///|
+test "mpf sqrt basic and special values" {
+  assert_eq(mpf_sqrt(from_int(4), 20, round_nearest), from_int(2))
+  assert_eq(
+    mpf_sqrt(from_man_exp(1N, -4, 0, round_down), 20, round_nearest),
+    from_man_exp(1N, -2, 0, round_down),
+  )
+  assert_eq(mpf_sqrt(finf, 20, round_nearest), finf)
+  assert_true(is_nan(mpf_sqrt(fnan, 20, round_nearest)))
+}
+
+///|
+test "panic mpf_pow_int zero negative exponent" {
+  ignore(mpf_pow_int(fzero, -1, 20, round_nearest))
+}
+
+///|
+test "panic mpf_sqrt negative finite" {
+  ignore(mpf_sqrt(from_int(-1), 20, round_nearest))
+}
+
+///|
+test "panic mpf_sqrt negative inf" {
+  ignore(mpf_sqrt(fninf, 20, round_nearest))
+}
+
+///|
+test "panic mpf_div by zero" {
+  ignore(mpf_div(from_int(1), fzero, 10, round_down))
+}
+
+///|
+test "panic mpf_div inf by zero" {
+  ignore(mpf_div(finf, fzero, 10, round_down))
+}
