@@ -94,7 +94,7 @@ test "mpf rgamma/loggamma/gamma_int subset" {
     @mpf.to_str_opts(
       mpf_loggamma(@mpf.from_str("3.5"), 140, @mpf.round_nearest),
       dps=14,
-    ).has_prefix("1.20093"),
+    ).has_prefix("1.200973602347"),
   )
   assert_eq(mpf_gamma_int(6, 120, @mpf.round_nearest), @mpf.from_int(120))
 }
@@ -133,13 +133,77 @@ test "mpf psi harmonic fibonacci zeta subset" {
     @mpf.to_str_opts(
       mpf_zeta(@mpf.from_str("2.5"), 140, @mpf.round_nearest),
       dps=14,
-    ).has_prefix("1.3414873"),
+    ).has_prefix("1.34148725"),
   )
   assert_true(
     @mpf.to_str_opts(
       mpf_zeta(@mpf.from_str("2.5"), 140, @mpf.round_nearest, alt=true),
       dps=14,
-    ).has_prefix("0.8671999"),
+    ).has_prefix("0.86719988"),
+  )
+}
+
+///|
+test "mpf gamma/zeta negative real subset" {
+  assert_true(
+    @mpf.to_str_opts(
+      mpf_gamma(@mpf.from_str("-0.5"), 160, @mpf.round_nearest),
+      dps=15,
+    ).has_prefix("-3.54490770181103"),
+  )
+  assert_true(
+    @mpf.to_str_opts(
+      mpf_gamma(@mpf.from_str("-2.5"), 160, @mpf.round_nearest),
+      dps=15,
+    ).has_prefix("-0.94530872048294"),
+  )
+  assert_true(
+    @mpf.to_str_opts(
+      mpf_zeta(@mpf.from_int(0), 160, @mpf.round_nearest),
+      dps=16,
+    ).has_prefix("-0.5"),
+  )
+  assert_true(
+    @mpf.to_str_opts(
+      mpf_zeta(@mpf.from_int(-1), 160, @mpf.round_nearest),
+      dps=16,
+    ).has_prefix("-0.083333333333333"),
+  )
+  assert_true(
+    @mpf.to_str_opts(
+      mpf_zeta(@mpf.from_int(-3), 160, @mpf.round_nearest),
+      dps=16,
+    ).has_prefix("0.008333333333333"),
+  )
+  assert_true(
+    @mpf.to_str_opts(
+      mpf_zeta(@mpf.from_str("-0.5"), 160, @mpf.round_nearest),
+      dps=12,
+    ).has_prefix("-0.20788622"),
+  )
+  assert_true(
+    @mpf.to_str_opts(
+      mpf_zeta(@mpf.from_int(0), 160, @mpf.round_nearest, alt=true),
+      dps=16,
+    ).has_prefix("0.5"),
+  )
+  assert_true(
+    @mpf.to_str_opts(
+      mpf_zeta(@mpf.from_int(-1), 160, @mpf.round_nearest, alt=true),
+      dps=16,
+    ).has_prefix("0.25"),
+  )
+  assert_true(
+    @mpf.to_str_opts(
+      mpf_zeta(@mpf.from_int(-3), 160, @mpf.round_nearest, alt=true),
+      dps=16,
+    ).has_prefix("-0.125"),
+  )
+  assert_true(
+    @mpf.to_str_opts(
+      mpf_zeta(@mpf.from_str("-0.5"), 160, @mpf.round_nearest, alt=true),
+      dps=12,
+    ).has_prefix("0.38010481"),
   )
 }
 
