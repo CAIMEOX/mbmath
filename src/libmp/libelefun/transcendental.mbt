@@ -782,3 +782,112 @@ pub fn mpf_degree(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
     rnd,
   )
 }
+
+///|
+pub fn mpf_cos_sin(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+  which? : Int = 0,
+  pi? : Bool = false,
+) -> (@mpf.RawMpf, @mpf.RawMpf) {
+  let wp = work_prec(prec) + 8
+  let arg = if pi {
+    @mpf.mpf_mul(mpf_pi(wp, @mpf.round_nearest), x, wp, @mpf.round_nearest)
+  } else {
+    @mpf.mpf_pos(x, wp, @mpf.round_nearest)
+  }
+  let (s, c) = sin_cos_reduced(arg, wp)
+  let cos_v = @mpf.mpf_pos(c, prec, rnd)
+  let sin_v = @mpf.mpf_pos(s, prec, rnd)
+  if which == 1 {
+    (cos_v, @mpf.fzero)
+  } else if which == 2 {
+    (sin_v, @mpf.fzero)
+  } else if which == 3 {
+    (@mpf.mpf_div(sin_v, cos_v, prec, rnd), @mpf.fzero)
+  } else {
+    (cos_v, sin_v)
+  }
+}
+
+///|
+pub fn mpf_cos_sin_pi(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> (@mpf.RawMpf, @mpf.RawMpf) {
+  mpf_cos_sin(x, prec, rnd, pi=true)
+}
+
+///|
+pub fn mpf_sin_pi(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  let (_, s) = mpf_cos_sin(x, prec, rnd, pi=true)
+  s
+}
+
+///|
+pub fn mpf_cos_pi(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  let (c, _) = mpf_cos_sin(x, prec, rnd, pi=true)
+  c
+}
+
+///|
+pub fn mpf_cosh_sinh(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+  tanh? : Bool = false,
+) -> (@mpf.RawMpf, @mpf.RawMpf) {
+  if tanh {
+    (mpf_tanh(x, prec, rnd), @mpf.fzero)
+  } else {
+    (mpf_cosh(x, prec, rnd), mpf_sinh(x, prec, rnd))
+  }
+}
+
+///|
+pub fn mpf_log_hypot(
+  a : @mpf.RawMpf,
+  b : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  if @mpf.is_nan(a) || @mpf.is_nan(b) {
+    return @mpf.fnan
+  }
+  if @mpf.is_zero(a) && @mpf.is_zero(b) {
+    return @mpf.fninf
+  }
+  let wp = work_prec(prec) + 8
+  let h = @mpf.mpf_hypot(a, b, wp, @mpf.round_nearest)
+  mpf_log(h, prec, rnd)
+}
+
+///|
+pub fn mpf_expj(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  let _ = (x, prec, rnd)
+  abort("mpf_expj: complex result")
+}
+
+///|
+pub fn mpf_expjpi(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  let _ = (x, prec, rnd)
+  abort("mpf_expjpi: complex result")
+}

@@ -319,3 +319,265 @@ pub fn mpc_cosh(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 pub fn mpc_tanh(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
   ...
 }
+
+///|
+#declaration_only
+pub fn mpc_to_str(z : RawMpc, dps? : Int = 15) -> String {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_to_complex(z : RawMpc, dps? : Int = 17) -> (String, String) {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_hash(z : RawMpc) -> Int {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_ln(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_cos_pi(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_sin_pi(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_cos_sin(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> (RawMpc, RawMpc) {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_cos_sin_pi(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> (RawMpc, RawMpc) {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_expj(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_expjpi(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_atan(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_asin(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_acos(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_asinh(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_acosh(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_atanh(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_nthroot(
+  z : RawMpc,
+  n : Int,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_cbrt(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_fibonacci(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_agm(
+  a : RawMpc,
+  b : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_agm1(a : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_ei(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_e1(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_ci(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_si(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_besseljn(
+  n : Int,
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_ellipk(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_ellipe(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_gamma(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_rgamma(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_loggamma(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_factorial(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_harmonic(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_psi0(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_psi(m : Int, z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_zeta(
+  s : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+  alt? : Bool = false,
+) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_altzeta(s : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_zetasum(
+  s : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+  start? : Int = 1,
+  terms? : Int = 1000,
+) -> RawMpc {
+  ...
+}

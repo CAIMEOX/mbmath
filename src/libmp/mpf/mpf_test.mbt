@@ -219,3 +219,78 @@ test "panic mpf_div by zero" {
 test "panic mpf_div inf by zero" {
   ignore(mpf_div(finf, fzero, 10, round_down))
 }
+
+///|
+test "mpf frexp basic" {
+  let (m0, e0) = mpf_frexp(from_int(0))
+  assert_eq(m0, fzero)
+  assert_eq(e0, 0)
+  let (m1, e1) = mpf_frexp(from_int(9))
+  assert_eq(m1, from_man_exp(9N, -4, 0, round_down))
+  assert_eq(e1, 4)
+  let (m2, e2) = mpf_frexp(from_int(1))
+  assert_eq(m2, from_man_exp(1N, -1, 0, round_down))
+  assert_eq(e2, 1)
+  let (m3, e3) = mpf_frexp(from_int(1000))
+  assert_eq(m3, from_man_exp(125N, -7, 0, round_down))
+  assert_eq(e3, 10)
+}
+
+///|
+test "panic mpf_frexp non-finite" {
+  ignore(mpf_frexp(finf))
+}
+
+///|
+test "mpf hash basic compatibility" {
+  assert_eq(mpf_hash(from_int(0)), 0)
+  assert_eq(mpf_hash(from_int(7)), mpf_hash(from_str("7.0")))
+  assert_eq(mpf_hash(from_int(-1)), -2)
+  assert_eq(mpf_hash(finf), 314159)
+  assert_eq(mpf_hash(fninf), -314159)
+  assert_eq(mpf_hash(fnan), 0)
+  assert_not_eq(mpf_hash(from_str("1e1000")), mpf_hash(from_str("1e10000")))
+}
+
+///|
+test "mpf perturb rounding subset from mpmath" {
+  let a = fone
+  let b = from_man_exp((1N << 53) - 1N, -53, 0, round_down)
+  let c = from_man_exp((1N << 52) + 1N, -52, 0, round_down)
+  assert_eq(mpf_perturb(a, 0, 53, round_nearest), a)
+  assert_eq(mpf_perturb(a, 1, 53, round_nearest), a)
+  assert_eq(mpf_perturb(a, 0, 53, round_up), c)
+  assert_eq(mpf_perturb(a, 0, 53, round_ceiling), c)
+  assert_eq(mpf_perturb(a, 0, 53, round_down), a)
+  assert_eq(mpf_perturb(a, 0, 53, round_floor), a)
+  assert_eq(mpf_perturb(a, 1, 53, round_up), a)
+  assert_eq(mpf_perturb(a, 1, 53, round_ceiling), a)
+  assert_eq(mpf_perturb(a, 1, 53, round_down), b)
+  assert_eq(mpf_perturb(a, 1, 53, round_floor), b)
+  let a_neg = mpf_neg(a, 0, round_down)
+  let b_neg = mpf_neg(b, 0, round_down)
+  let c_neg = mpf_neg(c, 0, round_down)
+  assert_eq(mpf_perturb(a_neg, 0, 53, round_nearest), a_neg)
+  assert_eq(mpf_perturb(a_neg, 1, 53, round_nearest), a_neg)
+  assert_eq(mpf_perturb(a_neg, 0, 53, round_up), a_neg)
+  assert_eq(mpf_perturb(a_neg, 0, 53, round_floor), a_neg)
+  assert_eq(mpf_perturb(a_neg, 0, 53, round_down), b_neg)
+  assert_eq(mpf_perturb(a_neg, 0, 53, round_ceiling), b_neg)
+  assert_eq(mpf_perturb(a_neg, 1, 53, round_up), c_neg)
+  assert_eq(mpf_perturb(a_neg, 1, 53, round_floor), c_neg)
+  assert_eq(mpf_perturb(a_neg, 1, 53, round_down), a_neg)
+  assert_eq(mpf_perturb(a_neg, 1, 53, round_ceiling), a_neg)
+}
+
+///|
+test "mpf rand range and precision" {
+  assert_eq(mpf_rand(0), fzero)
+  for prec in [1, 7, 53, 127] {
+    for _i in 0..<8 {
+      let x = mpf_rand(prec)
+      assert_true(mpf_ge(x, fzero))
+      assert_true(mpf_lt(x, fone))
+      assert_true(is_zero(x) || x.bc <= prec)
+    }
+  }
+}

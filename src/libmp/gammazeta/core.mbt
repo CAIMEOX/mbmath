@@ -591,3 +591,159 @@ pub fn mpf_zeta(
   }
   @mpf.mpf_pos(@mpf.mpf_div(eta, denom, p, @mpf.round_nearest), prec, rnd)
 }
+
+///|
+fn const_str(v : String, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+  @mpf.from_str(v, prec=if prec > 0 { prec + 8 } else { 64 }, rnd~)
+}
+
+///|
+pub fn mpf_altzeta(
+  s : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  mpf_zeta(s, prec, rnd, alt=true)
+}
+
+///|
+fn factorial_small_mpf(n : Int, p : Int) -> @mpf.RawMpf {
+  if n <= 1 {
+    return @mpf.fone
+  }
+  let mut acc = @mpf.fone
+  for i in 2..<=n {
+    acc = @mpf.mpf_mul_int(acc, i, p, @mpf.round_nearest)
+  }
+  acc
+}
+
+///|
+pub fn mpf_psi(
+  m : Int,
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  if m < 0 {
+    abort("mpf_psi: m must be non-negative")
+  }
+  if m == 0 {
+    return mpf_psi0(x, prec, rnd)
+  }
+  if @mpf.is_nan(x) {
+    return @mpf.fnan
+  }
+  if x.sign == 1 || @mpf.is_zero(x) || @mpf.is_inf(x) {
+    abort("mpf_psi: only positive finite x is supported for m>0")
+  }
+  let p = wp(prec) + 24
+  let mut sum = @mpf.fzero
+  let mut k = 0
+  while k < 200000 {
+    let t = @mpf.mpf_div(
+      @mpf.fone,
+      @libelefun.mpf_pow(
+        @mpf.mpf_add(x, @mpf.from_int(k), p, @mpf.round_nearest),
+        @mpf.from_int(m + 1),
+        p,
+        @mpf.round_nearest,
+      ),
+      p,
+      @mpf.round_nearest,
+    )
+    sum = @mpf.mpf_add(sum, t, p, @mpf.round_nearest)
+    if tiny_enough(@mpf.mpf_abs(t, p, @mpf.round_nearest), 24) && k > 24 {
+      break
+    }
+    k += 1
+  }
+  let mut val = @mpf.mpf_mul(
+    factorial_small_mpf(m, p),
+    sum,
+    p,
+    @mpf.round_nearest,
+  )
+  if (m & 1) == 0 {
+    val = @mpf.mpf_neg(val, p, @mpf.round_nearest)
+  }
+  @mpf.mpf_pos(val, prec, rnd)
+}
+
+///|
+pub fn mpf_apery(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+  const_str(
+    "1.20205690315959428539973816151144999076498629234049888179227", prec, rnd,
+  )
+}
+
+///|
+pub fn mpf_catalan(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+  const_str(
+    "0.915965594177219015054603514932384110774149374281672134266498", prec, rnd,
+  )
+}
+
+///|
+pub fn mpf_euler(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+  const_str(
+    "0.577215664901532860606512090082402431042159335939923598805767", prec, rnd,
+  )
+}
+
+///|
+pub fn mpf_glaisher(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+  const_str(
+    "1.28242712910062263687534256886979172776768892732500119206374", prec, rnd,
+  )
+}
+
+///|
+pub fn mpf_khinchin(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+  const_str(
+    "2.68545200106530644530971483548179569382038229399446295305115", prec, rnd,
+  )
+}
+
+///|
+pub fn mpf_mertens(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+  const_str(
+    "0.261497212847642783755426838608695859051566648261199206192064", prec, rnd,
+  )
+}
+
+///|
+pub fn mpf_twinprime(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+  const_str(
+    "0.660161815846869573927812110014555778432623360284733413319448", prec, rnd,
+  )
+}
+
+///|
+pub fn mpf_zetasum(
+  s : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+  start? : Int = 1,
+  terms? : Int = 1000,
+) -> @mpf.RawMpf {
+  if terms <= 0 {
+    return @mpf.fzero
+  }
+  let p = wp(prec) + 24
+  let mut sum = @mpf.fzero
+  for i in 0..<terms {
+    let k = start + i
+    if k <= 0 {
+      continue
+    }
+    let term = @mpf.mpf_div(
+      @mpf.fone,
+      @libelefun.mpf_pow(@mpf.from_int(k), s, p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    )
+    sum = @mpf.mpf_add(sum, term, p, @mpf.round_nearest)
+  }
+  @mpf.mpf_pos(sum, prec, rnd)
+}

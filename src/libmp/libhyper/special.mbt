@@ -269,3 +269,277 @@ pub fn mpf_ellipe(
   )
   @mpf.mpf_pos(e, prec, rnd)
 }
+
+///|
+pub fn mpf_agm1(
+  a : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  mpf_agm(@mpf.fone, a, prec, rnd)
+}
+
+///|
+pub fn mpf_ci_si(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+  which? : Int = 2,
+) -> (@mpf.RawMpf, @mpf.RawMpf) {
+  let ci = if which == 1 { @mpf.fzero } else { mpf_ci(x, prec, rnd) }
+  let si = if which == 0 { @mpf.fzero } else { mpf_si(x, prec, rnd) }
+  (ci, si)
+}
+
+///|
+pub fn mpf_e1(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+  if @mpf.is_nan(x) {
+    return @mpf.fnan
+  }
+  if @mpf.is_zero(x) {
+    return @mpf.finf
+  }
+  if x.sign == 1 {
+    abort("mpf_e1: only positive real input is supported")
+  }
+  @mpf.mpf_pos(
+    @mpf.mpf_neg(
+      mpf_ei(
+        @mpf.mpf_neg(x, wp(prec) + 8, @mpf.round_nearest),
+        wp(prec) + 8,
+        @mpf.round_nearest,
+      ),
+      wp(prec) + 8,
+      @mpf.round_nearest,
+    ),
+    prec,
+    rnd,
+  )
+}
+
+///|
+pub fn mpf_erf(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  if @mpf.is_nan(x) {
+    return @mpf.fnan
+  }
+  if @mpf.is_inf(x) {
+    if x.sign == 1 {
+      return @mpf.fnone
+    } else {
+      return @mpf.fone
+    }
+  }
+  if @mpf.is_zero(x) {
+    return @mpf.fzero
+  }
+  let p = wp(prec) + 16
+  let ax = @mpf.mpf_abs(x, p, @mpf.round_nearest)
+  let x2 = @mpf.mpf_mul(ax, ax, p, @mpf.round_nearest)
+  let mut term = ax
+  let mut sum = ax
+  let mut k = 0
+  while k < 60000 {
+    let num = 2 * k + 1
+    let den1 = k + 1
+    let den2 = 2 * k + 3
+    term = @mpf.mpf_mul(term, x2, p, @mpf.round_nearest)
+    term = @mpf.mpf_mul_int(term, -num, p, @mpf.round_nearest)
+    term = @mpf.mpf_div(term, @mpf.from_int(den1), p, @mpf.round_nearest)
+    term = @mpf.mpf_div(term, @mpf.from_int(den2), p, @mpf.round_nearest)
+    sum = @mpf.mpf_add(sum, term, p, @mpf.round_nearest)
+    if tiny_enough(@mpf.mpf_abs(term, p, @mpf.round_nearest), p + 10) && k > 3 {
+      break
+    }
+    k += 1
+  }
+  let two_over_sqrt_pi = @mpf.mpf_div(
+    @mpf.from_int(2),
+    @mpf.mpf_sqrt(
+      @libelefun.mpf_pi(p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    ),
+    p,
+    @mpf.round_nearest,
+  )
+  let mut v = @mpf.mpf_mul(two_over_sqrt_pi, sum, p, @mpf.round_nearest)
+  if x.sign == 1 {
+    v = @mpf.mpf_neg(v, p, @mpf.round_nearest)
+  }
+  @mpf.mpf_pos(v, prec, rnd)
+}
+
+///|
+pub fn mpf_erfc(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  if @mpf.is_nan(x) {
+    return @mpf.fnan
+  }
+  if @mpf.is_inf(x) {
+    if x.sign == 1 {
+      return @mpf.from_int(2)
+    } else {
+      return @mpf.fzero
+    }
+  }
+  let p = wp(prec) + 16
+  @mpf.mpf_pos(
+    @mpf.mpf_sub(
+      @mpf.fone,
+      mpf_erf(x, p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    ),
+    prec,
+    rnd,
+  )
+}
+
+///|
+fn factorial_mpf(n : Int, p : Int) -> @mpf.RawMpf {
+  let mut acc = @mpf.fone
+  if n <= 1 {
+    return acc
+  }
+  for i in 2..<=n {
+    acc = @mpf.mpf_mul_int(acc, i, p, @mpf.round_nearest)
+  }
+  acc
+}
+
+///|
+pub fn mpf_expint(
+  n : Int,
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+  gamma? : Bool = false,
+) -> @mpf.RawMpf {
+  if n <= 0 {
+    abort("mpf_expint: n must be positive")
+  }
+  if @mpf.is_nan(x) {
+    return @mpf.fnan
+  }
+  if gamma {
+    let p = wp(prec) + 16
+    if @mpf.is_zero(x) {
+      return factorial_mpf(n - 1, p)
+    }
+    if x.sign == 1 {
+      abort("mpf_expint: gamma mode only supports non-negative x")
+    }
+    let ex = @libelefun.mpf_exp(
+      @mpf.mpf_neg(x, p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    )
+    let mut sum = @mpf.fone
+    let mut term = @mpf.fone
+    for k in 1..<n {
+      term = @mpf.mpf_mul(term, x, p, @mpf.round_nearest)
+      term = @mpf.mpf_div(term, @mpf.from_int(k), p, @mpf.round_nearest)
+      sum = @mpf.mpf_add(sum, term, p, @mpf.round_nearest)
+    }
+    return @mpf.mpf_pos(
+      @mpf.mpf_mul(
+        factorial_mpf(n - 1, p),
+        @mpf.mpf_mul(ex, sum, p, @mpf.round_nearest),
+        p,
+        @mpf.round_nearest,
+      ),
+      prec,
+      rnd,
+    )
+  }
+  if n == 1 {
+    return mpf_e1(x, prec, rnd)
+  }
+  let p = wp(prec) + 16
+  if x.sign == 1 {
+    abort("mpf_expint: only positive x is supported")
+  }
+  let mut en = mpf_e1(x, p, @mpf.round_nearest)
+  let ex = @libelefun.mpf_exp(
+    @mpf.mpf_neg(x, p, @mpf.round_nearest),
+    p,
+    @mpf.round_nearest,
+  )
+  let mut k = 1
+  while k < n {
+    en = @mpf.mpf_div(
+      @mpf.mpf_sub(
+        ex,
+        @mpf.mpf_mul(x, en, p, @mpf.round_nearest),
+        p,
+        @mpf.round_nearest,
+      ),
+      @mpf.from_int(k),
+      p,
+      @mpf.round_nearest,
+    )
+    k += 1
+  }
+  @mpf.mpf_pos(en, prec, rnd)
+}
+
+///|
+pub fn mpf_besseljn(
+  n : Int,
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  if @mpf.is_nan(x) {
+    return @mpf.fnan
+  }
+  if @mpf.is_inf(x) {
+    return @mpf.fzero
+  }
+  let p = wp(prec) + 24
+  let mut m = n
+  let mut sign = 0
+  if m < 0 {
+    m = -m
+    if (m & 1) == 1 {
+      sign = 1
+    }
+  }
+  let half_x = @mpf.mpf_shift(x, -1)
+  let x2_over4 = @mpf.mpf_mul(half_x, half_x, p, @mpf.round_nearest)
+  let mut term = @libelefun.mpf_pow(
+    @mpf.mpf_abs(half_x, p, @mpf.round_nearest),
+    @mpf.from_int(m),
+    p,
+    @mpf.round_nearest,
+  )
+  term = @mpf.mpf_div(term, factorial_mpf(m, p), p, @mpf.round_nearest)
+  let mut sum = term
+  let mut k = 0
+  while k < 20000 {
+    term = @mpf.mpf_mul(term, x2_over4, p, @mpf.round_nearest)
+    term = @mpf.mpf_mul_int(term, -1, p, @mpf.round_nearest)
+    term = @mpf.mpf_div(term, @mpf.from_int(k + 1), p, @mpf.round_nearest)
+    term = @mpf.mpf_div(term, @mpf.from_int(k + m + 1), p, @mpf.round_nearest)
+    sum = @mpf.mpf_add(sum, term, p, @mpf.round_nearest)
+    if tiny_enough(@mpf.mpf_abs(term, p, @mpf.round_nearest), p + 12) && k > 4 {
+      break
+    }
+    k += 1
+  }
+  if x.sign == 1 && (m & 1) == 1 {
+    sign = 1 - sign
+  }
+  if sign == 1 {
+    @mpf.mpf_neg(sum, prec, rnd)
+  } else {
+    @mpf.mpf_pos(sum, prec, rnd)
+  }
+}
