@@ -1,0 +1,8 @@
+{
+  "import": [
+    "CAIMEOX/moon_floating/src/libmp/mpf",
+    "CAIMEOX/moon_floating/src/libmp/libelefun",
+    "CAIMEOX/moon_floating/src/libmp/gammazeta",
+    "CAIMEOX/moon_floating/src/libmp/mpc"
+  ]
+}

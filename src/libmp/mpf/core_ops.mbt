@@ -242,6 +242,35 @@ fn mpf_round_int_inner(x : RawMpf, mode : RoundMode) -> RawMpf {
 }
 
 ///|
+pub fn mpf_round_int(x : RawMpf, rnd : RoundMode) -> RawMpf {
+  match rnd {
+    RoundMode::Floor => mpf_round_int_inner(x, round_floor)
+    RoundMode::Ceiling => mpf_round_int_inner(x, round_ceiling)
+    RoundMode::Nearest => mpf_round_int_inner(x, round_nearest)
+    _ => abort("mpf_round_int: unsupported rounding mode")
+  }
+}
+
+///|
+pub fn mpf_min_max(seq : ArrayView[RawMpf]) -> (RawMpf, RawMpf) {
+  if seq.length() == 0 {
+    abort("mpf_min_max: empty input")
+  }
+  let mut min_v = seq[0]
+  let mut max_v = seq[0]
+  for i in 1..<seq.length() {
+    let x = seq[i]
+    if mpf_lt(x, min_v) {
+      min_v = x
+    }
+    if mpf_gt(x, max_v) {
+      max_v = x
+    }
+  }
+  (min_v, max_v)
+}
+
+///|
 pub fn mpf_floor(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
   let v = mpf_round_int_inner(x, round_floor)
   if prec > 0 {

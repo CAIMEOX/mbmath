@@ -44,6 +44,7 @@ test "mpf_exp baseline" {
 ///|
 test "mpf_ln baseline" {
   assert_eq(mpf_ln(@mpf.fone, 80, @mpf.round_nearest), @mpf.fzero)
+  assert_eq(mpf_ln(@mpf.fzero, 80, @mpf.round_nearest), @mpf.fninf)
   let ln2 = mpf_ln(@mpf.from_int(2), 120, @mpf.round_nearest)
   assert_true(@mpf.to_str_opts(ln2, dps=16).has_prefix("0.6931471805599453"))
   let e = mpf_exp(@mpf.fone, 120, @mpf.round_nearest)
@@ -52,8 +53,26 @@ test "mpf_ln baseline" {
 }
 
 ///|
+test "mpf_log1p and constant helpers subset" {
+  let l_small = mpf_log1p(@mpf.from_str("1e-10"), 180, @mpf.round_nearest)
+  assert_true(
+    @mpf.to_str_opts(l_small, dps=18).has_prefix("9.999999999500000"),
+  )
+  assert_eq(mpf_log1p(@mpf.from_int(-1), 120, @mpf.round_nearest), @mpf.fninf)
+  let sp = mpf_sqrtpi(160, @mpf.round_nearest)
+  assert_true(@mpf.to_str_opts(sp, dps=16).has_prefix("1.772453850905516"))
+  let lsp = mpf_ln_sqrt2pi(160, @mpf.round_nearest)
+  assert_true(@mpf.to_str_opts(lsp, dps=16).has_prefix("0.918938533204672"))
+}
+
+///|
 test "panic mpf_ln non-positive" {
-  ignore(mpf_ln(@mpf.fzero, 80, @mpf.round_nearest))
+  ignore(mpf_ln(@mpf.from_int(-1), 80, @mpf.round_nearest))
+}
+
+///|
+test "panic mpf_log1p below -1" {
+  ignore(mpf_log1p(@mpf.from_str("-1.25"), 80, @mpf.round_nearest))
 }
 
 ///|

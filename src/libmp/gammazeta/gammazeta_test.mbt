@@ -27,6 +27,18 @@ test "mpf_bernoulli small values" {
 }
 
 ///|
+test "mpf_bernoulli_huge subset" {
+  let b100 = mpf_bernoulli_huge(100, 220, @mpf.round_nearest)
+  assert_true(
+    @mpf.to_str_opts(b100, dps=24).has_prefix("-2.83822495706937069592642e+78"),
+  )
+  let b100_auto = mpf_bernoulli(100, 220, @mpf.round_nearest)
+  assert_true(
+    @mpf.to_str_opts(b100_auto, dps=24).has_prefix("-2.83822495706937069592642e+78"),
+  )
+}
+
+///|
 test "mpf_zeta_int subset" {
   let z2 = mpf_zeta_int(2, 120, @mpf.round_nearest)
   let z3 = mpf_zeta_int(3, 120, @mpf.round_nearest)
@@ -119,6 +131,24 @@ test "mpf psi harmonic fibonacci zeta subset" {
       dps=14,
     ).has_prefix("1.6803723053"),
   )
+  assert_true(
+    @mpf.to_str_opts(
+      mpf_psi0(@mpf.from_str("-0.5"), 140, @mpf.round_nearest),
+      dps=14,
+    ).has_prefix("0.0364899738"),
+  )
+  assert_true(
+    @mpf.to_str_opts(
+      mpf_harmonic(@mpf.from_str("-0.5"), 140, @mpf.round_nearest),
+      dps=14,
+    ).has_prefix("-1.3862943612"),
+  )
+  assert_true(
+    @mpf.to_str_opts(
+      mpf_harmonic(@mpf.from_str("-2.5"), 140, @mpf.round_nearest),
+      dps=14,
+    ).has_prefix("1.2803723053"),
+  )
   assert_eq(
     mpf_fibonacci(@mpf.from_int(10), 120, @mpf.round_nearest),
     @mpf.from_int(55),
@@ -205,6 +235,19 @@ test "mpf gamma/zeta negative real subset" {
       dps=12,
     ).has_prefix("0.38010481"),
   )
+  assert_true(
+    @mpf.to_str_opts(
+      mpf_psi(1, @mpf.from_str("-0.5"), 180, @mpf.round_nearest),
+      dps=14,
+    ).has_prefix("8.934802200544"),
+  )
+  assert_true(
+    @mpf.to_str_opts(
+      mpf_psi(2, @mpf.from_str("-0.5"), 180, @mpf.round_nearest),
+      dps=14,
+    ).has_prefix("-0.828796644234"),
+  )
+  assert_eq(mpf_psi(1, @mpf.finf, 120, @mpf.round_nearest), @mpf.fzero)
 }
 
 ///|

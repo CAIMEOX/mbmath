@@ -437,6 +437,17 @@ pub fn mpc_nthroot(
 
 ///|
 #declaration_only
+pub fn mpc_nthroot_fixed(
+  a : BigInt,
+  b : BigInt,
+  n : Int,
+  prec : Int,
+) -> (BigInt, BigInt) {
+  ...
+}
+
+///|
+#declaration_only
 pub fn mpc_cbrt(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
   ...
 }
@@ -479,6 +490,17 @@ pub fn mpc_e1(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 ///|
 #declaration_only
 pub fn mpc_ci(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpc_ci_si_taylor(
+  re : @mpf.RawMpf,
+  im : @mpf.RawMpf,
+  wp : Int,
+  which? : Int = 0,
+) -> RawMpc {
   ...
 }
 

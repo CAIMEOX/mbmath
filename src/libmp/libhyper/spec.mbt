@@ -17,6 +17,16 @@ pub fn mpf_ei(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf 
 
 ///|
 #declaration_only
+pub fn mpf_ci_si_taylor(
+  x : @mpf.RawMpf,
+  wp : Int,
+  which? : Int = 0,
+) -> @mpf.RawMpf {
+  ...
+}
+
+///|
+#declaration_only
 pub fn mpf_si(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
   ...
 }

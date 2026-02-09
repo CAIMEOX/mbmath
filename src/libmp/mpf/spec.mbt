@@ -215,6 +215,12 @@ pub fn mpf_rdiv_int(n : Int, x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf 
 
 ///|
 #declaration_only
+pub fn mpf_round_int(x : RawMpf, rnd : RoundMode) -> RawMpf {
+  ...
+}
+
+///|
+#declaration_only
 pub fn mpf_floor(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
   ...
 }
@@ -234,6 +240,12 @@ pub fn mpf_nint(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
 ///|
 #declaration_only
 pub fn mpf_frac(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpf_min_max(seq : ArrayView[RawMpf]) -> (RawMpf, RawMpf) {
   ...
 }
 

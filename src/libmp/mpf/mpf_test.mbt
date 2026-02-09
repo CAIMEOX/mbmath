@@ -140,6 +140,18 @@ test "mpf floor ceil nint frac" {
 }
 
 ///|
+test "mpf_round_int and mpf_min_max" {
+  assert_eq(mpf_round_int(from_str("3.75"), round_floor), from_int(3))
+  assert_eq(mpf_round_int(from_str("3.75"), round_ceiling), from_int(4))
+  assert_eq(mpf_round_int(from_str("2.5"), round_nearest), from_int(2))
+  assert_eq(mpf_round_int(from_str("-2.5"), round_nearest), from_int(-2))
+  let xs : Array[RawMpf] = [from_str("3.5"), from_str("-8.25"), from_str("2.0")]
+  let (mn, mx) = mpf_min_max(xs)
+  assert_eq(mn, from_str("-8.25"))
+  assert_eq(mx, from_str("3.5"))
+}
+
+///|
 test "mpf mod and sum helpers" {
   assert_eq(
     mpf_mod(from_str("5.5"), from_int(2), 40, round_nearest),

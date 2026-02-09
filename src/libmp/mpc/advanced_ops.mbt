@@ -56,6 +56,106 @@ fn int_bit_length(n : Int) -> Int {
 }
 
 ///|
+fn shift_big(x : BigInt, n : Int) -> BigInt {
+  if n >= 0 {
+    x >> n
+  } else {
+    x << (-n)
+  }
+}
+
+///|
+fn mpf_to_fixed_signed(x : @mpf.RawMpf, prec : Int) -> BigInt {
+  if @mpf.is_zero(x) {
+    return 0N
+  }
+  let signed_man = if x.sign == 1 { -x.man } else { x.man }
+  let offset = x.exp + prec
+  if offset >= 0 {
+    signed_man << offset
+  } else {
+    signed_man >> (-offset)
+  }
+}
+
+///|
+fn complex_mul_big(
+  are : BigInt,
+  aim : BigInt,
+  bre : BigInt,
+  bim : BigInt,
+) -> (BigInt, BigInt) {
+  (are * bre - aim * bim, are * bim + aim * bre)
+}
+
+///|
+fn complex_int_pow_big(re : BigInt, im : BigInt, n : Int) -> (BigInt, BigInt) {
+  if n == 0 {
+    return (1N, 0N)
+  }
+  let mut e = n
+  let mut base_re = re
+  let mut base_im = im
+  let mut acc_re = 1N
+  let mut acc_im = 0N
+  while e > 0 {
+    if (e & 1) == 1 {
+      let (nr, ni) = complex_mul_big(acc_re, acc_im, base_re, base_im)
+      acc_re = nr
+      acc_im = ni
+    }
+    e = e / 2
+    if e > 0 {
+      let (br, bi) = complex_mul_big(base_re, base_im, base_re, base_im)
+      base_re = br
+      base_im = bi
+    }
+  }
+  (acc_re, acc_im)
+}
+
+///|
+pub fn mpc_nthroot_fixed(
+  a : BigInt,
+  b : BigInt,
+  n : Int,
+  prec : Int,
+) -> (BigInt, BigInt) {
+  let start = 50
+  let extra = 10
+  let z = from_parts(
+    @mpf.from_man_exp(a, -prec, 0, @mpf.round_down),
+    @mpf.from_man_exp(b, -prec, 0, @mpf.round_down),
+  )
+  let low_prec = start + 12
+  let nth = @mpf.mpf_rdiv_int(1, @mpf.from_int(n), low_prec, @mpf.round_nearest)
+  let seed = mpc_pow_mpf(z, nth, low_prec, @mpf.round_nearest)
+  let mut re = mpf_to_fixed_signed(seed.real, start)
+  let mut im = mpf_to_fixed_signed(seed.imag, start)
+  let mut prevp = start
+  let target = prec + extra
+  let mut p = start
+  while p < target {
+    p = if p * 2 < target { p * 2 } else { target }
+    let (pow_re, pow_im) = complex_int_pow_big(re, im, n - 1)
+    let scale = (n - 1) * prevp - p - n
+    let re2 = shift_big(pow_re, scale)
+    let im2 = shift_big(pow_im, scale)
+    let r4 = (re2 * re2 + im2 * im2) >> (p + n)
+    let ap = shift_big(a, prec - p)
+    let bp = shift_big(b, prec - p)
+    let rec = (ap * re2 + bp * im2) >> p
+    let imc = ((-ap) * im2 + bp * re2) >> p
+    let reb = (rec << p) / r4
+    let imb = (imc << p) / r4
+    re = (reb + BigInt::from_int(n - 1) * (re << (p - prevp))) / BigInt::from_int(n)
+    im = (imb + BigInt::from_int(n - 1) * (im << (p - prevp))) / BigInt::from_int(n)
+    prevp = p
+  }
+  (re, im)
+}
+
+///|
 fn lanczos_coeff(i : Int, p : Int) -> @mpf.RawMpf {
   match i {
     0 => const_mpf("0.99999999999980993", p)
@@ -119,6 +219,75 @@ fn clamp_series_terms(prec : Int) -> Int {
       n
     }
   }
+}
+
+///|
+fn mpc_mag_bound(z : RawMpc) -> Int {
+  let mut mag = if @mpf.is_zero(z.real) {
+    if @mpf.is_zero(z.imag) { 0 } else { z.imag.exp + z.imag.bc }
+  } else {
+    z.real.exp + z.real.bc
+  }
+  if !@mpf.is_zero(z.imag) {
+    let im_mag = z.imag.exp + z.imag.bc
+    if im_mag > mag {
+      mag = im_mag
+    }
+  }
+  mag
+}
+
+///|
+fn mpc_ci_si_asymptotic(
+  z : RawMpc,
+  p : Int,
+) -> (RawMpc, RawMpc) {
+  let z_inv = mpc_reciprocal(z, p, @mpf.round_nearest)
+  let z_inv2 = mpc_mul(z_inv, z_inv, p, @mpf.round_nearest)
+  let mut f_term = z_inv
+  let mut f_sum = f_term
+  let mut g_term = z_inv2
+  let mut g_sum = g_term
+  let max_terms = clamp_series_terms(p)
+  let mut m = 0
+  while m < max_terms {
+    let a = 2 * m + 2
+    f_term = mpc_mul(f_term, z_inv2, p, @mpf.round_nearest)
+    f_term = mpc_mul_int(f_term, -(a * (a - 1)), p, @mpf.round_nearest)
+    g_term = mpc_mul(g_term, z_inv2, p, @mpf.round_nearest)
+    g_term = mpc_mul_int(g_term, -((a + 1) * a), p, @mpf.round_nearest)
+    f_sum = mpc_add(f_sum, f_term, p, @mpf.round_nearest)
+    g_sum = mpc_add(g_sum, g_term, p, @mpf.round_nearest)
+    if tiny_enough_mpc(f_term, p, p + 6) &&
+      tiny_enough_mpc(g_term, p, p + 6) &&
+      m > 3 {
+      break
+    }
+    m += 1
+  }
+  let (cos_z, sin_z) = mpc_cos_sin(z, p, @mpf.round_nearest)
+  let ci = mpc_sub(
+    mpc_mul(sin_z, f_sum, p, @mpf.round_nearest),
+    mpc_mul(cos_z, g_sum, p, @mpf.round_nearest),
+    p,
+    @mpf.round_nearest,
+  )
+  let half_pi = from_parts(
+    @mpf.mpf_shift(@libelefun.mpf_pi(p, @mpf.round_nearest), -1),
+    @mpf.fzero,
+  )
+  let si = mpc_sub(
+    half_pi,
+    mpc_add(
+      mpc_mul(cos_z, f_sum, p, @mpf.round_nearest),
+      mpc_mul(sin_z, g_sum, p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    ),
+    p,
+    @mpf.round_nearest,
+  )
+  (ci, si)
 }
 
 ///|
@@ -454,24 +623,38 @@ pub fn mpc_nthroot(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> RawMpc {
-  if n == 0 {
-    return one()
-  }
-  if n == 1 {
-    return mpc_pos(z, prec, rnd)
-  }
-  if n == -1 {
-    return mpc_reciprocal(z, prec, rnd)
-  }
-  if n < 0 {
+  if n < 2 {
+    if n == 0 {
+      return one()
+    }
+    if n == 1 {
+      return mpc_pos(z, prec, rnd)
+    }
+    if n == -1 {
+      return mpc_reciprocal(z, prec, rnd)
+    }
     let inv = mpc_nthroot(z, -n, prec + 8, @mpf.round_nearest)
     return mpc_reciprocal(inv, prec, rnd)
   }
   if z.imag == @mpf.fzero && z.real.sign == 0 {
     return from_parts(@libelefun.mpf_nthroot(z.real, n, prec, rnd), @mpf.fzero)
   }
+  if n <= 20 {
+    let prec2 = ((prec + 10) * 6) / 5
+    let abs_z = mpc_abs(z, prec2, @mpf.round_nearest)
+    let mag = abs_z.exp + abs_z.bc
+    if mag > -10 && mag < prec2 {
+      let af = mpf_to_fixed_signed(z.real, prec2)
+      let bf = mpf_to_fixed_signed(z.imag, prec2)
+      let extra = 10
+      let (re_fix, im_fix) = mpc_nthroot_fixed(af, bf, n, prec2)
+      let re = @mpf.from_man_exp(re_fix, -(prec2 + extra), prec2, @mpf.round_nearest)
+      let im = @mpf.from_man_exp(im_fix, -(prec2 + extra), prec2, @mpf.round_nearest)
+      return mpc_pos(from_parts(re, im), prec, rnd)
+    }
+  }
   let p = ext_prec(prec) + 10
-  let inv_n = @mpf.mpf_div(@mpf.fone, @mpf.from_int(n), p, @mpf.round_nearest)
+  let inv_n = @mpf.mpf_rdiv_int(1, @mpf.from_int(n), p, @mpf.round_nearest)
   mpc_pos(mpc_pow_mpf(z, inv_n, p, @mpf.round_nearest), prec, rnd)
 }
 
@@ -615,6 +798,45 @@ pub fn mpc_e1(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 }
 
 ///|
+pub fn mpc_ci_si_taylor(
+  re : @mpf.RawMpf,
+  im : @mpf.RawMpf,
+  wp : Int,
+  which? : Int = 0,
+) -> RawMpc {
+  let mag = mpc_mag_bound(from_parts(re, im))
+  if mag > 2 || mag < -wp {
+    abort("mpc_ci_si_taylor: argument magnitude out of supported range")
+  }
+  let p = wp + (2 - mag)
+  let z = from_parts(
+    @mpf.mpf_pos(re, p, @mpf.round_nearest),
+    @mpf.mpf_pos(im, p, @mpf.round_nearest),
+  )
+  let z2 = mpc_neg(mpc_square(z, p, @mpf.round_nearest), p, @mpf.round_nearest)
+  let mut sum = if which == 0 { zero() } else { z }
+  let mut term = if which == 0 { one() } else { z }
+  let mut k = if which == 0 { 2 } else { 3 }
+  let max_terms = clamp_series_terms(p)
+  while k < max_terms {
+    let den = @mpf.from_int(k * (k - 1))
+    term = mpc_div_mpf(
+      mpc_mul(term, z2, p, @mpf.round_nearest),
+      den,
+      p,
+      @mpf.round_nearest,
+    )
+    let add = mpc_div_mpf(term, @mpf.from_int(k), p, @mpf.round_nearest)
+    sum = mpc_add(sum, add, p, @mpf.round_nearest)
+    if tiny_enough_mpc(add, p, p + 6) && k > 7 {
+      break
+    }
+    k += 2
+  }
+  sum
+}
+
+///|
 pub fn mpc_ci(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
   if z.imag == @mpf.fzero {
     let x = z.real
@@ -633,34 +855,19 @@ pub fn mpc_ci(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
     return from_parts(@mpf.fninf, @mpf.fzero)
   }
   let p = ext_prec(prec) + 20
-  let z2 = mpc_square(z, p, @mpf.round_nearest)
-  let mut term = mpc_neg(
-    mpc_div_mpf(z2, @mpf.from_int(4), p, @mpf.round_nearest),
-    p,
-    @mpf.round_nearest,
-  )
-  let mut sum = term
-  let mut k = 1
-  let max_terms = clamp_series_terms(p)
-  while k < max_terms {
-    if tiny_enough_mpc(term, p, p + 6) && k > 4 {
-      break
-    }
-    let num = 2 * k
-    let den1 = 2 * k + 1
-    let den2 = 2 * k + 2
-    term = mpc_mul(term, z2, p, @mpf.round_nearest)
-    term = mpc_mul_int(term, -num, p, @mpf.round_nearest)
-    term = mpc_div_mpf(term, @mpf.from_int(den1), p, @mpf.round_nearest)
-    term = mpc_div_mpf(term, @mpf.from_int(den2), p, @mpf.round_nearest)
-    term = mpc_div_mpf(term, @mpf.from_int(den2), p, @mpf.round_nearest)
-    sum = mpc_add(sum, term, p, @mpf.round_nearest)
-    k += 1
-  }
+  let mag = mpc_mag_bound(z)
   let gamma = from_parts(
     @gammazeta.mpf_euler(p, @mpf.round_nearest),
     @mpf.fzero,
   )
+  if mag < -p {
+    return mpc_pos(mpc_add(gamma, mpc_ln(z, p, @mpf.round_nearest), p, @mpf.round_nearest), prec, rnd)
+  }
+  if mag > 2 {
+    let (ci_as, _) = mpc_ci_si_asymptotic(z, p)
+    return mpc_pos(ci_as, prec, rnd)
+  }
+  let sum = mpc_ci_si_taylor(z.real, z.imag, p, which=0)
   mpc_pos(
     mpc_add(
       mpc_add(gamma, mpc_ln(z, p, @mpf.round_nearest), p, @mpf.round_nearest),
@@ -682,26 +889,15 @@ pub fn mpc_si(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
     return zero()
   }
   let p = ext_prec(prec) + 20
-  let z2 = mpc_square(z, p, @mpf.round_nearest)
-  let mut term = mpc_pos(z, p, @mpf.round_nearest)
-  let mut sum = term
-  let mut k = 0
-  let max_terms = clamp_series_terms(p)
-  while k < max_terms {
-    let num = 2 * k + 1
-    let den1 = 2 * k + 2
-    let den2 = 2 * k + 3
-    term = mpc_mul(term, z2, p, @mpf.round_nearest)
-    term = mpc_mul_int(term, -num, p, @mpf.round_nearest)
-    term = mpc_div_mpf(term, @mpf.from_int(den1), p, @mpf.round_nearest)
-    term = mpc_div_mpf(term, @mpf.from_int(den2), p, @mpf.round_nearest)
-    term = mpc_div_mpf(term, @mpf.from_int(den2), p, @mpf.round_nearest)
-    sum = mpc_add(sum, term, p, @mpf.round_nearest)
-    if tiny_enough_mpc(term, p, p + 6) && k > 4 {
-      break
-    }
-    k += 1
+  let mag = mpc_mag_bound(z)
+  if mag < -p {
+    return mpc_pos(z, prec, rnd)
   }
+  if mag > 2 {
+    let (_, si_as) = mpc_ci_si_asymptotic(z, p)
+    return mpc_pos(si_as, prec, rnd)
+  }
+  let sum = mpc_ci_si_taylor(z.real, z.imag, p, which=1)
   mpc_pos(sum, prec, rnd)
 }
 

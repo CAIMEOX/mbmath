@@ -22,6 +22,14 @@ test "mpf_si_ci_ei subset" {
 }
 
 ///|
+test "mpf_ci_si_taylor subset" {
+  let ci_core = mpf_ci_si_taylor(@mpf.from_int(1), 180, which=0)
+  assert_true(@mpf.to_str_opts(ci_core, dps=16).has_prefix("-0.239811742000564"))
+  let si_core = mpf_ci_si_taylor(@mpf.from_int(1), 180, which=1)
+  assert_true(@mpf.to_str_opts(si_core, dps=16).has_prefix("0.946083070367183"))
+}
+
+///|
 test "mpf_ellipk subset" {
   let k0 = mpf_ellipk(@mpf.fzero, 120, @mpf.round_nearest)
   assert_true(@mpf.to_str_opts(k0, dps=16).has_prefix("1.570796326794897"))

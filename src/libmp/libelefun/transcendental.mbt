@@ -237,7 +237,10 @@ pub fn mpf_ln(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf 
       return @mpf.finf
     }
   }
-  if @mpf.is_zero(x) || x.sign == 1 {
+  if @mpf.is_zero(x) {
+    return @mpf.fninf
+  }
+  if x.sign == 1 {
     abort("mpf_ln: non-positive input")
   }
   if x == @mpf.fone {
@@ -380,6 +383,49 @@ pub fn mpf_log(
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf {
   mpf_ln(x, prec, rnd)
+}
+
+///|
+pub fn mpf_log1p(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  if @mpf.is_nan(x) {
+    return @mpf.fnan
+  }
+  if @mpf.is_inf(x) {
+    if x.sign == 1 {
+      abort("mpf_log1p: x must be >= -1")
+    } else {
+      return @mpf.finf
+    }
+  }
+  if @mpf.is_zero(x) {
+    return @mpf.fzero
+  }
+  if @mpf.mpf_eq(x, @mpf.fnone) {
+    return @mpf.fninf
+  }
+  if x.sign == 1 && @mpf.mpf_gt(@mpf.mpf_neg(x, 0, @mpf.round_down), @mpf.fone) {
+    abort("mpf_log1p: x must be >= -1")
+  }
+  let wp = work_prec(prec) + 10
+  let u = @mpf.mpf_add(@mpf.fone, x, wp * 2, @mpf.round_nearest)
+  if @mpf.is_zero(u) {
+    return @mpf.fninf
+  }
+  if u.sign == 1 {
+    abort("mpf_log1p: x must be >= -1")
+  }
+  let lnu = mpf_ln(u, wp, @mpf.round_nearest)
+  let den = @mpf.mpf_sub(u, @mpf.fone, wp, @mpf.round_nearest)
+  let corr = if @mpf.is_zero(den) {
+    @mpf.fone
+  } else {
+    @mpf.mpf_div(x, den, wp, @mpf.round_nearest)
+  }
+  @mpf.mpf_pos(@mpf.mpf_mul(lnu, corr, wp, @mpf.round_nearest), prec, rnd)
 }
 
 ///|
@@ -755,6 +801,32 @@ pub fn mpf_ln2(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
 ///|
 pub fn mpf_ln10(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
   mpf_ln(@mpf.from_int(10), prec, rnd)
+}
+
+///|
+pub fn mpf_sqrtpi(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+  let wp = work_prec(prec) + 8
+  @mpf.mpf_pos(
+    @mpf.mpf_sqrt(mpf_pi(wp, @mpf.round_nearest), wp, @mpf.round_nearest),
+    prec,
+    rnd,
+  )
+}
+
+///|
+pub fn mpf_ln_sqrt2pi(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+  let wp = work_prec(prec) + 8
+  let two_pi = @mpf.mpf_mul_int(
+    mpf_pi(wp, @mpf.round_nearest),
+    2,
+    wp,
+    @mpf.round_nearest,
+  )
+  @mpf.mpf_pos(
+    @mpf.mpf_shift(mpf_ln(two_pi, wp, @mpf.round_nearest), -1),
+    prec,
+    rnd,
+  )
 }
 
 ///|

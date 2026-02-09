@@ -26,6 +26,20 @@ fn tiny_enough(x : @mpf.RawMpf, bits : Int) -> Bool {
 }
 
 ///|
+fn int_bit_length(n : Int) -> Int {
+  if n == 0 {
+    return 0
+  }
+  let mut x = if n < 0 { -n } else { n }
+  let mut bits = 0
+  while x > 0 {
+    bits += 1
+    x = x >> 1
+  }
+  bits
+}
+
+///|
 pub fn mpf_agm(
   x : @mpf.RawMpf,
   y : @mpf.RawMpf,
@@ -69,47 +83,186 @@ pub fn mpf_agm(
 }
 
 ///|
-pub fn mpf_si(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
-  if @mpf.is_nan(x) {
-    return @mpf.fnan
+pub fn mpf_ci_si_taylor(
+  x : @mpf.RawMpf,
+  wp : Int,
+  which? : Int = 0,
+) -> @mpf.RawMpf {
+  let p = if wp > 0 { wp } else { 32 }
+  let x2 = @mpf.mpf_neg(
+    @mpf.mpf_mul(x, x, p, @mpf.round_nearest),
+    p,
+    @mpf.round_nearest,
+  )
+  let mut sum = if which == 0 { @mpf.fzero } else { @mpf.mpf_pos(x, p, @mpf.round_nearest) }
+  let mut term = if which == 0 { @mpf.fone } else { @mpf.mpf_pos(x, p, @mpf.round_nearest) }
+  let mut k = if which == 0 { 2 } else { 3 }
+  let max_terms = if p <= 128 {
+    256
+  } else if p <= 512 {
+    1024
+  } else {
+    p * 3
   }
-  if @mpf.is_zero(x) {
-    return @mpf.fzero
-  }
-  if @mpf.is_inf(x) {
-    let half_pi = @mpf.mpf_shift(@libelefun.mpf_pi(prec, rnd), -1)
-    if x.sign == 1 {
-      return @mpf.mpf_neg(half_pi, prec, rnd)
-    } else {
-      return half_pi
-    }
-  }
-  let p = wp(prec) + 8
-  let x_abs = @mpf.mpf_abs(x, p, @mpf.round_nearest)
-  let x2 = @mpf.mpf_mul(x_abs, x_abs, p, @mpf.round_nearest)
-  let mut term = x_abs
-  let mut sum = x_abs
-  let mut k = 0
-  while k < 40000 {
-    let num = 2 * k + 1
-    let den1 = 2 * k + 2
-    let den2 = 2 * k + 3
-    term = @mpf.mpf_mul(term, x2, p, @mpf.round_nearest)
-    term = @mpf.mpf_mul_int(term, -num, p, @mpf.round_nearest)
-    term = @mpf.mpf_div(term, @mpf.from_int(den1), p, @mpf.round_nearest)
-    term = @mpf.mpf_div(term, @mpf.from_int(den2), p, @mpf.round_nearest)
-    term = @mpf.mpf_div(term, @mpf.from_int(den2), p, @mpf.round_nearest)
-    sum = @mpf.mpf_add(sum, term, p, @mpf.round_nearest)
-    if tiny_enough(@mpf.mpf_abs(term, p, @mpf.round_nearest), p + 10) && k > 3 {
+  while k < max_terms {
+    let den = k * (k - 1)
+    term = @mpf.mpf_div(
+      @mpf.mpf_mul(term, x2, p, @mpf.round_nearest),
+      @mpf.from_int(den),
+      p,
+      @mpf.round_nearest,
+    )
+    let add = @mpf.mpf_div(term, @mpf.from_int(k), p, @mpf.round_nearest)
+    sum = @mpf.mpf_add(sum, add, p, @mpf.round_nearest)
+    if tiny_enough(@mpf.mpf_abs(add, p, @mpf.round_nearest), p + 8) && k > 7 {
       break
     }
-    k += 1
+    k += 2
   }
-  if x.sign == 1 {
-    @mpf.mpf_neg(sum, prec, rnd)
+  sum
+}
+
+///|
+pub fn mpf_ci_si(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+  which? : Int = 2,
+) -> (@mpf.RawMpf, @mpf.RawMpf) {
+  let p0 = wp(prec) + 20
+  let mut ci = @mpf.fzero
+  let mut si = @mpf.fzero
+  if @mpf.is_nan(x) {
+    return (@mpf.fnan, @mpf.fnan)
+  }
+  if @mpf.is_zero(x) {
+    return (@mpf.fninf, @mpf.fzero)
+  }
+  if @mpf.is_inf(x) {
+    if which != 0 {
+      let half_pi = @mpf.mpf_shift(@libelefun.mpf_pi(p0, @mpf.round_nearest), -1)
+      si = if x.sign == 1 {
+        @mpf.mpf_neg(half_pi, prec, rnd)
+      } else {
+        @mpf.mpf_pos(half_pi, prec, rnd)
+      }
+    }
+    return (ci, si)
+  }
+  let mag = x.exp + x.bc
+  let x_abs = @mpf.mpf_abs(x, p0, @mpf.round_nearest)
+  if mag < -p0 {
+    if which != 0 {
+      si = @mpf.mpf_pos(x, prec, rnd)
+    }
+    if which != 1 {
+      ci = @mpf.mpf_pos(
+        @mpf.mpf_add(
+          @mpf.mpf_pos(euler_gamma, p0, @mpf.round_nearest),
+          @libelefun.mpf_ln(x_abs, p0, @mpf.round_nearest),
+          p0,
+          @mpf.round_nearest,
+        ),
+        prec,
+        rnd,
+      )
+    }
+    return (ci, si)
+  }
+  let p = p0 + (if mag > 0 { mag } else { -mag })
+  let asymptotic = mag - 1 > int_bit_length(p)
+  if !asymptotic {
+    if which != 0 {
+      si = @mpf.mpf_pos(mpf_ci_si_taylor(x, p, which=1), prec, rnd)
+    }
+    if which != 1 {
+      let core = mpf_ci_si_taylor(x_abs, p, which=0)
+      ci = @mpf.mpf_pos(
+        @mpf.mpf_add(
+          @mpf.mpf_add(
+            core,
+            @mpf.mpf_pos(euler_gamma, p, @mpf.round_nearest),
+            p,
+            @mpf.round_nearest,
+          ),
+          @libelefun.mpf_ln(x_abs, p, @mpf.round_nearest),
+          p,
+          @mpf.round_nearest,
+        ),
+        prec,
+        rnd,
+      )
+    }
+    return (ci, si)
+  }
+  let inv_x = @mpf.mpf_div(@mpf.fone, x_abs, p, @mpf.round_nearest)
+  let inv_x2 = @mpf.mpf_mul(inv_x, inv_x, p, @mpf.round_nearest)
+  let mut f_term = inv_x
+  let mut f_sum = f_term
+  let mut g_term = inv_x2
+  let mut g_sum = g_term
+  let mut m = 0
+  let max_terms = if p <= 256 {
+    256
+  } else if p <= 1024 {
+    1024
   } else {
-    @mpf.mpf_pos(sum, prec, rnd)
+    p * 2
   }
+  while m < max_terms {
+    let a = 2 * m + 2
+    f_term = @mpf.mpf_mul(
+      @mpf.mpf_mul_int(f_term, -(a * (a - 1)), p, @mpf.round_nearest),
+      inv_x2,
+      p,
+      @mpf.round_nearest,
+    )
+    g_term = @mpf.mpf_mul(
+      @mpf.mpf_mul_int(g_term, -((a + 1) * a), p, @mpf.round_nearest),
+      inv_x2,
+      p,
+      @mpf.round_nearest,
+    )
+    f_sum = @mpf.mpf_add(f_sum, f_term, p, @mpf.round_nearest)
+    g_sum = @mpf.mpf_add(g_sum, g_term, p, @mpf.round_nearest)
+    if tiny_enough(@mpf.mpf_abs(f_term, p, @mpf.round_nearest), p + 8) &&
+      tiny_enough(@mpf.mpf_abs(g_term, p, @mpf.round_nearest), p + 8) &&
+      m > 3 {
+      break
+    }
+    m += 1
+  }
+  let (cos_x, sin_x) = @libelefun.mpf_cos_sin(x_abs, p, @mpf.round_nearest)
+  if which != 1 {
+    ci = @mpf.mpf_pos(
+      @mpf.mpf_sub(
+        @mpf.mpf_mul(sin_x, f_sum, p, @mpf.round_nearest),
+        @mpf.mpf_mul(cos_x, g_sum, p, @mpf.round_nearest),
+        p,
+        @mpf.round_nearest,
+      ),
+      prec,
+      rnd,
+    )
+  }
+  if which != 0 {
+    let mut si_abs = @mpf.mpf_sub(
+      @mpf.mpf_shift(@libelefun.mpf_pi(p, @mpf.round_nearest), -1),
+      @mpf.mpf_add(
+        @mpf.mpf_mul(cos_x, f_sum, p, @mpf.round_nearest),
+        @mpf.mpf_mul(sin_x, g_sum, p, @mpf.round_nearest),
+        p,
+        @mpf.round_nearest,
+      ),
+      p,
+      @mpf.round_nearest,
+    )
+    if x.sign == 1 {
+      si_abs = @mpf.mpf_neg(si_abs, p, @mpf.round_nearest)
+    }
+    si = @mpf.mpf_pos(si_abs, prec, rnd)
+  }
+  (ci, si)
 }
 
 ///|
@@ -117,42 +270,20 @@ pub fn mpf_ci(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf 
   if @mpf.is_nan(x) {
     return @mpf.fnan
   }
-  if @mpf.is_inf(x) {
-    if x.sign == 1 {
-      abort("mpf_ci: non-positive input")
-    }
-    return @mpf.fzero
-  }
   if @mpf.is_zero(x) || x.sign == 1 {
     abort("mpf_ci: non-positive input")
   }
-  let p = wp(prec) + 8
-  let ln_x = @libelefun.mpf_ln(x, p, @mpf.round_nearest)
-  let mut sum = @mpf.mpf_add(euler_gamma, ln_x, p, @mpf.round_nearest)
-  let x2 = @mpf.mpf_mul(x, x, p, @mpf.round_nearest)
-  let mut term = @mpf.mpf_neg(
-    @mpf.mpf_div(x2, @mpf.from_int(4), p, @mpf.round_nearest),
-    p,
-    @mpf.round_nearest,
-  )
-  sum = @mpf.mpf_add(sum, term, p, @mpf.round_nearest)
-  let mut k = 1
-  while k < 40000 {
-    if tiny_enough(@mpf.mpf_abs(term, p, @mpf.round_nearest), p + 10) && k > 2 {
-      break
-    }
-    let num = 2 * k
-    let den1 = 2 * k + 1
-    let den2 = 2 * k + 2
-    term = @mpf.mpf_mul(term, x2, p, @mpf.round_nearest)
-    term = @mpf.mpf_mul_int(term, -num, p, @mpf.round_nearest)
-    term = @mpf.mpf_div(term, @mpf.from_int(den1), p, @mpf.round_nearest)
-    term = @mpf.mpf_div(term, @mpf.from_int(den2), p, @mpf.round_nearest)
-    term = @mpf.mpf_div(term, @mpf.from_int(den2), p, @mpf.round_nearest)
-    sum = @mpf.mpf_add(sum, term, p, @mpf.round_nearest)
-    k += 1
+  if @mpf.is_inf(x) {
+    return @mpf.fzero
   }
-  @mpf.mpf_pos(sum, prec, rnd)
+  let (ci, _) = mpf_ci_si(x, prec, rnd, which=0)
+  ci
+}
+
+///|
+pub fn mpf_si(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+  let (_, si) = mpf_ci_si(x, prec, rnd, which=1)
+  si
 }
 
 ///|
@@ -277,18 +408,6 @@ pub fn mpf_agm1(
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf {
   mpf_agm(@mpf.fone, a, prec, rnd)
-}
-
-///|
-pub fn mpf_ci_si(
-  x : @mpf.RawMpf,
-  prec : Int,
-  rnd : @mpf.RoundMode,
-  which? : Int = 2,
-) -> (@mpf.RawMpf, @mpf.RawMpf) {
-  let ci = if which == 1 { @mpf.fzero } else { mpf_ci(x, prec, rnd) }
-  let si = if which == 0 { @mpf.fzero } else { mpf_si(x, prec, rnd) }
-  (ci, si)
 }
 
 ///|

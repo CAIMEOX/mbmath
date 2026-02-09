@@ -1,0 +1,149 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "CAIMEOX/moon_floating/src/libmp/libmpi"
+
+import {
+  "CAIMEOX/moon_floating/src/libmp/mpf",
+}
+
+// Values
+pub fn mpci_abs(RawMpci, Int) -> RawMpi
+
+pub fn mpci_add(RawMpci, RawMpci, Int) -> RawMpci
+
+pub fn mpci_arg(RawMpci, Int) -> RawMpi
+
+pub fn mpci_contains_mpf(RawMpci, @mpf.RawMpf, @mpf.RawMpf) -> Bool
+
+pub fn mpci_cos(RawMpci, Int) -> RawMpci
+
+pub fn mpci_div(RawMpci, RawMpci, Int) -> RawMpci
+
+pub fn mpci_exp(RawMpci, Int) -> RawMpci
+
+pub fn mpci_log(RawMpci, Int) -> RawMpci
+
+pub fn mpci_make(RawMpi, RawMpi) -> RawMpci
+
+pub fn mpci_mul(RawMpci, RawMpci, Int) -> RawMpci
+
+pub fn mpci_neg(RawMpci, Int) -> RawMpci
+
+pub let mpci_one : RawMpci
+
+pub fn mpci_pos(RawMpci, Int) -> RawMpci
+
+pub fn mpci_pow(RawMpci, RawMpci, Int) -> RawMpci
+
+pub fn mpci_pow_int(RawMpci, Int, Int) -> RawMpci
+
+pub fn mpci_sin(RawMpci, Int) -> RawMpci
+
+pub fn mpci_square(RawMpci, Int) -> RawMpci
+
+pub fn mpci_sub(RawMpci, RawMpci, Int) -> RawMpci
+
+pub let mpci_zero : RawMpci
+
+pub fn mpi_abs(RawMpi, prec? : Int) -> RawMpi
+
+pub fn mpi_add(RawMpi, RawMpi, prec? : Int) -> RawMpi
+
+pub fn mpi_atan(RawMpi, Int) -> RawMpi
+
+pub fn mpi_atan2(RawMpi, RawMpi, Int) -> RawMpi
+
+pub fn mpi_cos(RawMpi, Int) -> RawMpi
+
+pub fn mpi_cos_sin(RawMpi, Int) -> (RawMpi, RawMpi)
+
+pub fn mpi_cosh_sinh(RawMpi, Int) -> (RawMpi, RawMpi)
+
+pub fn mpi_cot(RawMpi, Int) -> RawMpi
+
+pub fn mpi_delta(RawMpi, Int) -> @mpf.RawMpf
+
+pub fn mpi_div(RawMpi, RawMpi, Int) -> RawMpi
+
+pub fn mpi_div_mpf(RawMpi, @mpf.RawMpf, Int) -> RawMpi
+
+pub fn mpi_eq(RawMpi, RawMpi) -> Bool
+
+pub fn mpi_exp(RawMpi, Int) -> RawMpi
+
+pub fn mpi_from_mpf(@mpf.RawMpf) -> RawMpi
+
+pub fn mpi_from_str(String, prec? : Int) -> RawMpi
+
+pub fn mpi_ge(RawMpi, RawMpi) -> Bool
+
+pub fn mpi_gt(RawMpi, RawMpi) -> Bool
+
+pub fn mpi_le(RawMpi, RawMpi) -> Bool
+
+pub fn mpi_log(RawMpi, Int) -> RawMpi
+
+pub fn mpi_lt(RawMpi, RawMpi) -> Bool
+
+pub fn mpi_make(@mpf.RawMpf, @mpf.RawMpf) -> RawMpi
+
+pub fn mpi_mid(RawMpi, Int) -> @mpf.RawMpf
+
+pub fn mpi_mul(RawMpi, RawMpi, prec? : Int) -> RawMpi
+
+pub fn mpi_mul_mpf(RawMpi, @mpf.RawMpf, Int) -> RawMpi
+
+pub fn mpi_ne(RawMpi, RawMpi) -> Bool
+
+pub fn mpi_neg(RawMpi, prec? : Int) -> RawMpi
+
+pub let mpi_one : RawMpi
+
+pub fn mpi_overlap(RawMpi, RawMpi) -> Bool
+
+pub fn mpi_pi(Int) -> RawMpi
+
+pub fn mpi_pos(RawMpi, Int) -> RawMpi
+
+pub fn mpi_pow(RawMpi, RawMpi, Int) -> RawMpi
+
+pub fn mpi_pow_int(RawMpi, Int, Int) -> RawMpi
+
+pub fn mpi_shift(RawMpi, Int) -> RawMpi
+
+pub fn mpi_sin(RawMpi, Int) -> RawMpi
+
+pub fn mpi_sqrt(RawMpi, Int) -> RawMpi
+
+pub fn mpi_square(RawMpi, prec? : Int) -> RawMpi
+
+pub fn mpi_sub(RawMpi, RawMpi, prec? : Int) -> RawMpi
+
+pub fn mpi_tan(RawMpi, Int) -> RawMpi
+
+pub fn mpi_to_str(RawMpi, dps? : Int) -> String
+
+pub fn mpi_to_str_opts(RawMpi, dps? : Int, mode? : String, use_spaces? : Bool, error_dps? : Int) -> String
+
+pub let mpi_zero : RawMpi
+
+// Errors
+
+// Types and methods
+pub struct RawMpci {
+  real : RawMpi
+  imag : RawMpi
+}
+pub impl Eq for RawMpci
+pub impl Show for RawMpci
+
+pub struct RawMpi {
+  lo : @mpf.RawMpf
+  hi : @mpf.RawMpf
+}
+pub impl Eq for RawMpi
+pub impl Show for RawMpi
+
+// Type aliases
+
+// Traits
+

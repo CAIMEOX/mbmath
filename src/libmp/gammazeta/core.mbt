@@ -26,6 +26,55 @@ fn tiny_enough(x : @mpf.RawMpf, bits : Int) -> Bool {
 }
 
 ///|
+fn int_bit_length(n : Int) -> Int {
+  if n == 0 {
+    return 0
+  }
+  let mut x = if n < 0 { -n } else { n }
+  let mut bits = 0
+  while x > 0 {
+    bits += 1
+    x = x >> 1
+  }
+  bits
+}
+
+///|
+pub fn mpf_bernoulli_huge(
+  n : Int,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  if n < 0 {
+    abort("mpf_bernoulli_huge: n must be non-negative")
+  }
+  if n == 0 {
+    return @mpf.fone
+  }
+  if n == 1 {
+    return @mpf.from_man_exp(-1N, -1, prec, rnd)
+  }
+  if (n & 1) == 1 {
+    return @mpf.fzero
+  }
+  let p = wp(prec) + 10
+  let piprec = p + int_bit_length(n)
+  let mut v = mpf_gamma_int(n + 1, p, @mpf.round_nearest)
+  v = @mpf.mpf_mul(v, zeta_eta_series(n, p), p, @mpf.round_nearest)
+  v = @mpf.mpf_mul(
+    v,
+    @mpf.mpf_pow_int(@libelefun.mpf_pi(piprec, @mpf.round_nearest), -n, p, @mpf.round_nearest),
+    p,
+    @mpf.round_nearest,
+  )
+  v = @mpf.mpf_shift(v, 1 - n)
+  if (n & 3) == 0 {
+    v = @mpf.mpf_neg(v, p, @mpf.round_nearest)
+  }
+  @mpf.mpf_pos(v, prec, rnd)
+}
+
+///|
 pub fn mpf_factorial(n : Int, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
   if n < 0 {
     abort("mpf_factorial: n must be non-negative")
@@ -50,6 +99,9 @@ pub fn mpf_bernoulli(n : Int, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
   }
   if n > 1 && (n & 1) == 1 {
     return @mpf.fzero
+  }
+  if n >= 80 {
+    return mpf_bernoulli_huge(n, prec, rnd)
   }
   let p = wp(prec)
   let a = Array::make(n + 1, @mpf.fzero)
@@ -393,10 +445,24 @@ pub fn mpf_psi0(
     }
     None => ()
   }
-  if x.sign == 1 || @mpf.is_zero(x) {
+  if @mpf.is_zero(x) {
     abort("mpf_psi0: non-positive input is unsupported")
   }
-  let p = wp(prec) + 24
+  if x.sign == 1 {
+    let p = wp(prec) + 24
+    let one_minus_x = @mpf.mpf_sub(@mpf.fone, x, p, @mpf.round_nearest)
+    let psi_ref = mpf_psi0(one_minus_x, p, @mpf.round_nearest)
+    let pi = @libelefun.mpf_pi(p, @mpf.round_nearest)
+    let (cos_pix, sin_pix) = @libelefun.mpf_cos_sin_pi(x, p, @mpf.round_nearest)
+    let cot_pix = @mpf.mpf_div(cos_pix, sin_pix, p, @mpf.round_nearest)
+    let corr = @mpf.mpf_mul(pi, cot_pix, p, @mpf.round_nearest)
+    return @mpf.mpf_pos(
+      @mpf.mpf_sub(psi_ref, corr, p, @mpf.round_nearest),
+      prec,
+      rnd,
+    )
+  }
+  let p = wp(prec) + 40
   let mut y = @mpf.mpf_pos(x, p, @mpf.round_nearest)
   let mut acc = @mpf.fzero
   while @mpf.mpf_lt(y, @mpf.from_int(8)) {
@@ -461,9 +527,6 @@ pub fn mpf_harmonic(
       return @mpf.mpf_pos(harmonic_int(n, p), prec, rnd)
     }
     None => ()
-  }
-  if x.sign == 1 {
-    abort("mpf_harmonic: negative non-integer input is unsupported")
   }
   let p = wp(prec) + 16
   let psi = mpf_psi0(
@@ -551,9 +614,27 @@ pub fn mpf_fibonacci(
 
 ///|
 fn zeta_eta_real(s : @mpf.RawMpf, p : Int) -> @mpf.RawMpf {
+  let pole_dist = @mpf.mpf_abs(
+    @mpf.mpf_sub(s, @mpf.fone, p, @mpf.round_nearest),
+    p,
+    @mpf.round_nearest,
+  )
+  let pole_bits = if @mpf.is_zero(pole_dist) {
+    p + 16
+  } else {
+    let bits = -(pole_dist.exp + pole_dist.bc)
+    if bits > 0 { bits } else { 0 }
+  }
+  let mut max_terms = 64 + p * 2 + pole_bits * 2
+  if max_terms < 256 {
+    max_terms = 256
+  }
+  if max_terms > 1200000 {
+    max_terms = 1200000
+  }
   let mut eta = @mpf.fzero
   let mut k = 1
-  while k < 300000 {
+  while k < max_terms {
     let term_abs = @mpf.mpf_div(
       @mpf.fone,
       @libelefun.mpf_pow(@mpf.from_int(k), s, p, @mpf.round_nearest),
@@ -566,7 +647,8 @@ fn zeta_eta_real(s : @mpf.RawMpf, p : Int) -> @mpf.RawMpf {
       @mpf.mpf_neg(term_abs, p, @mpf.round_nearest)
     }
     eta = @mpf.mpf_add(eta, term, p, @mpf.round_nearest)
-    if tiny_enough(@mpf.mpf_abs(term_abs, p, @mpf.round_nearest), 24) && k > 24 {
+    if tiny_enough(@mpf.mpf_abs(term_abs, p, @mpf.round_nearest), p + 8) &&
+      k > 24 {
       break
     }
     k += 1
@@ -576,8 +658,21 @@ fn zeta_eta_real(s : @mpf.RawMpf, p : Int) -> @mpf.RawMpf {
 
 ///|
 fn zeta_euler_maclaurin_real(s : @mpf.RawMpf, p : Int) -> @mpf.RawMpf {
-  let n = if p <= 80 { 12 } else if p <= 160 { 18 } else { 24 }
-  let terms = if p <= 80 { 4 } else if p <= 160 { 6 } else { 8 }
+  let top = s.exp + s.bc
+  let mut n = 12 + p / 6 + (if top > 0 { top } else { 0 })
+  if n < 12 {
+    n = 12
+  }
+  if n > 256 {
+    n = 256
+  }
+  let mut terms = 4 + p / 20
+  if terms < 4 {
+    terms = 4
+  }
+  if terms > 28 {
+    terms = 28
+  }
   let n_mpf = @mpf.from_int(n)
   let mut sum = @mpf.fzero
   for k in 1..<n {
@@ -629,17 +724,16 @@ fn zeta_euler_maclaurin_real(s : @mpf.RawMpf, p : Int) -> @mpf.RawMpf {
     for _ in 0..<(two_m - 1) {
       n_pow = @mpf.mpf_div(n_pow, n_mpf, p, @mpf.round_nearest)
     }
-    corr = @mpf.mpf_add(
-      corr,
-      @mpf.mpf_mul(
-        coeff,
-        @mpf.mpf_mul(poch, n_pow, p, @mpf.round_nearest),
-        p,
-        @mpf.round_nearest,
-      ),
+    let corr_term = @mpf.mpf_mul(
+      coeff,
+      @mpf.mpf_mul(poch, n_pow, p, @mpf.round_nearest),
       p,
       @mpf.round_nearest,
     )
+    corr = @mpf.mpf_add(corr, corr_term, p, @mpf.round_nearest)
+    if m >= 3 && tiny_enough(@mpf.mpf_abs(corr_term, p, @mpf.round_nearest), p + 8) {
+      break
+    }
   }
   @mpf.mpf_add(
     sum,
@@ -844,6 +938,100 @@ fn factorial_small_mpf(n : Int, p : Int) -> @mpf.RawMpf {
 }
 
 ///|
+fn hurwitz_power_sum_em(x : @mpf.RawMpf, s : Int, p : Int) -> @mpf.RawMpf {
+  let mut n = 12 + p / 8
+  if n < 12 {
+    n = 12
+  }
+  if n > 512 {
+    n = 512
+  }
+  let mut terms = 4 + p / 24
+  if terms < 4 {
+    terms = 4
+  }
+  if terms > 24 {
+    terms = 24
+  }
+  let mut sum = @mpf.fzero
+  for k in 0..<n {
+    sum = @mpf.mpf_add(
+      sum,
+      @mpf.mpf_div(
+        @mpf.fone,
+        @mpf.mpf_pow_int(
+          @mpf.mpf_add(x, @mpf.from_int(k), p, @mpf.round_nearest),
+          s,
+          p,
+          @mpf.round_nearest,
+        ),
+        p,
+        @mpf.round_nearest,
+      ),
+      p,
+      @mpf.round_nearest,
+    )
+  }
+  let xn = @mpf.mpf_add(x, @mpf.from_int(n), p, @mpf.round_nearest)
+  let tail_int = @mpf.mpf_div(
+    @mpf.mpf_pow_int(xn, 1 - s, p, @mpf.round_nearest),
+    @mpf.from_int(s - 1),
+    p,
+    @mpf.round_nearest,
+  )
+  let tail_half = @mpf.mpf_shift(
+    @mpf.mpf_div(
+      @mpf.fone,
+      @mpf.mpf_pow_int(xn, s, p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    ),
+    -1,
+  )
+  let mut corr = @mpf.fzero
+  for r in 1..<=terms {
+    let two_r = 2 * r
+    let mut poch = @mpf.fone
+    for j in 0..<(two_r - 1) {
+      poch = @mpf.mpf_mul_int(poch, s + j, p, @mpf.round_nearest)
+    }
+    let coeff = @mpf.mpf_div(
+      mpf_bernoulli(two_r, p, @mpf.round_nearest),
+      mpf_factorial(two_r, p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    )
+    let xpow = @mpf.mpf_pow_int(
+      xn,
+      -(s + two_r - 1),
+      p,
+      @mpf.round_nearest,
+    )
+    let term = @mpf.mpf_mul(
+      coeff,
+      @mpf.mpf_mul(poch, xpow, p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    )
+    corr = @mpf.mpf_add(corr, term, p, @mpf.round_nearest)
+    if r >= 3 && tiny_enough(@mpf.mpf_abs(term, p, @mpf.round_nearest), p + 8) {
+      break
+    }
+  }
+  @mpf.mpf_add(
+    sum,
+    @mpf.mpf_add(
+      tail_int,
+      @mpf.mpf_add(tail_half, corr, p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    ),
+    p,
+    @mpf.round_nearest,
+  )
+}
+
+///|
 pub fn mpf_psi(
   m : Int,
   x : @mpf.RawMpf,
@@ -859,38 +1047,59 @@ pub fn mpf_psi(
   if @mpf.is_nan(x) {
     return @mpf.fnan
   }
-  if x.sign == 1 || @mpf.is_zero(x) || @mpf.is_inf(x) {
-    abort("mpf_psi: only positive finite x is supported for m>0")
+  if @mpf.is_inf(x) {
+    if x.sign == 1 {
+      return @mpf.fnan
+    }
+    return @mpf.fzero
+  }
+  if @mpf.is_zero(x) {
+    abort("mpf_psi: poles at non-positive integers")
+  }
+  match maybe_integer(x) {
+    Some(n) => {
+      if n <= 0 {
+        abort("mpf_psi: poles at non-positive integers")
+      }
+    }
+    None => ()
   }
   let p = wp(prec) + 24
-  let mut sum = @mpf.fzero
-  let mut k = 0
-  while k < 200000 {
-    let t = @mpf.mpf_div(
-      @mpf.fone,
-      @libelefun.mpf_pow(
-        @mpf.mpf_add(x, @mpf.from_int(k), p, @mpf.round_nearest),
-        @mpf.from_int(m + 1),
+  let mut y = @mpf.mpf_pos(x, p, @mpf.round_nearest)
+  let mut corr = @mpf.fzero
+  let fact = factorial_small_mpf(m, p)
+  if y.sign == 1 {
+    while y.sign == 1 {
+      let mut term = @mpf.mpf_div(
+        fact,
+        @libelefun.mpf_pow(
+          y,
+          @mpf.from_int(m + 1),
+          p,
+          @mpf.round_nearest,
+        ),
         p,
         @mpf.round_nearest,
-      ),
-      p,
-      @mpf.round_nearest,
-    )
-    sum = @mpf.mpf_add(sum, t, p, @mpf.round_nearest)
-    if tiny_enough(@mpf.mpf_abs(t, p, @mpf.round_nearest), 24) && k > 24 {
-      break
+      )
+      if (m & 1) == 1 {
+        term = @mpf.mpf_neg(term, p, @mpf.round_nearest)
+      }
+      corr = @mpf.mpf_add(corr, term, p, @mpf.round_nearest)
+      y = @mpf.mpf_add(y, @mpf.fone, p, @mpf.round_nearest)
     }
-    k += 1
   }
+  let sum = hurwitz_power_sum_em(y, m + 1, p)
   let mut val = @mpf.mpf_mul(
-    factorial_small_mpf(m, p),
+    fact,
     sum,
     p,
     @mpf.round_nearest,
   )
   if (m & 1) == 0 {
     val = @mpf.mpf_neg(val, p, @mpf.round_nearest)
+  }
+  if !@mpf.is_zero(corr) {
+    val = @mpf.mpf_sub(val, corr, p, @mpf.round_nearest)
   }
   @mpf.mpf_pos(val, prec, rnd)
 }

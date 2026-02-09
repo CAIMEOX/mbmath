@@ -53,6 +53,16 @@ pub fn mpf_log(
 
 ///|
 #declaration_only
+pub fn mpf_log1p(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  ...
+}
+
+///|
+#declaration_only
 pub fn mpf_sin(
   x : @mpf.RawMpf,
   prec : Int,
@@ -208,6 +218,18 @@ pub fn mpf_ln2(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
 ///|
 #declaration_only
 pub fn mpf_ln10(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpf_sqrtpi(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+  ...
+}
+
+///|
+#declaration_only
+pub fn mpf_ln_sqrt2pi(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
   ...
 }
 

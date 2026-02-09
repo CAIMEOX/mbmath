@@ -9,6 +9,17 @@ fn assert_parts(
 }
 
 ///|
+fn mpf_to_fixed_signed_for_test(x : @mpf.RawMpf, prec : Int) -> BigInt {
+  let signed_man = if x.sign == 1 { -x.man } else { x.man }
+  let offset = x.exp + prec
+  if offset >= 0 {
+    signed_man << offset
+  } else {
+    signed_man >> (-offset)
+  }
+}
+
+///|
 test "mpc add/sub/mul" {
   let z = from_parts(@mpf.from_int(1), @mpf.from_int(2))
   let w = from_parts(@mpf.from_int(3), @mpf.from_int(-4))
@@ -576,4 +587,66 @@ test "mpc complex special functions subset" {
   let fac = mpc_factorial(w, 140, @mpf.round_nearest)
   assert_true(@mpf.is_finite(fac.real))
   assert_true(@mpf.is_finite(fac.imag))
+}
+
+///|
+test "mpc_ci_si_taylor subset" {
+  let re = @mpf.from_str("0.5")
+  let im = @mpf.from_str("0.25")
+  let ci_core = mpc_ci_si_taylor(re, im, 180, which=0)
+  assert_true(@mpf.to_str_opts(ci_core.real, dps=14).has_prefix("-0.047153243510"))
+  assert_true(@mpf.to_str_opts(ci_core.imag, dps=14).has_prefix("-0.061525939930"))
+  let si = mpc_ci_si_taylor(re, im, 180, which=1)
+  assert_true(@mpf.to_str_opts(si.real, dps=14).has_prefix("0.498202520036"))
+  assert_true(@mpf.to_str_opts(si.imag, dps=14).has_prefix("0.240518169433"))
+}
+
+///|
+test "mpc ci/si tiny and asymptotic fallback subset" {
+  let z_tiny = from_parts(@mpf.from_str("1e-30"), @mpf.from_str("2e-30"))
+  let p = 220
+  let ci_tiny = mpc_ci(z_tiny, p, @mpf.round_nearest)
+  let si_tiny = mpc_si(z_tiny, p, @mpf.round_nearest)
+  let target_ci = mpc_add(
+    from_parts(@gammazeta.mpf_euler(p, @mpf.round_nearest), @mpf.fzero),
+    mpc_ln(z_tiny, p, @mpf.round_nearest),
+    p,
+    @mpf.round_nearest,
+  )
+  let ci_err = mpc_abs(
+    mpc_sub(ci_tiny, target_ci, p, @mpf.round_nearest),
+    p,
+    @mpf.round_nearest,
+  )
+  let si_err = mpc_abs(
+    mpc_sub(si_tiny, z_tiny, p, @mpf.round_nearest),
+    p,
+    @mpf.round_nearest,
+  )
+  assert_true(@mpf.mpf_lt(ci_err, @mpf.from_str("1e-25")))
+  assert_true(@mpf.mpf_lt(si_err, @mpf.from_str("1e-25")))
+  let z_big = from_parts(@mpf.from_str("5"), @mpf.from_str("3"))
+  let ci_big = mpc_ci(z_big, 180, @mpf.round_nearest)
+  let si_big = mpc_si(z_big, 180, @mpf.round_nearest)
+  assert_true(@mpf.is_finite(ci_big.real))
+  assert_true(@mpf.is_finite(ci_big.imag))
+  assert_true(@mpf.is_finite(si_big.real))
+  assert_true(@mpf.is_finite(si_big.imag))
+}
+
+///|
+test "mpc_nthroot_fixed subset" {
+  let prec = 80
+  let re = @mpf.from_str("0.5")
+  let im = @mpf.from_str("0.25")
+  let a = mpf_to_fixed_signed_for_test(re, prec)
+  let b = mpf_to_fixed_signed_for_test(im, prec)
+  let (re_fix, im_fix) = mpc_nthroot_fixed(a, b, 5, prec)
+  let re_v = @mpf.from_man_exp(re_fix, -(prec + 10), 180, @mpf.round_nearest)
+  let im_v = @mpf.from_man_exp(im_fix, -(prec + 10), 180, @mpf.round_nearest)
+  assert_true(@mpf.to_str_opts(re_v, dps=14).has_prefix("0.886370150250"))
+  assert_true(@mpf.to_str_opts(im_v, dps=14).has_prefix("0.082429078456"))
+  let root = mpc_nthroot(from_parts(re, im), 5, 180, @mpf.round_nearest)
+  assert_true(@mpf.to_str_opts(root.real, dps=14).has_prefix("0.886370150250"))
+  assert_true(@mpf.to_str_opts(root.imag, dps=14).has_prefix("0.082429078456"))
 }

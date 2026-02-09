@@ -12,6 +12,16 @@ pub fn mpf_bernoulli(n : Int, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
 
 ///|
 #declaration_only
+pub fn mpf_bernoulli_huge(
+  n : Int,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  ...
+}
+
+///|
+#declaration_only
 pub fn mpf_zeta_int(n : Int, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
   ...
 }
