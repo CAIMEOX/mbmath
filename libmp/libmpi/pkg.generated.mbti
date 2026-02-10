@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "CAIMEOX/moon_floating/src/libmp/libmpi"
+package "CAIMEOX/moon_floating/libmp/libmpi"
 
 import {
-  "CAIMEOX/moon_floating/src/libmp/mpf",
+  "CAIMEOX/moon_floating/libmp/mpf",
 }
 
 // Values

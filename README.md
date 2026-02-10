@@ -1,4 +1,4 @@
-# mbmath
+# MoonBit Arbitrary-Precision Math Library
 
 ## Introduction
 
