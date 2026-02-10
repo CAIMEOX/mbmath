@@ -66,6 +66,33 @@ fn mpc_gamma_kind_point(
 }
 
 ///|
+fn widen_mpi_with_value(x : RawMpi, v : @mpf.RawMpf, p : Int) -> RawMpi {
+  if @mpf.is_nan(v) {
+    x
+  } else {
+    let lo = if @mpf.mpf_lt(v, x.lo) {
+      @mpf.mpf_pos(v, p, @mpf.round_floor)
+    } else {
+      x.lo
+    }
+    let hi = if @mpf.mpf_gt(v, x.hi) {
+      @mpf.mpf_pos(v, p, @mpf.round_ceiling)
+    } else {
+      x.hi
+    }
+    mpi_make(lo, hi)
+  }
+}
+
+///|
+fn widen_mpci_with_point(z : RawMpci, w : @mpc.RawMpc, p : Int) -> RawMpci {
+  {
+    real: widen_mpi_with_value(z.real, w.real, p),
+    imag: widen_mpi_with_value(z.imag, w.imag, p),
+  }
+}
+
+///|
 fn mpi_gamma_kind(z : RawMpi, prec : Int, kind : Int) -> RawMpi {
   let p = default_prec(prec)
   let wp = p + 20
@@ -238,6 +265,63 @@ fn mpci_gamma_kind(z : RawMpci, prec : Int, kind : Int) -> RawMpci {
     mpi_make(minim.imag, maxim.imag),
   )
   if k == gamma_kind_loggamma {
+    w = widen_mpci_with_point(
+      w,
+      @mpc.mpc_loggamma(
+        @mpc.from_parts(z0.real.lo, z0.imag.lo),
+        wp,
+        @mpf.round_nearest,
+      ),
+      wp,
+    )
+    w = widen_mpci_with_point(
+      w,
+      @mpc.mpc_loggamma(
+        @mpc.from_parts(z0.real.hi, z0.imag.lo),
+        wp,
+        @mpf.round_nearest,
+      ),
+      wp,
+    )
+    w = widen_mpci_with_point(
+      w,
+      @mpc.mpc_loggamma(
+        @mpc.from_parts(z0.real.lo, z0.imag.hi),
+        wp,
+        @mpf.round_nearest,
+      ),
+      wp,
+    )
+    w = widen_mpci_with_point(
+      w,
+      @mpc.mpc_loggamma(
+        @mpc.from_parts(z0.real.hi, z0.imag.hi),
+        wp,
+        @mpf.round_nearest,
+      ),
+      wp,
+    )
+    if @mpf.mpf_le(z0.imag.lo, @mpf.fzero) &&
+      @mpf.mpf_ge(z0.imag.hi, @mpf.fzero) {
+      w = widen_mpci_with_point(
+        w,
+        @mpc.mpc_loggamma(
+          @mpc.from_parts(z0.real.lo, @mpf.fzero),
+          wp,
+          @mpf.round_nearest,
+        ),
+        wp,
+      )
+      w = widen_mpci_with_point(
+        w,
+        @mpc.mpc_loggamma(
+          @mpc.from_parts(z0.real.hi, @mpf.fzero),
+          wp,
+          @mpf.round_nearest,
+        ),
+        wp,
+      )
+    }
     return mpci_pos(w, p)
   }
   if k == gamma_kind_rgamma {

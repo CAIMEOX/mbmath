@@ -15,7 +15,7 @@ fn mpf_to_fixed_signed_for_test(x : @mpf.RawMpf, prec : Int) -> BigInt {
   if offset >= 0 {
     signed_man << offset
   } else {
-    signed_man >> (-offset)
+    signed_man >> -offset
   }
 }
 
@@ -594,11 +594,59 @@ test "mpc_ci_si_taylor subset" {
   let re = @mpf.from_str("0.5")
   let im = @mpf.from_str("0.25")
   let ci_core = mpc_ci_si_taylor(re, im, 180, which=0)
-  assert_true(@mpf.to_str_opts(ci_core.real, dps=14).has_prefix("-0.047153243510"))
-  assert_true(@mpf.to_str_opts(ci_core.imag, dps=14).has_prefix("-0.061525939930"))
+  assert_true(
+    @mpf.to_str_opts(ci_core.real, dps=14).has_prefix("-0.047153243510"),
+  )
+  assert_true(
+    @mpf.to_str_opts(ci_core.imag, dps=14).has_prefix("-0.061525939930"),
+  )
   let si = mpc_ci_si_taylor(re, im, 180, which=1)
   assert_true(@mpf.to_str_opts(si.real, dps=14).has_prefix("0.498202520036"))
   assert_true(@mpf.to_str_opts(si.imag, dps=14).has_prefix("0.240518169433"))
+}
+
+///|
+test "mpc_ci_si_taylor out-of-range fallback subset" {
+  let p = 220
+  let z_big = from_parts(@mpf.from_str("20"), @mpf.from_str("5"))
+  let ci_series_big = mpc_ci_si_taylor(z_big.real, z_big.imag, p, which=0)
+  let si_series_big = mpc_ci_si_taylor(z_big.real, z_big.imag, p, which=1)
+  let ci_big_rebuilt = mpc_add(
+    mpc_add(
+      from_parts(@gammazeta.mpf_euler(p, @mpf.round_nearest), @mpf.fzero),
+      mpc_ln(z_big, p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    ),
+    ci_series_big,
+    p,
+    @mpf.round_nearest,
+  )
+  let ci_big = mpc_ci(z_big, p, @mpf.round_nearest)
+  let si_big = mpc_si(z_big, p, @mpf.round_nearest)
+  let err_ci_big = mpc_abs(
+    mpc_sub(ci_big_rebuilt, ci_big, p, @mpf.round_nearest),
+    p,
+    @mpf.round_nearest,
+  )
+  let err_si_big = mpc_abs(
+    mpc_sub(si_series_big, si_big, p, @mpf.round_nearest),
+    p,
+    @mpf.round_nearest,
+  )
+  assert_true(@mpf.is_finite(err_ci_big))
+  assert_true(@mpf.is_finite(err_si_big))
+  let z_tiny = from_parts(@mpf.from_str("1e-80"), @mpf.from_str("-2e-80"))
+  let ci_series_tiny = mpc_ci_si_taylor(z_tiny.real, z_tiny.imag, p, which=0)
+  let si_series_tiny = mpc_ci_si_taylor(z_tiny.real, z_tiny.imag, p, which=1)
+  let ci_tiny_abs = mpc_abs(ci_series_tiny, p, @mpf.round_nearest)
+  let si_tiny_err = mpc_abs(
+    mpc_sub(si_series_tiny, z_tiny, p, @mpf.round_nearest),
+    p,
+    @mpf.round_nearest,
+  )
+  assert_true(@mpf.mpf_lt(ci_tiny_abs, @mpf.from_str("1e-60")))
+  assert_true(@mpf.mpf_lt(si_tiny_err, @mpf.from_str("1e-60")))
 }
 
 ///|

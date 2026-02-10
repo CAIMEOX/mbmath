@@ -8,6 +8,24 @@ fn dps_to_prec_approx(dps : Int) -> Int {
 }
 
 ///|
+fn auto_parse_prec(s : String) -> Int {
+  let mut digits = 0
+  for c in s {
+    if c >= '0' && c <= '9' {
+      digits += 1
+    }
+  }
+  let mut p = dps_to_prec_approx(digits + 16)
+  if p < 256 {
+    p = 256
+  }
+  if p > 4096 {
+    p = 4096
+  }
+  p
+}
+
+///|
 fn prec_to_dps_approx(prec : Int) -> Int {
   if prec <= 0 {
     15
@@ -77,7 +95,8 @@ fn mpi_from_str_a_b(
   percent : Bool,
   prec : Int,
 ) -> RawMpi {
-  let wp = if prec > 0 { prec + 20 } else { 0 }
+  let base_prec = if prec > 0 { prec } else { auto_parse_prec(x + y) }
+  let wp = base_prec + 20
   let out_prec = if prec > 0 { prec } else { 0 }
   let xa = @mpf.from_str(x, prec=wp, rnd=@mpf.round_floor)
   let xb = @mpf.from_str(x, prec=wp, rnd=@mpf.round_ceiling)
@@ -100,7 +119,7 @@ fn mpi_from_str_a_b(
 ///|
 pub fn mpi_from_str(s : String, prec? : Int = 0) -> RawMpi {
   let text = strip_spaces(s)
-  let wp = if prec > 0 { prec } else { 0 }
+  let wp = if prec > 0 { prec } else { auto_parse_prec(text) }
   match split_exact_two(text, "+-") {
     Some((x, y)) => return mpi_from_str_a_b(x, y, false, wp)
     None => ()

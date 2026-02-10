@@ -60,7 +60,7 @@ fn shift_big(x : BigInt, n : Int) -> BigInt {
   if n >= 0 {
     x >> n
   } else {
-    x << (-n)
+    x << -n
   }
 }
 
@@ -74,7 +74,7 @@ fn mpf_to_fixed_signed(x : @mpf.RawMpf, prec : Int) -> BigInt {
   if offset >= 0 {
     signed_man << offset
   } else {
-    signed_man >> (-offset)
+    signed_man >> -offset
   }
 }
 
@@ -145,11 +145,13 @@ pub fn mpc_nthroot_fixed(
     let ap = shift_big(a, prec - p)
     let bp = shift_big(b, prec - p)
     let rec = (ap * re2 + bp * im2) >> p
-    let imc = ((-ap) * im2 + bp * re2) >> p
+    let imc = (-ap * im2 + bp * re2) >> p
     let reb = (rec << p) / r4
     let imb = (imc << p) / r4
-    re = (reb + BigInt::from_int(n - 1) * (re << (p - prevp))) / BigInt::from_int(n)
-    im = (imb + BigInt::from_int(n - 1) * (im << (p - prevp))) / BigInt::from_int(n)
+    re = (reb + BigInt::from_int(n - 1) * (re << (p - prevp))) /
+      BigInt::from_int(n)
+    im = (imb + BigInt::from_int(n - 1) * (im << (p - prevp))) /
+      BigInt::from_int(n)
     prevp = p
   }
   (re, im)
@@ -224,7 +226,11 @@ fn clamp_series_terms(prec : Int) -> Int {
 ///|
 fn mpc_mag_bound(z : RawMpc) -> Int {
   let mut mag = if @mpf.is_zero(z.real) {
-    if @mpf.is_zero(z.imag) { 0 } else { z.imag.exp + z.imag.bc }
+    if @mpf.is_zero(z.imag) {
+      0
+    } else {
+      z.imag.exp + z.imag.bc
+    }
   } else {
     z.real.exp + z.real.bc
   }
@@ -238,10 +244,7 @@ fn mpc_mag_bound(z : RawMpc) -> Int {
 }
 
 ///|
-fn mpc_ci_si_asymptotic(
-  z : RawMpc,
-  p : Int,
-) -> (RawMpc, RawMpc) {
+fn mpc_ci_si_asymptotic(z : RawMpc, p : Int) -> (RawMpc, RawMpc) {
   let z_inv = mpc_reciprocal(z, p, @mpf.round_nearest)
   let z_inv2 = mpc_mul(z_inv, z_inv, p, @mpf.round_nearest)
   let mut f_term = z_inv
@@ -640,7 +643,7 @@ pub fn mpc_nthroot(
     return from_parts(@libelefun.mpf_nthroot(z.real, n, prec, rnd), @mpf.fzero)
   }
   if n <= 20 {
-    let prec2 = ((prec + 10) * 6) / 5
+    let prec2 = (prec + 10) * 6 / 5
     let abs_z = mpc_abs(z, prec2, @mpf.round_nearest)
     let mag = abs_z.exp + abs_z.bc
     if mag > -10 && mag < prec2 {
@@ -648,8 +651,18 @@ pub fn mpc_nthroot(
       let bf = mpf_to_fixed_signed(z.imag, prec2)
       let extra = 10
       let (re_fix, im_fix) = mpc_nthroot_fixed(af, bf, n, prec2)
-      let re = @mpf.from_man_exp(re_fix, -(prec2 + extra), prec2, @mpf.round_nearest)
-      let im = @mpf.from_man_exp(im_fix, -(prec2 + extra), prec2, @mpf.round_nearest)
+      let re = @mpf.from_man_exp(
+        re_fix,
+        -(prec2 + extra),
+        prec2,
+        @mpf.round_nearest,
+      )
+      let im = @mpf.from_man_exp(
+        im_fix,
+        -(prec2 + extra),
+        prec2,
+        @mpf.round_nearest,
+      )
       return mpc_pos(from_parts(re, im), prec, rnd)
     }
   }
@@ -804,11 +817,51 @@ pub fn mpc_ci_si_taylor(
   wp : Int,
   which? : Int = 0,
 ) -> RawMpc {
+  let base_p = if wp > 0 { wp } else { 32 }
   let mag = mpc_mag_bound(from_parts(re, im))
-  if mag > 2 || mag < -wp {
-    abort("mpc_ci_si_taylor: argument magnitude out of supported range")
+  if mag < -base_p {
+    return if which == 0 {
+      zero()
+    } else {
+      from_parts(
+        @mpf.mpf_pos(re, base_p, @mpf.round_nearest),
+        @mpf.mpf_pos(im, base_p, @mpf.round_nearest),
+      )
+    }
   }
-  let p = wp + (2 - mag)
+  if mag > 2 {
+    let mut p_as = base_p + 48
+    if mag > 0 {
+      p_as += mag
+    }
+    let z_as = from_parts(
+      @mpf.mpf_pos(re, p_as, @mpf.round_nearest),
+      @mpf.mpf_pos(im, p_as, @mpf.round_nearest),
+    )
+    let (ci_as, si_as) = mpc_ci_si_asymptotic(z_as, p_as)
+    return if which == 0 {
+      let gamma = from_parts(
+        @gammazeta.mpf_euler(p_as, @mpf.round_nearest),
+        @mpf.fzero,
+      )
+      mpc_pos(
+        mpc_sub(
+          mpc_sub(ci_as, gamma, p_as, @mpf.round_nearest),
+          mpc_ln(z_as, p_as, @mpf.round_nearest),
+          p_as,
+          @mpf.round_nearest,
+        ),
+        base_p,
+        @mpf.round_nearest,
+      )
+    } else {
+      mpc_pos(si_as, base_p, @mpf.round_nearest)
+    }
+  }
+  let mut p = base_p + (2 - mag)
+  if p < 24 {
+    p = 24
+  }
   let z = from_parts(
     @mpf.mpf_pos(re, p, @mpf.round_nearest),
     @mpf.mpf_pos(im, p, @mpf.round_nearest),
@@ -861,7 +914,11 @@ pub fn mpc_ci(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
     @mpf.fzero,
   )
   if mag < -p {
-    return mpc_pos(mpc_add(gamma, mpc_ln(z, p, @mpf.round_nearest), p, @mpf.round_nearest), prec, rnd)
+    return mpc_pos(
+      mpc_add(gamma, mpc_ln(z, p, @mpf.round_nearest), p, @mpf.round_nearest),
+      prec,
+      rnd,
+    )
   }
   if mag > 2 {
     let (ci_as, _) = mpc_ci_si_asymptotic(z, p)

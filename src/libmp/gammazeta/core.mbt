@@ -446,7 +446,7 @@ pub fn mpf_psi0(
   }
   if @mpf.is_inf(x) {
     if x.sign == 1 {
-      abort("mpf_psi0: non-positive input is unsupported")
+      return @mpf.fnan
     }
     return @mpf.finf
   }
@@ -538,7 +538,7 @@ pub fn mpf_harmonic(
   }
   if @mpf.is_inf(x) {
     if x.sign == 1 {
-      abort("mpf_harmonic: non-positive input is unsupported")
+      return @mpf.fnan
     }
     return @mpf.finf
   }
@@ -1148,7 +1148,13 @@ pub fn mpf_psi(
         term = @mpf.mpf_neg(term, p, @mpf.round_nearest)
       }
       corr = @mpf.mpf_add(corr, term, p, @mpf.round_nearest)
-      y = @mpf.mpf_add(y, @mpf.fone, p, @mpf.round_nearest)
+      let next_y = @mpf.mpf_add(y, @mpf.fone, p, @mpf.round_nearest)
+      // Guard against non-progress loops when |y| is too large for +1 to change
+      // at the current working precision.
+      if next_y == y {
+        break
+      }
+      y = next_y
     }
   }
   let sum = hurwitz_power_sum_em(y, m + 1, p)

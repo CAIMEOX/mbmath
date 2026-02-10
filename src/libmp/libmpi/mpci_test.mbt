@@ -15,6 +15,65 @@ fn assert_mpi_contains(x : RawMpi, v : @mpf.RawMpf) -> Unit raise {
 }
 
 ///|
+fn assert_mpci_loggamma_corners_enclosed(
+  z : RawMpci,
+  prec : Int,
+  label : String,
+) -> Unit raise {
+  let lg = mpci_loggamma(z, prec)
+  let p00 = @mpc.mpc_loggamma(
+    @mpc.from_parts(z.real.lo, z.imag.lo),
+    prec,
+    @mpf.round_nearest,
+  )
+  if !mpci_contains_mpf(lg, p00.real, p00.imag) {
+    fail("loggamma enclosure failed at corner (lo,lo): \{label}")
+  }
+  let p10 = @mpc.mpc_loggamma(
+    @mpc.from_parts(z.real.hi, z.imag.lo),
+    prec,
+    @mpf.round_nearest,
+  )
+  if !mpci_contains_mpf(lg, p10.real, p10.imag) {
+    fail("loggamma enclosure failed at corner (hi,lo): \{label}")
+  }
+  let p01 = @mpc.mpc_loggamma(
+    @mpc.from_parts(z.real.lo, z.imag.hi),
+    prec,
+    @mpf.round_nearest,
+  )
+  if !mpci_contains_mpf(lg, p01.real, p01.imag) {
+    fail("loggamma enclosure failed at corner (lo,hi): \{label}")
+  }
+  let p11 = @mpc.mpc_loggamma(
+    @mpc.from_parts(z.real.hi, z.imag.hi),
+    prec,
+    @mpf.round_nearest,
+  )
+  if !mpci_contains_mpf(lg, p11.real, p11.imag) {
+    fail("loggamma enclosure failed at corner (hi,hi): \{label}")
+  }
+  if @mpf.mpf_le(z.imag.lo, @mpf.fzero) && @mpf.mpf_ge(z.imag.hi, @mpf.fzero) {
+    let pr0 = @mpc.mpc_loggamma(
+      @mpc.from_parts(z.real.lo, @mpf.fzero),
+      prec,
+      @mpf.round_nearest,
+    )
+    if !mpci_contains_mpf(lg, pr0.real, pr0.imag) {
+      fail("loggamma enclosure failed at real-axis (lo,0): \{label}")
+    }
+    let pr1 = @mpc.mpc_loggamma(
+      @mpc.from_parts(z.real.hi, @mpf.fzero),
+      prec,
+      @mpf.round_nearest,
+    )
+    if !mpci_contains_mpf(lg, pr1.real, pr1.imag) {
+      fail("loggamma enclosure failed at real-axis (hi,0): \{label}")
+    }
+  }
+}
+
+///|
 test "mpci basic arithmetic encloses mpc point results" {
   let z = @mpc.from_parts(@mpf.from_str("1.25"), @mpf.from_str("-2.5"))
   let w = @mpc.from_parts(@mpf.from_str("0.75"), @mpf.from_str("3.0"))
@@ -125,4 +184,219 @@ test "mpci gamma cross real axis near poles subset" {
   let rg = mpci_rgamma(iv, 200)
   assert_mpci_contains(rg, @mpc.mpc_rgamma(z1, 200, @mpf.round_nearest))
   assert_mpci_contains(rg, @mpc.mpc_rgamma(z2, 200, @mpf.round_nearest))
+}
+
+///|
+test "mpci loggamma corner-enclosure subset from mpmath interval tests" {
+  let p = 220
+  let boxes : Array[RawMpci] = [
+    mpci_make(interval(2, 3), interval(1, 4)),
+    mpci_make(interval(2, 3), interval(-4, -1)),
+    mpci_make(interval(2, 3), interval(-1, 4)),
+    mpci_make(interval(2, 3), interval(-4, 1)),
+    mpci_make(interval(2, 3), interval(-4, 4)),
+    mpci_make(interval(-3, -2), interval(2, 4)),
+    mpci_make(interval(-3, -2), interval(-4, -2)),
+  ]
+  for i, box in boxes {
+    assert_mpci_loggamma_corners_enclosed(box, p, "\{i}")
+  }
+}
+
+///|
+test "mpci arg quadrant subset from mpmath interval tests" {
+  let p = 200
+  let z1 = mpci_make(interval(-2, -1), interval(3, 4))
+  let t1 = mpci_arg(z1, p)
+  assert_mpi_contains(
+    t1,
+    @mpc.mpc_arg(
+      @mpc.from_parts(@mpf.from_int(-2), @mpf.from_int(3)),
+      p,
+      @mpf.round_nearest,
+    ),
+  )
+  assert_mpi_contains(
+    t1,
+    @mpc.mpc_arg(
+      @mpc.from_parts(@mpf.from_int(-1), @mpf.from_int(4)),
+      p,
+      @mpf.round_nearest,
+    ),
+  )
+  let z2 = mpci_make(interval(-2, -1), interval(-4, -3))
+  let t2 = mpci_arg(z2, p)
+  assert_mpi_contains(
+    t2,
+    @mpc.mpc_arg(
+      @mpc.from_parts(@mpf.from_int(-2), @mpf.from_int(-3)),
+      p,
+      @mpf.round_nearest,
+    ),
+  )
+  assert_mpi_contains(
+    t2,
+    @mpc.mpc_arg(
+      @mpc.from_parts(@mpf.from_int(-1), @mpf.from_int(-4)),
+      p,
+      @mpf.round_nearest,
+    ),
+  )
+  let pi = @libelefun.mpf_pi(p, @mpf.round_nearest)
+  let z3 = mpci_make(interval(-2, -1), interval(-3, 3))
+  let t3 = mpci_arg(z3, p)
+  assert_mpi_contains(t3, pi)
+  assert_mpi_contains(t3, @mpf.mpf_neg(pi, 0, @mpf.round_down))
+  let z4 = mpci_make(interval(-2, 2), interval(-3, 3))
+  let t4 = mpci_arg(z4, p)
+  assert_mpi_contains(t4, pi)
+  assert_mpi_contains(t4, @mpf.mpf_neg(pi, 0, @mpf.round_down))
+}
+
+///|
+test "mpci arg extended quadrant subset from mpmath interval tests" {
+  let p = 200
+  let z1 = mpci_make(interval(-2, 1), interval(3, 4))
+  let t1 = mpci_arg(z1, p)
+  assert_mpi_contains(
+    t1,
+    @mpc.mpc_arg(
+      @mpc.from_parts(@mpf.from_int(1), @mpf.from_int(3)),
+      p,
+      @mpf.round_nearest,
+    ),
+  )
+  assert_mpi_contains(
+    t1,
+    @mpc.mpc_arg(
+      @mpc.from_parts(@mpf.from_int(-2), @mpf.from_int(3)),
+      p,
+      @mpf.round_nearest,
+    ),
+  )
+  let z2 = mpci_make(interval(1, 2), interval(3, 4))
+  let t2 = mpci_arg(z2, p)
+  assert_mpi_contains(
+    t2,
+    @mpc.mpc_arg(
+      @mpc.from_parts(@mpf.from_int(2), @mpf.from_int(3)),
+      p,
+      @mpf.round_nearest,
+    ),
+  )
+  assert_mpi_contains(
+    t2,
+    @mpc.mpc_arg(
+      @mpc.from_parts(@mpf.from_int(1), @mpf.from_int(4)),
+      p,
+      @mpf.round_nearest,
+    ),
+  )
+  let z3 = mpci_make(interval(1, 2), interval(-2, 3))
+  let t3 = mpci_arg(z3, p)
+  assert_mpi_contains(
+    t3,
+    @mpc.mpc_arg(
+      @mpc.from_parts(@mpf.from_int(1), @mpf.from_int(-2)),
+      p,
+      @mpf.round_nearest,
+    ),
+  )
+  assert_mpi_contains(
+    t3,
+    @mpc.mpc_arg(
+      @mpc.from_parts(@mpf.from_int(1), @mpf.from_int(3)),
+      p,
+      @mpf.round_nearest,
+    ),
+  )
+  let z4 = mpci_make(interval(1, 2), interval(-4, -3))
+  let t4 = mpci_arg(z4, p)
+  assert_mpi_contains(
+    t4,
+    @mpc.mpc_arg(
+      @mpc.from_parts(@mpf.from_int(1), @mpf.from_int(-4)),
+      p,
+      @mpf.round_nearest,
+    ),
+  )
+  assert_mpi_contains(
+    t4,
+    @mpc.mpc_arg(
+      @mpc.from_parts(@mpf.from_int(2), @mpf.from_int(-3)),
+      p,
+      @mpf.round_nearest,
+    ),
+  )
+  let z5 = mpci_make(interval(-1, 2), interval(-4, -3))
+  let t5 = mpci_arg(z5, p)
+  assert_mpi_contains(
+    t5,
+    @mpc.mpc_arg(
+      @mpc.from_parts(@mpf.from_int(-1), @mpf.from_int(-3)),
+      p,
+      @mpf.round_nearest,
+    ),
+  )
+  assert_mpi_contains(
+    t5,
+    @mpc.mpc_arg(
+      @mpc.from_parts(@mpf.from_int(2), @mpf.from_int(-3)),
+      p,
+      @mpf.round_nearest,
+    ),
+  )
+  let z6 = mpci_make(interval(-2, -1), interval(-4, -3))
+  let t6 = mpci_arg(z6, p)
+  assert_mpi_contains(
+    t6,
+    @mpc.mpc_arg(
+      @mpc.from_parts(@mpf.from_int(-2), @mpf.from_int(-3)),
+      p,
+      @mpf.round_nearest,
+    ),
+  )
+  assert_mpi_contains(
+    t6,
+    @mpc.mpc_arg(
+      @mpc.from_parts(@mpf.from_int(-1), @mpf.from_int(-4)),
+      p,
+      @mpf.round_nearest,
+    ),
+  )
+}
+
+///|
+test "mpci abs and pow_int extended subset from mpmath interval tests" {
+  assert_eq(mpci_abs(mpci_make(mpi_zero, interval(2, 3)), 160), interval(2, 3))
+  let a1 = mpci_abs(mpci_make(mpi_zero, interval(-3, 2)), 160)
+  assert_mpi_contains(a1, @mpf.fzero)
+  assert_mpi_contains(a1, @mpf.from_int(3))
+  let a2 = mpci_abs(mpci_make(interval(3, 5), interval(4, 12)), 160)
+  assert_mpi_contains(a2, @mpf.from_int(5))
+  assert_mpi_contains(a2, @mpf.from_int(13))
+  let a3 = mpci_abs(mpci_make(interval(3, 5), interval(-4, 12)), 160)
+  assert_mpi_contains(a3, @mpf.from_int(3))
+  assert_mpi_contains(a3, @mpf.from_int(13))
+  let z = point_ci(@mpf.from_int(2), @mpf.from_int(2))
+  let p1 = mpci_pow_int(z, -1, 180)
+  assert_mpci_contains(
+    p1,
+    @mpc.mpc_pow_int(
+      @mpc.from_parts(@mpf.from_int(2), @mpf.from_int(2)),
+      -1,
+      180,
+      @mpf.round_nearest,
+    ),
+  )
+  let p2 = mpci_pow_int(z, -2, 180)
+  assert_mpci_contains(
+    p2,
+    @mpc.mpc_pow_int(
+      @mpc.from_parts(@mpf.from_int(2), @mpf.from_int(2)),
+      -2,
+      180,
+      @mpf.round_nearest,
+    ),
+  )
 }

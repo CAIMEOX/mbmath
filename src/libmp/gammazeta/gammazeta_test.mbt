@@ -253,6 +253,28 @@ test "mpf gamma/zeta negative real subset" {
 }
 
 ///|
+test "mpf psi0 harmonic infinity semantics and large-negative stability" {
+  assert_true(@mpf.is_nan(mpf_psi0(@mpf.fninf, 140, @mpf.round_nearest)))
+  assert_eq(mpf_psi0(@mpf.finf, 140, @mpf.round_nearest), @mpf.finf)
+  assert_true(@mpf.is_nan(mpf_harmonic(@mpf.fninf, 140, @mpf.round_nearest)))
+  assert_eq(mpf_harmonic(@mpf.finf, 140, @mpf.round_nearest), @mpf.finf)
+  let psi1_large_neg = mpf_psi(
+    1,
+    @mpf.from_str("-1e80"),
+    180,
+    @mpf.round_nearest,
+  )
+  assert_true(@mpf.is_finite(psi1_large_neg))
+  let psi2_large_neg = mpf_psi(
+    2,
+    @mpf.from_str("-1e80"),
+    180,
+    @mpf.round_nearest,
+  )
+  assert_true(@mpf.is_finite(psi2_large_neg))
+}
+
+///|
 test "mpf zeta higher precision subset" {
   assert_true(
     @mpf.to_str_opts(mpf_zeta_int(3, 260, @mpf.round_nearest), dps=30).has_prefix(
