@@ -24,7 +24,7 @@ pub fn mpci_sub(z : RawMpci, w : RawMpci, prec : Int) -> RawMpci {
 }
 
 ///|
-pub fn mpci_mul(z : RawMpci, w : RawMpci, prec : Int) -> RawMpci {
+pub fn mpci_mul(z : RawMpci, w : RawMpci, prec : Int) -> RawMpci raise MpiError {
   let wp = if prec > 0 { prec + 20 } else { 80 }
   let r1 = mpi_mul(z.real, w.real, prec=wp)
   let r2 = mpi_mul(z.imag, w.imag, prec=wp)
@@ -34,7 +34,7 @@ pub fn mpci_mul(z : RawMpci, w : RawMpci, prec : Int) -> RawMpci {
 }
 
 ///|
-pub fn mpci_div(z : RawMpci, w : RawMpci, prec : Int) -> RawMpci {
+pub fn mpci_div(z : RawMpci, w : RawMpci, prec : Int) -> RawMpci raise MpiError {
   let wp = if prec > 0 { prec + 20 } else { 80 }
   let m1 = mpi_square(w.real, prec=wp)
   let m2 = mpi_square(w.imag, prec=wp)

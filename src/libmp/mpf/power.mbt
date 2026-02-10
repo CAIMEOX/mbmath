@@ -10,9 +10,9 @@ fn reciprocal_round(rnd : RoundMode) -> RoundMode {
 }
 
 ///|
-fn big_pow(base : BigInt, n : Int) -> BigInt {
+fn big_pow(base : BigInt, n : Int) -> BigInt raise MpfError {
   if n < 0 {
-    abort("mpf_pow_int: exponent must be non-negative")
+    raise MpfError::ValueError("mpf_pow_int: exponent must be non-negative")
   }
   let mut result = 1N
   let mut b = base
@@ -52,7 +52,12 @@ fn bigint_isqrt_rem(n : BigInt) -> (BigInt, BigInt) {
 }
 
 ///|
-pub fn mpf_pow_int(x : RawMpf, n : Int, prec : Int, rnd : RoundMode) -> RawMpf {
+pub fn mpf_pow_int(
+  x : RawMpf,
+  n : Int,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf raise MpfError {
   if is_inf(x) {
     if n > 0 {
       if x.sign == 1 && (n & 1) == 1 {
@@ -93,18 +98,18 @@ pub fn mpf_pow_int(x : RawMpf, n : Int, prec : Int, rnd : RoundMode) -> RawMpf {
 }
 
 ///|
-pub fn mpf_sqrt(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
+pub fn mpf_sqrt(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf raise MpfError {
   if is_nan(x) {
     return fnan
   }
   if is_inf(x) {
     if x.sign == 1 {
-      abort("mpf_sqrt: square root of a negative number")
+      raise MpfError::DomainError("mpf_sqrt: square root of a negative number")
     }
     return finf
   }
   if x.sign == 1 {
-    abort("mpf_sqrt: square root of a negative number")
+    raise MpfError::DomainError("mpf_sqrt: square root of a negative number")
   }
   if is_zero(x) {
     return x

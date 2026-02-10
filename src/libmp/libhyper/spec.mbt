@@ -1,17 +1,28 @@
 ///|
+pub(all) suberror LibHyperError {
+  ValueError(String)
+  DomainError(String)
+  PoleError(String)
+} derive(Show, Eq)
+
+///|
 #declaration_only
 pub fn mpf_agm(
   x : @mpf.RawMpf,
   y : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibHyperError {
   ...
 }
 
 ///|
 #declaration_only
-pub fn mpf_ei(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_ei(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise LibHyperError {
   ...
 }
 
@@ -33,7 +44,11 @@ pub fn mpf_si(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf 
 
 ///|
 #declaration_only
-pub fn mpf_ci(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_ci(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise LibHyperError {
   ...
 }
 
@@ -43,7 +58,7 @@ pub fn mpf_ellipk(
   m : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibHyperError {
   ...
 }
 
@@ -53,7 +68,7 @@ pub fn mpf_ellipe(
   m : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibHyperError {
   ...
 }
 
@@ -63,7 +78,7 @@ pub fn mpf_agm1(
   a : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibHyperError {
   ...
 }
 
@@ -80,7 +95,11 @@ pub fn mpf_ci_si(
 
 ///|
 #declaration_only
-pub fn mpf_e1(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_e1(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise LibHyperError {
   ...
 }
 
@@ -112,7 +131,7 @@ pub fn mpf_expint(
   prec : Int,
   rnd : @mpf.RoundMode,
   gamma? : Bool = false,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibHyperError {
   ...
 }
 

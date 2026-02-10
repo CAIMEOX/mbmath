@@ -23,11 +23,11 @@ fn hash_exp_shift(exp : Int) -> Int {
 }
 
 ///|
-pub fn mpf_frexp(x : RawMpf) -> (RawMpf, Int) {
+pub fn mpf_frexp(x : RawMpf) -> (RawMpf, Int) raise MpfError {
   if is_zero(x) {
     (fzero, 0)
   } else if !is_finite(x) {
-    abort("mpf_frexp: non-finite input")
+    raise MpfError::DomainError("mpf_frexp: non-finite input")
   } else {
     let n = x.bc + x.exp
     (mpf_shift(x, -n), n)

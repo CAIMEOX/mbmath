@@ -94,22 +94,34 @@ fn mpi_from_str_a_b(
   y : String,
   percent : Bool,
   prec : Int,
-) -> RawMpi {
+) -> RawMpi raise MpiError {
   let base_prec = if prec > 0 { prec } else { auto_parse_prec(x + y) }
   let wp = base_prec + 20
   let out_prec = if prec > 0 { prec } else { 0 }
-  let xa = @mpf.from_str(x, prec=wp, rnd=@mpf.round_floor)
-  let xb = @mpf.from_str(x, prec=wp, rnd=@mpf.round_ceiling)
-  let mut width = @mpf.from_str(y, prec=wp, rnd=@mpf.round_ceiling)
+  let xa = @mpf.from_str(x, prec=wp, rnd=@mpf.round_floor) catch {
+    err => raise from_mpf_error(err)
+  }
+  let xb = @mpf.from_str(x, prec=wp, rnd=@mpf.round_ceiling) catch {
+    err => raise from_mpf_error(err)
+  }
+  let mut width = @mpf.from_str(y, prec=wp, rnd=@mpf.round_ceiling) catch {
+    err => raise from_mpf_error(err)
+  }
   if @mpf.mpf_sign(width) < 0 {
-    abort("mpi_from_str: interval width must be nonnegative")
+    raise MpiError::ValueError(
+      "mpi_from_str: interval width must be nonnegative",
+    )
   }
   if percent {
     let xa_abs = @mpf.mpf_abs(xa, wp, @mpf.round_ceiling)
     let xb_abs = @mpf.mpf_abs(xb, wp, @mpf.round_ceiling)
-    let (_, mx) = @mpf.mpf_min_max([xa_abs, xb_abs])
+    let (_, mx) = @mpf.mpf_min_max([xa_abs, xb_abs]) catch {
+      err => raise from_mpf_error(err)
+    }
     width = @mpf.mpf_mul(mx, width, wp, @mpf.round_ceiling)
-    width = @mpf.mpf_div(width, @mpf.from_int(100), wp, @mpf.round_ceiling)
+    width = @mpf.mpf_div(width, @mpf.from_int(100), wp, @mpf.round_ceiling) catch {
+      err => raise from_mpf_error(err)
+    }
   }
   let lo = @mpf.mpf_sub(xa, width, out_prec, @mpf.round_floor)
   let hi = @mpf.mpf_add(xb, width, out_prec, @mpf.round_ceiling)
@@ -117,7 +129,7 @@ fn mpi_from_str_a_b(
 }
 
 ///|
-pub fn mpi_from_str(s : String, prec? : Int = 0) -> RawMpi {
+pub fn mpi_from_str(s : String, prec? : Int = 0) -> RawMpi raise MpiError {
   let text = strip_spaces(s)
   let wp = if prec > 0 { prec } else { auto_parse_prec(text) }
   match split_exact_two(text, "+-") {
@@ -126,12 +138,12 @@ pub fn mpi_from_str(s : String, prec? : Int = 0) -> RawMpi {
   }
   if text.contains("(") {
     if text.has_prefix("(") || !text.contains(")") {
-      abort("mpi_from_str: malformed interval string")
+      raise MpiError::ParseError("mpi_from_str: malformed interval string")
     }
     match split_exact_two(text, "(") {
       Some((x, tail)) => {
         if !tail.has_suffix(")") {
-          abort("mpi_from_str: malformed interval string")
+          raise MpiError::ParseError("mpi_from_str: malformed interval string")
         }
         let mut y = substring(tail, 0, tail.length() - 1)
         let percent = y.has_suffix("%")
@@ -140,25 +152,31 @@ pub fn mpi_from_str(s : String, prec? : Int = 0) -> RawMpi {
         }
         return mpi_from_str_a_b(x, y, percent, wp)
       }
-      None => abort("mpi_from_str: malformed interval string")
+      None =>
+        raise MpiError::ParseError("mpi_from_str: malformed interval string")
     }
   }
   if text.contains(",") {
     if !text.contains("[") || !text.contains("]") {
-      abort("mpi_from_str: malformed interval string")
+      raise MpiError::ParseError("mpi_from_str: malformed interval string")
     }
     if text.has_prefix("[") {
       if !text.has_suffix("]") {
-        abort("mpi_from_str: malformed interval string")
+        raise MpiError::ParseError("mpi_from_str: malformed interval string")
       }
       let inner = substring(text, 1, text.length() - 1)
       match split_exact_two(inner, ",") {
-        Some((a, b)) =>
-          return mpi_make(
-            @mpf.from_str(a, prec=wp, rnd=@mpf.round_floor),
-            @mpf.from_str(b, prec=wp, rnd=@mpf.round_ceiling),
-          )
-        None => abort("mpi_from_str: malformed interval string")
+        Some((a, b)) => {
+          let lo = @mpf.from_str(a, prec=wp, rnd=@mpf.round_floor) catch {
+            err => raise from_mpf_error(err)
+          }
+          let hi = @mpf.from_str(b, prec=wp, rnd=@mpf.round_ceiling) catch {
+            err => raise from_mpf_error(err)
+          }
+          return mpi_make(lo, hi)
+        }
+        None =>
+          raise MpiError::ParseError("mpi_from_str: malformed interval string")
       }
     }
     match split_exact_two(text, "[") {
@@ -171,23 +189,38 @@ pub fn mpi_from_str(s : String, prec? : Int = 0) -> RawMpi {
                   prefix + y + suffix,
                   prec=wp,
                   rnd=@mpf.round_floor,
-                )
+                ) catch {
+                  err => raise from_mpf_error(err)
+                }
                 let hi = @mpf.from_str(
                   prefix + z + suffix,
                   prec=wp,
                   rnd=@mpf.round_ceiling,
-                )
+                ) catch {
+                  err => raise from_mpf_error(err)
+                }
                 return mpi_make(lo, hi)
               }
-              None => abort("mpi_from_str: malformed interval string")
+              None =>
+                raise MpiError::ParseError(
+                  "mpi_from_str: malformed interval string",
+                )
             }
-          None => abort("mpi_from_str: malformed interval string")
+          None =>
+            raise MpiError::ParseError(
+              "mpi_from_str: malformed interval string",
+            )
         }
-      None => abort("mpi_from_str: malformed interval string")
+      None =>
+        raise MpiError::ParseError("mpi_from_str: malformed interval string")
     }
   }
-  let lo = @mpf.from_str(text, prec=wp, rnd=@mpf.round_floor)
-  let hi = @mpf.from_str(text, prec=wp, rnd=@mpf.round_ceiling)
+  let lo = @mpf.from_str(text, prec=wp, rnd=@mpf.round_floor) catch {
+    err => raise from_mpf_error(err)
+  }
+  let hi = @mpf.from_str(text, prec=wp, rnd=@mpf.round_ceiling) catch {
+    err => raise from_mpf_error(err)
+  }
   mpi_make(lo, hi)
 }
 
@@ -202,20 +235,26 @@ pub fn mpi_to_str_opts(
   right_bracket? : String = "]",
   base? : Int = 10,
   binary_exp? : Bool = false,
-) -> String {
+) -> String raise MpiError {
   let sp = if use_spaces { " " } else { "" }
-  let a_str = @mpf.to_str_opts(s.lo, dps~, base~, binary_exp~)
-  let b_str = @mpf.to_str_opts(s.hi, dps~, base~, binary_exp~)
+  let a_str = @mpf.to_str_opts(s.lo, dps~, base~, binary_exp~) catch {
+    err => raise from_mpf_error(err)
+  }
+  let b_str = @mpf.to_str_opts(s.hi, dps~, base~, binary_exp~) catch {
+    err => raise from_mpf_error(err)
+  }
   match mode {
     "plusminus" => {
       let p = dps_to_prec_approx(dps)
       let mid = mpi_mid(s, p)
       let delta_half = @mpf.mpf_shift(mpi_delta(s, p), -1)
-      @mpf.to_str_opts(mid, dps~, base~, binary_exp~) +
-      sp +
-      "+-" +
-      sp +
-      @mpf.to_str_opts(delta_half, dps~, base~, binary_exp~)
+      let mid_str = @mpf.to_str_opts(mid, dps~, base~, binary_exp~) catch {
+        err => raise from_mpf_error(err)
+      }
+      let delta_str = @mpf.to_str_opts(delta_half, dps~, base~, binary_exp~) catch {
+        err => raise from_mpf_error(err)
+      }
+      mid_str + sp + "+-" + sp + delta_str
     }
     "percent" => {
       let p = dps_to_prec_approx(dps)
@@ -226,21 +265,29 @@ pub fn mpi_to_str_opts(
       } else {
         let num = @mpf.mpf_mul_int(delta, 100, p + 12, @mpf.round_nearest)
         let den = @mpf.mpf_mul_int(mid, 2, p + 12, @mpf.round_nearest)
-        @mpf.mpf_div(num, den, p + 12, @mpf.round_nearest)
+        @mpf.mpf_div(num, den, p + 12, @mpf.round_nearest) catch {
+          err => raise from_mpf_error(err)
+        }
       }
-      @mpf.to_str_opts(mid, dps~, base~, binary_exp~) +
-      sp +
-      "(" +
-      @mpf.to_str_opts(percent, dps=error_dps, base~, binary_exp~) +
-      "%)"
+      let mid_str = @mpf.to_str_opts(mid, dps~, base~, binary_exp~) catch {
+        err => raise from_mpf_error(err)
+      }
+      let pct_str = @mpf.to_str_opts(percent, dps=error_dps, base~, binary_exp~) catch {
+        err => raise from_mpf_error(err)
+      }
+      mid_str + sp + "(" + pct_str + "%)"
     }
     "brackets" => left_bracket + a_str + "," + sp + b_str + right_bracket
     "diff" => {
       let mut left = a_str
       let mut right = b_str
       if left == right {
-        left = @mpf.to_str_opts(s.lo, dps=dps + 3, base~, binary_exp~)
-        right = @mpf.to_str_opts(s.hi, dps=dps + 3, base~, binary_exp~)
+        left = @mpf.to_str_opts(s.lo, dps=dps + 3, base~, binary_exp~) catch {
+          err => raise from_mpf_error(err)
+        }
+        right = @mpf.to_str_opts(s.hi, dps=dps + 3, base~, binary_exp~) catch {
+          err => raise from_mpf_error(err)
+        }
       }
       let (lm, le) = split_exp_string(left)
       let (rm, re) = split_exp_string(right)
@@ -267,17 +314,17 @@ pub fn mpi_to_str_opts(
         left_bracket + left + "," + sp + right + right_bracket
       }
     }
-    _ => abort("mpi_to_str_opts: unknown mode")
+    _ => raise MpiError::UnsupportedError("mpi_to_str_opts: unknown mode")
   }
 }
 
 ///|
-pub fn mpi_to_str(s : RawMpi, dps? : Int = 15) -> String {
+pub fn mpi_to_str(s : RawMpi, dps? : Int = 15) -> String raise MpiError {
   mpi_to_str_opts(s, dps~)
 }
 
 ///|
-pub fn mpi_str(s : RawMpi, prec : Int) -> String {
+pub fn mpi_str(s : RawMpi, prec : Int) -> String raise MpiError {
   let dps = prec_to_dps_approx(prec) + 5
   mpi_to_str_opts(s, dps~)
 }

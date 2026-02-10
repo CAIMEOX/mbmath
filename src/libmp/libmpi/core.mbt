@@ -1,4 +1,34 @@
 ///|
+fn from_mpf_error(err : @mpf.MpfError) -> MpiError {
+  match err {
+    @mpf.MpfError::ValueError(msg) => MpiError::ValueError(msg)
+    @mpf.MpfError::DomainError(msg) => MpiError::DomainError(msg)
+    @mpf.MpfError::DivisionByZero(msg) => MpiError::DomainError(msg)
+    @mpf.MpfError::ParseError(msg) => MpiError::ParseError(msg)
+    @mpf.MpfError::FormatError(msg) => MpiError::ValueError(msg)
+    @mpf.MpfError::UnsupportedError(msg) => MpiError::UnsupportedError(msg)
+  }
+}
+
+///|
+fn from_libelefun_error(err : @libelefun.LibElefunError) -> MpiError {
+  match err {
+    @libelefun.LibElefunError::ValueError(msg) => MpiError::ValueError(msg)
+    @libelefun.LibElefunError::DomainError(msg) => MpiError::DomainError(msg)
+    @libelefun.LibElefunError::ComplexResult(msg) => MpiError::DomainError(msg)
+  }
+}
+
+///|
+fn from_gammazeta_error(err : @gammazeta.GammaZetaError) -> MpiError {
+  match err {
+    @gammazeta.GammaZetaError::ValueError(msg) => MpiError::ValueError(msg)
+    @gammazeta.GammaZetaError::DomainError(msg) => MpiError::DomainError(msg)
+    @gammazeta.GammaZetaError::PoleError(msg) => MpiError::DomainError(msg)
+  }
+}
+
+///|
 let fhalf : @mpf.RawMpf = @mpf.from_man_exp(1N, -1, 0, @mpf.round_down)
 
 ///|
@@ -70,34 +100,38 @@ pub fn mpi_ne(s : RawMpi, t : RawMpi) -> Bool {
 }
 
 ///|
-pub fn mpi_lt(s : RawMpi, t : RawMpi) -> Bool {
+pub fn mpi_lt(s : RawMpi, t : RawMpi) -> Bool raise MpiError {
   if @mpf.mpf_lt(s.hi, t.lo) {
     true
   } else if @mpf.mpf_ge(s.lo, t.hi) {
     false
   } else {
-    abort("mpi_lt: overlapping intervals are unordered")
+    raise MpiError::UnorderedError(
+      "mpi_lt: overlapping intervals are unordered",
+    )
   }
 }
 
 ///|
-pub fn mpi_le(s : RawMpi, t : RawMpi) -> Bool {
+pub fn mpi_le(s : RawMpi, t : RawMpi) -> Bool raise MpiError {
   if @mpf.mpf_le(s.hi, t.lo) {
     true
   } else if @mpf.mpf_gt(s.lo, t.hi) {
     false
   } else {
-    abort("mpi_le: overlapping intervals are unordered")
+    raise MpiError::UnorderedError(
+      "mpi_le: overlapping intervals are unordered",
+    )
   }
 }
 
 ///|
-pub fn mpi_gt(s : RawMpi, t : RawMpi) -> Bool {
+pub fn mpi_gt(s : RawMpi, t : RawMpi) -> Bool raise MpiError {
   mpi_lt(t, s)
 }
 
 ///|
-pub fn mpi_ge(s : RawMpi, t : RawMpi) -> Bool {
+pub fn mpi_ge(s : RawMpi, t : RawMpi) -> Bool raise MpiError {
   mpi_le(t, s)
 }
 
@@ -172,17 +206,29 @@ pub fn mpi_abs(s : RawMpi, prec? : Int = 0) -> RawMpi {
 }
 
 ///|
-pub fn mpi_mul_mpf(s : RawMpi, t : @mpf.RawMpf, prec : Int) -> RawMpi {
+pub fn mpi_mul_mpf(
+  s : RawMpi,
+  t : @mpf.RawMpf,
+  prec : Int,
+) -> RawMpi raise MpiError {
   mpi_mul(s, { lo: t, hi: t }, prec~)
 }
 
 ///|
-pub fn mpi_div_mpf(s : RawMpi, t : @mpf.RawMpf, prec : Int) -> RawMpi {
+pub fn mpi_div_mpf(
+  s : RawMpi,
+  t : @mpf.RawMpf,
+  prec : Int,
+) -> RawMpi raise MpiError {
   mpi_div(s, { lo: t, hi: t }, prec)
 }
 
 ///|
-pub fn mpi_mul(s : RawMpi, t : RawMpi, prec? : Int = 0) -> RawMpi {
+pub fn mpi_mul(
+  s : RawMpi,
+  t : RawMpi,
+  prec? : Int = 0,
+) -> RawMpi raise MpiError {
   let sas = @mpf.mpf_sign(s.lo)
   let sbs = @mpf.mpf_sign(s.hi)
   let tas = @mpf.mpf_sign(t.lo)
@@ -306,7 +352,9 @@ pub fn mpi_mul(s : RawMpi, t : RawMpi, prec? : Int = 0) -> RawMpi {
       return { lo: @mpf.fninf, hi: @mpf.finf }
     }
   }
-  let (mn, mx) = @mpf.mpf_min_max(cases)
+  let (mn, mx) = @mpf.mpf_min_max(cases) catch {
+    err => raise from_mpf_error(err)
+  }
   {
     lo: @mpf.mpf_pos(mn, prec, @mpf.round_floor),
     hi: @mpf.mpf_pos(mx, prec, @mpf.round_ceiling),
@@ -314,7 +362,7 @@ pub fn mpi_mul(s : RawMpi, t : RawMpi, prec? : Int = 0) -> RawMpi {
 }
 
 ///|
-pub fn mpi_square(s : RawMpi, prec? : Int = 0) -> RawMpi {
+pub fn mpi_square(s : RawMpi, prec? : Int = 0) -> RawMpi raise MpiError {
   if @mpf.mpf_ge(s.lo, @mpf.fzero) {
     return {
       lo: @mpf.mpf_mul(s.lo, s.lo, prec, @mpf.round_floor),
@@ -328,12 +376,14 @@ pub fn mpi_square(s : RawMpi, prec? : Int = 0) -> RawMpi {
     }
   }
   let neg_lo = @mpf.mpf_neg(s.lo, 0, @mpf.round_down)
-  let (_, mx) = @mpf.mpf_min_max([neg_lo, s.hi])
+  let (_, mx) = @mpf.mpf_min_max([neg_lo, s.hi]) catch {
+    err => raise from_mpf_error(err)
+  }
   { lo: @mpf.fzero, hi: @mpf.mpf_mul(mx, mx, prec, @mpf.round_ceiling) }
 }
 
 ///|
-pub fn mpi_div(s : RawMpi, t : RawMpi, prec : Int) -> RawMpi {
+pub fn mpi_div(s : RawMpi, t : RawMpi, prec : Int) -> RawMpi raise MpiError {
   let sas = @mpf.mpf_sign(s.lo)
   let sbs = @mpf.mpf_sign(s.hi)
   let tas = @mpf.mpf_sign(t.lo)
@@ -358,19 +408,23 @@ pub fn mpi_div(s : RawMpi, t : RawMpi, prec : Int) -> RawMpi {
       return { lo: @mpf.fninf, hi: @mpf.finf }
     }
     if sas >= 0 {
-      return {
-        lo: @mpf.mpf_div(s.lo, t.hi, prec, @mpf.round_floor),
-        hi: @mpf.finf,
+      let lo = @mpf.mpf_div(s.lo, t.hi, prec, @mpf.round_floor) catch {
+        err => raise from_mpf_error(err)
       }
+      return { lo, hi: @mpf.finf }
     }
-    return {
-      lo: @mpf.fninf,
-      hi: @mpf.mpf_div(s.hi, t.hi, prec, @mpf.round_ceiling),
+    let hi = @mpf.mpf_div(s.hi, t.hi, prec, @mpf.round_ceiling) catch {
+      err => raise from_mpf_error(err)
     }
+    return { lo: @mpf.fninf, hi }
   }
   if sas >= 0 {
-    let a = @mpf.mpf_div(s.lo, t.hi, prec, @mpf.round_floor)
-    let b = @mpf.mpf_div(s.hi, t.lo, prec, @mpf.round_ceiling)
+    let a = @mpf.mpf_div(s.lo, t.hi, prec, @mpf.round_floor) catch {
+      err => raise from_mpf_error(err)
+    }
+    let b = @mpf.mpf_div(s.hi, t.lo, prec, @mpf.round_ceiling) catch {
+      err => raise from_mpf_error(err)
+    }
     return {
       lo: if @mpf.is_nan(a) {
         @mpf.fzero
@@ -385,8 +439,12 @@ pub fn mpi_div(s : RawMpi, t : RawMpi, prec : Int) -> RawMpi {
     }
   }
   if sbs <= 0 {
-    let a = @mpf.mpf_div(s.lo, t.lo, prec, @mpf.round_floor)
-    let b = @mpf.mpf_div(s.hi, t.hi, prec, @mpf.round_ceiling)
+    let a = @mpf.mpf_div(s.lo, t.lo, prec, @mpf.round_floor) catch {
+      err => raise from_mpf_error(err)
+    }
+    let b = @mpf.mpf_div(s.hi, t.hi, prec, @mpf.round_ceiling) catch {
+      err => raise from_mpf_error(err)
+    }
     return {
       lo: if @mpf.is_nan(a) {
         @mpf.fninf
@@ -400,8 +458,12 @@ pub fn mpi_div(s : RawMpi, t : RawMpi, prec : Int) -> RawMpi {
       },
     }
   }
-  let a = @mpf.mpf_div(s.lo, t.lo, prec, @mpf.round_floor)
-  let b = @mpf.mpf_div(s.hi, t.lo, prec, @mpf.round_ceiling)
+  let a = @mpf.mpf_div(s.lo, t.lo, prec, @mpf.round_floor) catch {
+    err => raise from_mpf_error(err)
+  }
+  let b = @mpf.mpf_div(s.hi, t.lo, prec, @mpf.round_ceiling) catch {
+    err => raise from_mpf_error(err)
+  }
   {
     lo: if @mpf.is_nan(a) {
       @mpf.fninf
@@ -433,19 +495,25 @@ pub fn mpi_exp(s : RawMpi, prec : Int) -> RawMpi {
 }
 
 ///|
-pub fn mpi_log(s : RawMpi, prec : Int) -> RawMpi {
-  {
-    lo: @libelefun.mpf_ln(s.lo, prec, @mpf.round_floor),
-    hi: @libelefun.mpf_ln(s.hi, prec, @mpf.round_ceiling),
+pub fn mpi_log(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
+  let lo = @libelefun.mpf_ln(s.lo, prec, @mpf.round_floor) catch {
+    err => raise from_libelefun_error(err)
   }
+  let hi = @libelefun.mpf_ln(s.hi, prec, @mpf.round_ceiling) catch {
+    err => raise from_libelefun_error(err)
+  }
+  { lo, hi }
 }
 
 ///|
-pub fn mpi_sqrt(s : RawMpi, prec : Int) -> RawMpi {
-  {
-    lo: @mpf.mpf_sqrt(s.lo, prec, @mpf.round_floor),
-    hi: @mpf.mpf_sqrt(s.hi, prec, @mpf.round_ceiling),
+pub fn mpi_sqrt(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
+  let lo = @mpf.mpf_sqrt(s.lo, prec, @mpf.round_floor) catch {
+    err => raise from_mpf_error(err)
   }
+  let hi = @mpf.mpf_sqrt(s.hi, prec, @mpf.round_ceiling) catch {
+    err => raise from_mpf_error(err)
+  }
+  { lo, hi }
 }
 
 ///|
@@ -457,7 +525,7 @@ pub fn mpi_atan(s : RawMpi, prec : Int) -> RawMpi {
 }
 
 ///|
-pub fn mpi_pow_int(s : RawMpi, n : Int, prec : Int) -> RawMpi {
+pub fn mpi_pow_int(s : RawMpi, n : Int, prec : Int) -> RawMpi raise MpiError {
   if n < 0 {
     return mpi_div(mpi_one, mpi_pow_int(s, -n, prec + 20), prec)
   }
@@ -471,36 +539,49 @@ pub fn mpi_pow_int(s : RawMpi, n : Int, prec : Int) -> RawMpi {
     return mpi_square(s, prec~)
   }
   if (n & 1) == 1 {
-    return {
-      lo: @mpf.mpf_pow_int(s.lo, n, prec, @mpf.round_floor),
-      hi: @mpf.mpf_pow_int(s.hi, n, prec, @mpf.round_ceiling),
+    let lo = @mpf.mpf_pow_int(s.lo, n, prec, @mpf.round_floor) catch {
+      err => raise from_mpf_error(err)
     }
+    let hi = @mpf.mpf_pow_int(s.hi, n, prec, @mpf.round_ceiling) catch {
+      err => raise from_mpf_error(err)
+    }
+    return { lo, hi }
   }
   let sas = @mpf.mpf_sign(s.lo)
   let sbs = @mpf.mpf_sign(s.hi)
   if sas >= 0 {
-    return {
-      lo: @mpf.mpf_pow_int(s.lo, n, prec, @mpf.round_floor),
-      hi: @mpf.mpf_pow_int(s.hi, n, prec, @mpf.round_ceiling),
+    let lo = @mpf.mpf_pow_int(s.lo, n, prec, @mpf.round_floor) catch {
+      err => raise from_mpf_error(err)
     }
+    let hi = @mpf.mpf_pow_int(s.hi, n, prec, @mpf.round_ceiling) catch {
+      err => raise from_mpf_error(err)
+    }
+    return { lo, hi }
   }
   if sbs <= 0 {
-    return {
-      lo: @mpf.mpf_pow_int(s.hi, n, prec, @mpf.round_floor),
-      hi: @mpf.mpf_pow_int(s.lo, n, prec, @mpf.round_ceiling),
+    let lo = @mpf.mpf_pow_int(s.hi, n, prec, @mpf.round_floor) catch {
+      err => raise from_mpf_error(err)
     }
+    let hi = @mpf.mpf_pow_int(s.lo, n, prec, @mpf.round_ceiling) catch {
+      err => raise from_mpf_error(err)
+    }
+    return { lo, hi }
   }
   let neg_lo = @mpf.mpf_neg(s.lo, 0, @mpf.round_down)
   let hi = if @mpf.mpf_ge(neg_lo, s.hi) {
-    @mpf.mpf_pow_int(neg_lo, n, prec, @mpf.round_ceiling)
+    @mpf.mpf_pow_int(neg_lo, n, prec, @mpf.round_ceiling) catch {
+      err => raise from_mpf_error(err)
+    }
   } else {
-    @mpf.mpf_pow_int(s.hi, n, prec, @mpf.round_ceiling)
+    @mpf.mpf_pow_int(s.hi, n, prec, @mpf.round_ceiling) catch {
+      err => raise from_mpf_error(err)
+    }
   }
   { lo: @mpf.fzero, hi }
 }
 
 ///|
-pub fn mpi_pow(s : RawMpi, t : RawMpi, prec : Int) -> RawMpi {
+pub fn mpi_pow(s : RawMpi, t : RawMpi, prec : Int) -> RawMpi raise MpiError {
   if @mpf.mpf_eq(t.lo, t.hi) && @mpf.is_finite(t.lo) {
     if @mpf.is_zero(t.lo) {
       return mpi_one

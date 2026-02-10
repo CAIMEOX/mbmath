@@ -22,7 +22,7 @@ pub fn mpi_shift(s : RawMpi, n : Int) -> RawMpi {
 }
 
 ///|
-pub fn mpi_cosh_sinh(s : RawMpi, prec : Int) -> (RawMpi, RawMpi) {
+pub fn mpi_cosh_sinh(s : RawMpi, prec : Int) -> (RawMpi, RawMpi) raise MpiError {
   let wp = work_prec(prec)
   let out = default_prec(prec)
   let e1 = mpi_exp(s, wp)
@@ -82,7 +82,7 @@ pub fn mpi_atan2(y : RawMpi, x : RawMpi, prec : Int) -> RawMpi {
 }
 
 ///|
-pub fn mpci_exp(z : RawMpci, prec : Int) -> RawMpci {
+pub fn mpci_exp(z : RawMpci, prec : Int) -> RawMpci raise MpiError {
   let wp = work_prec(prec)
   let out = default_prec(prec)
   let r = mpi_exp(z.real, wp)
@@ -91,7 +91,7 @@ pub fn mpci_exp(z : RawMpci, prec : Int) -> RawMpci {
 }
 
 ///|
-pub fn mpci_cos(z : RawMpci, prec : Int) -> RawMpci {
+pub fn mpci_cos(z : RawMpci, prec : Int) -> RawMpci raise MpiError {
   let wp = if prec > 0 { prec + 10 } else { 90 }
   let out = default_prec(prec)
   let (c, s) = mpi_cos_sin(z.real, wp)
@@ -102,7 +102,7 @@ pub fn mpci_cos(z : RawMpci, prec : Int) -> RawMpci {
 }
 
 ///|
-pub fn mpci_sin(z : RawMpci, prec : Int) -> RawMpci {
+pub fn mpci_sin(z : RawMpci, prec : Int) -> RawMpci raise MpiError {
   let wp = if prec > 0 { prec + 10 } else { 90 }
   let out = default_prec(prec)
   let (c, s) = mpi_cos_sin(z.real, wp)
@@ -111,7 +111,7 @@ pub fn mpci_sin(z : RawMpci, prec : Int) -> RawMpci {
 }
 
 ///|
-pub fn mpci_abs(z : RawMpci, prec : Int) -> RawMpi {
+pub fn mpci_abs(z : RawMpci, prec : Int) -> RawMpi raise MpiError {
   let wp = work_prec(prec)
   let out = default_prec(prec)
   if z.real == mpi_zero {
@@ -132,14 +132,14 @@ pub fn mpci_arg(z : RawMpci, prec : Int) -> RawMpi {
 }
 
 ///|
-pub fn mpci_log(z : RawMpci, prec : Int) -> RawMpci {
+pub fn mpci_log(z : RawMpci, prec : Int) -> RawMpci raise MpiError {
   let wp = work_prec(prec)
   let out = default_prec(prec)
   { real: mpi_log(mpci_abs(z, wp), out), imag: mpci_arg(z, out) }
 }
 
 ///|
-pub fn mpci_square(z : RawMpci, prec : Int) -> RawMpci {
+pub fn mpci_square(z : RawMpci, prec : Int) -> RawMpci raise MpiError {
   let wp = work_prec(prec)
   let out = default_prec(prec)
   let re = mpi_sub(
@@ -152,7 +152,7 @@ pub fn mpci_square(z : RawMpci, prec : Int) -> RawMpci {
 }
 
 ///|
-pub fn mpci_pow_int(z : RawMpci, n : Int, prec : Int) -> RawMpci {
+pub fn mpci_pow_int(z : RawMpci, n : Int, prec : Int) -> RawMpci raise MpiError {
   let out = default_prec(prec)
   if n < 0 {
     return mpci_div(mpci_one, mpci_pow_int(z, -n, out + 20), out)
@@ -183,7 +183,7 @@ pub fn mpci_pow_int(z : RawMpci, n : Int, prec : Int) -> RawMpci {
 }
 
 ///|
-pub fn mpci_pow(z : RawMpci, w : RawMpci, prec : Int) -> RawMpci {
+pub fn mpci_pow(z : RawMpci, w : RawMpci, prec : Int) -> RawMpci raise MpiError {
   if w.imag == mpi_zero && @mpf.mpf_eq(w.real.lo, w.real.hi) {
     if @mpf.is_zero(w.real.lo) {
       return mpci_one

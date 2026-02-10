@@ -14,7 +14,7 @@ fn lift_real(x : @mpf.RawMpf) -> RawMpc {
 
 ///|
 fn const_mpf(v : String, p : Int) -> @mpf.RawMpf {
-  @mpf.from_str(v, prec=if p > 0 { p + 24 } else { 72 }, rnd=@mpf.round_nearest)
+  try! @mpf.from_str(v, prec=if p > 0 { p + 24 } else { 72 }, rnd=@mpf.round_nearest)
 }
 
 ///|
@@ -128,7 +128,7 @@ pub fn mpc_nthroot_fixed(
     @mpf.from_man_exp(b, -prec, 0, @mpf.round_down),
   )
   let low_prec = start + 12
-  let nth = @mpf.mpf_rdiv_int(1, @mpf.from_int(n), low_prec, @mpf.round_nearest)
+  let nth = try! @mpf.mpf_rdiv_int(1, @mpf.from_int(n), low_prec, @mpf.round_nearest)
   let seed = mpc_pow_mpf(z, nth, low_prec, @mpf.round_nearest)
   let mut re = mpf_to_fixed_signed(seed.real, start)
   let mut im = mpf_to_fixed_signed(seed.imag, start)
@@ -182,7 +182,7 @@ fn mpc_gamma_lanczos(z : RawMpc, p : Int) -> RawMpc {
     x = mpc_add(x, add, p, @mpf.round_nearest)
   }
   let t = mpc_add_mpf(z1, const_mpf("7.5", p), p, @mpf.round_nearest)
-  let pow = mpc_pow(
+  let pow = try! mpc_pow(
     t,
     mpc_add_mpf(z1, const_mpf("0.5", p), p, @mpf.round_nearest),
     p,
@@ -313,7 +313,7 @@ fn zeta_series_sum(
       continue
     }
     let base = from_parts(@mpf.from_int(k), @mpf.fzero)
-    let term = mpc_pow(base, minus_s, p, @mpf.round_nearest)
+    let term = try! mpc_pow(base, minus_s, p, @mpf.round_nearest)
     if alternating && (k & 1) == 0 {
       sum = mpc_sub(sum, term, p, @mpf.round_nearest)
     } else {
@@ -332,18 +332,20 @@ fn zeta_series_sum(
 
 ///|
 pub fn mpc_to_str(z : RawMpc, dps? : Int = 15) -> String {
-  let rs = @mpf.to_str_opts(z.real, dps~)
+  let rs = try! @mpf.to_str_opts(z.real, dps~)
   if z.imag.sign == 1 && !@mpf.is_zero(z.imag) {
     let im_abs = @mpf.mpf_neg(z.imag, 0, @mpf.round_down)
-    rs + " - " + @mpf.to_str_opts(im_abs, dps~) + "j"
+    let im_s = try! @mpf.to_str_opts(im_abs, dps~)
+    rs + " - " + im_s + "j"
   } else {
-    rs + " + " + @mpf.to_str_opts(z.imag, dps~) + "j"
+    let im_s = try! @mpf.to_str_opts(z.imag, dps~)
+    rs + " + " + im_s + "j"
   }
 }
 
 ///|
 pub fn mpc_to_complex(z : RawMpc, dps? : Int = 17) -> (String, String) {
-  (@mpf.to_str_opts(z.real, dps~), @mpf.to_str_opts(z.imag, dps~))
+  (try! @mpf.to_str_opts(z.real, dps~), try! @mpf.to_str_opts(z.imag, dps~))
 }
 
 ///|
@@ -357,7 +359,7 @@ pub fn mpc_hash(z : RawMpc) -> Int {
 
 ///|
 pub fn mpc_ln(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
-  mpc_log(z, prec, rnd)
+  try! mpc_log(z, prec, rnd)
 }
 
 ///|
@@ -640,7 +642,7 @@ pub fn mpc_nthroot(
     return mpc_reciprocal(inv, prec, rnd)
   }
   if z.imag == @mpf.fzero && z.real.sign == 0 {
-    return from_parts(@libelefun.mpf_nthroot(z.real, n, prec, rnd), @mpf.fzero)
+    return from_parts(try! @libelefun.mpf_nthroot(z.real, n, prec, rnd), @mpf.fzero)
   }
   if n <= 20 {
     let prec2 = (prec + 10) * 6 / 5
@@ -667,7 +669,7 @@ pub fn mpc_nthroot(
     }
   }
   let p = ext_prec(prec) + 10
-  let inv_n = @mpf.mpf_rdiv_int(1, @mpf.from_int(n), p, @mpf.round_nearest)
+  let inv_n = try! @mpf.mpf_rdiv_int(1, @mpf.from_int(n), p, @mpf.round_nearest)
   mpc_pos(mpc_pow_mpf(z, inv_n, p, @mpf.round_nearest), prec, rnd)
 }
 
@@ -689,7 +691,7 @@ pub fn mpc_fibonacci(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
     p,
     @mpf.round_nearest,
   )
-  let u = mpc_pow(from_parts(phi, @mpf.fzero), z, p, @mpf.round_nearest)
+  let u = try! mpc_pow(from_parts(phi, @mpf.fzero), z, p, @mpf.round_nearest)
   let v = mpc_div(
     mpc_cos_pi(z, p, @mpf.round_nearest),
     u,
@@ -746,12 +748,16 @@ pub fn mpc_agm1(a : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 }
 
 ///|
-pub fn mpc_ei(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+pub fn mpc_ei(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
   if z.imag == @mpf.fzero {
-    return lift_real(@libhyper.mpf_ei(z.real, prec, rnd))
+    return lift_real(try! @libhyper.mpf_ei(z.real, prec, rnd))
   }
   if z == zero() {
-    abort("mpc_ei: singularity at zero")
+    raise MpcError::PoleError("mpc_ei: singularity at zero")
   }
   if mpc_is_infnan(z) {
     return from_parts(@mpf.fnan, @mpf.fnan)
@@ -793,11 +799,11 @@ pub fn mpc_ei(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 ///|
 pub fn mpc_e1(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
   if z.imag == @mpf.fzero {
-    return lift_real(@libhyper.mpf_e1(z.real, prec, rnd))
+    return lift_real(try! @libhyper.mpf_e1(z.real, prec, rnd))
   }
   let p = ext_prec(prec) + 12
   let mut v = mpc_neg(
-    mpc_ei(mpc_neg(z, p, @mpf.round_nearest), p, @mpf.round_nearest),
+    try! mpc_ei(mpc_neg(z, p, @mpf.round_nearest), p, @mpf.round_nearest),
     p,
     @mpf.round_nearest,
   )
@@ -895,14 +901,14 @@ pub fn mpc_ci(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
     let x = z.real
     if x.sign == 1 && !@mpf.is_zero(x) {
       let p = ext_prec(prec)
-      let re = @libhyper.mpf_ci(
+      let re = try! @libhyper.mpf_ci(
         @mpf.mpf_abs(x, p, @mpf.round_nearest),
         prec,
         rnd,
       )
       return from_parts(re, @libelefun.mpf_pi(prec, rnd))
     }
-    return lift_real(@libhyper.mpf_ci(x, prec, rnd))
+    return lift_real(try! @libhyper.mpf_ci(x, prec, rnd))
   }
   if z == zero() {
     return from_parts(@mpf.fninf, @mpf.fzero)
@@ -1016,7 +1022,7 @@ pub fn mpc_ellipk(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
       return zero()
     }
     if @mpf.mpf_le(z.real, @mpf.fone) {
-      return lift_real(@libhyper.mpf_ellipk(z.real, prec, rnd))
+      return lift_real(try! @libhyper.mpf_ellipk(z.real, prec, rnd))
     }
   }
   let p = ext_prec(prec) + 16
@@ -1042,7 +1048,7 @@ pub fn mpc_ellipe(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
       return from_parts(@mpf.fzero, @mpf.finf)
     }
     if @mpf.mpf_le(z.real, @mpf.fone) {
-      return lift_real(@libhyper.mpf_ellipe(z.real, prec, rnd))
+      return lift_real(try! @libhyper.mpf_ellipe(z.real, prec, rnd))
     }
   }
   let p = ext_prec(prec) + 16
@@ -1068,7 +1074,7 @@ pub fn mpc_ellipe(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 ///|
 pub fn mpc_gamma(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
   if z.imag == @mpf.fzero {
-    return lift_real(@gammazeta.mpf_gamma(z.real, prec, rnd))
+    return lift_real(try! @gammazeta.mpf_gamma(z.real, prec, rnd))
   }
   if mpc_is_infnan(z) {
     return from_parts(@mpf.fnan, @mpf.fnan)
@@ -1100,7 +1106,7 @@ pub fn mpc_gamma(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 ///|
 pub fn mpc_rgamma(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
   if z.imag == @mpf.fzero {
-    return lift_real(@gammazeta.mpf_rgamma(z.real, prec, rnd))
+    return lift_real(try! @gammazeta.mpf_rgamma(z.real, prec, rnd))
   }
   mpc_pos(
     mpc_reciprocal(
@@ -1116,7 +1122,7 @@ pub fn mpc_rgamma(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 ///|
 pub fn mpc_loggamma(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
   if z.imag == @mpf.fzero {
-    return lift_real(@gammazeta.mpf_loggamma(z.real, prec, rnd))
+    return lift_real(try! @gammazeta.mpf_loggamma(z.real, prec, rnd))
   }
   let p = ext_prec(prec) + 20
   mpc_pos(
@@ -1135,7 +1141,7 @@ pub fn mpc_factorial(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 ///|
 pub fn mpc_harmonic(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
   if z.imag == @mpf.fzero {
-    return lift_real(@gammazeta.mpf_harmonic(z.real, prec, rnd))
+    return lift_real(try! @gammazeta.mpf_harmonic(z.real, prec, rnd))
   }
   let p = ext_prec(prec) + 20
   let psi = mpc_psi0(
@@ -1158,7 +1164,7 @@ pub fn mpc_harmonic(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 ///|
 pub fn mpc_psi0(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
   if z.imag == @mpf.fzero {
-    return lift_real(@gammazeta.mpf_psi0(z.real, prec, rnd))
+    return lift_real(try! @gammazeta.mpf_psi0(z.real, prec, rnd))
   }
   let p = ext_prec(prec) + 44
   let shift = if prec > 0 { prec / 2 + 6 } else { 26 }
@@ -1181,12 +1187,17 @@ pub fn mpc_psi0(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 }
 
 ///|
-pub fn mpc_psi(m : Int, z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
-  if z.imag == @mpf.fzero {
-    return lift_real(@gammazeta.mpf_psi(m, z.real, prec, rnd))
-  }
+pub fn mpc_psi(
+  m : Int,
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
   if m < 0 {
-    abort("mpc_psi: m must be non-negative")
+    raise MpcError::ValueError("mpc_psi: m must be non-negative")
+  }
+  if z.imag == @mpf.fzero {
+    return lift_real(try! @gammazeta.mpf_psi(m, z.real, prec, rnd))
   }
   if m == 0 {
     return mpc_psi0(z, prec, rnd)
@@ -1232,7 +1243,7 @@ pub fn mpc_psi(m : Int, z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc 
   s = mpc_add(s, endpoint, p, @mpf.round_nearest)
   let magn = mpc_abs(s, 20, @mpf.round_nearest)
   let eps = @mpf.mpf_shift(@mpf.fone, magn.exp + magn.bc - p + 2)
-  let mut ratio = @mpf.mpf_div(
+  let mut ratio = try! @mpf.mpf_div(
     @mpf.from_int(m + 1),
     @mpf.from_int(2),
     p,
@@ -1241,7 +1252,7 @@ pub fn mpc_psi(m : Int, z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc 
   let mut k = 1
   while k < 128 {
     zm = mpc_mul(zm, z2, p, @mpf.round_nearest)
-    let bern = @gammazeta.mpf_bernoulli(2 * k, p, @mpf.round_nearest)
+    let bern = try! @gammazeta.mpf_bernoulli(2 * k, p, @mpf.round_nearest)
     let scal = @mpf.mpf_mul(bern, ratio, p, @mpf.round_nearest)
     let term = mpc_mul_mpf(zm, scal, p, @mpf.round_nearest)
     s = mpc_add(s, term, p, @mpf.round_nearest)
@@ -1251,13 +1262,13 @@ pub fn mpc_psi(m : Int, z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc 
     }
     ratio = @mpf.mpf_mul_int(ratio, m + 2 * k, p, @mpf.round_nearest)
     ratio = @mpf.mpf_mul_int(ratio, m + 2 * k + 1, p, @mpf.round_nearest)
-    ratio = @mpf.mpf_div(ratio, @mpf.from_int(2 * k + 1), p, @mpf.round_nearest)
-    ratio = @mpf.mpf_div(ratio, @mpf.from_int(2 * k + 2), p, @mpf.round_nearest)
+    ratio = try! @mpf.mpf_div(ratio, @mpf.from_int(2 * k + 1), p, @mpf.round_nearest)
+    ratio = try! @mpf.mpf_div(ratio, @mpf.from_int(2 * k + 2), p, @mpf.round_nearest)
     k += 1
   }
   let mut v = mpc_mul_mpf(
     s,
-    @gammazeta.mpf_gamma(@mpf.from_int(m + 1), p, @mpf.round_nearest),
+    try! @gammazeta.mpf_gamma(@mpf.from_int(m + 1), p, @mpf.round_nearest),
     p,
     @mpf.round_nearest,
   )
@@ -1282,7 +1293,7 @@ pub fn mpc_zetasum(
 ///|
 pub fn mpc_altzeta(s : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
   if s.imag == @mpf.fzero {
-    return lift_real(@gammazeta.mpf_altzeta(s.real, prec, rnd))
+    return lift_real(try! @gammazeta.mpf_altzeta(s.real, prec, rnd))
   }
   let p = ext_prec(prec) + 12
   mpc_pos(zeta_series_sum(s, p, 1, clamp_series_terms(prec), true), prec, rnd)
@@ -1296,7 +1307,7 @@ pub fn mpc_zeta(
   alt? : Bool = false,
 ) -> RawMpc {
   if s.imag == @mpf.fzero {
-    return lift_real(@gammazeta.mpf_zeta(s.real, prec, rnd, alt~))
+    return lift_real(try! @gammazeta.mpf_zeta(s.real, prec, rnd, alt~))
   }
   if alt {
     return mpc_altzeta(s, prec, rnd)
@@ -1304,7 +1315,7 @@ pub fn mpc_zeta(
   let p = ext_prec(prec) + 16
   let eta = zeta_series_sum(s, p, 1, clamp_series_terms(prec), true)
   let one_minus_s = mpc_sub(one(), s, p, @mpf.round_nearest)
-  let two_pow = mpc_pow(
+  let two_pow = try! mpc_pow(
     from_parts(@mpf.from_int(2), @mpf.fzero),
     one_minus_s,
     p,

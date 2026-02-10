@@ -184,8 +184,8 @@ pub fn mpc_div(
   let t = @mpf.mpf_add(ac, bd, wp, @mpf.round_nearest)
   let u = @mpf.mpf_sub(bc, ad, wp, @mpf.round_nearest)
   {
-    real: @mpf.mpf_div(t, mag, prec, rnd),
-    imag: @mpf.mpf_div(u, mag, prec, rnd),
+    real: try! @mpf.mpf_div(t, mag, prec, rnd),
+    imag: try! @mpf.mpf_div(u, mag, prec, rnd),
   }
 }
 
@@ -197,8 +197,8 @@ pub fn mpc_div_mpf(
   rnd : @mpf.RoundMode,
 ) -> RawMpc {
   {
-    real: @mpf.mpf_div(z.real, x, prec, rnd),
-    imag: @mpf.mpf_div(z.imag, x, prec, rnd),
+    real: try! @mpf.mpf_div(z.real, x, prec, rnd),
+    imag: try! @mpf.mpf_div(z.imag, x, prec, rnd),
   }
 }
 
@@ -212,8 +212,8 @@ pub fn mpc_reciprocal(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
   let bb = @mpf.mpf_mul(z.imag, z.imag, 0, @mpf.round_down)
   let mag = @mpf.mpf_add(aa, bb, wp, @mpf.round_nearest)
   {
-    real: @mpf.mpf_div(z.real, mag, prec, rnd),
-    imag: @mpf.mpf_neg(@mpf.mpf_div(z.imag, mag, prec, rnd), prec, rnd),
+    real: try! @mpf.mpf_div(z.real, mag, prec, rnd),
+    imag: @mpf.mpf_neg(try! @mpf.mpf_div(z.imag, mag, prec, rnd), prec, rnd),
   }
 }
 
@@ -234,8 +234,8 @@ pub fn mpc_mpf_div(
   let ax = @mpf.mpf_mul(z.real, x, wp, @mpf.round_nearest)
   let bx = @mpf.mpf_mul(z.imag, x, wp, @mpf.round_nearest)
   {
-    real: @mpf.mpf_div(ax, mag, prec, rnd),
-    imag: @mpf.mpf_neg(@mpf.mpf_div(bx, mag, prec, rnd), prec, rnd),
+    real: try! @mpf.mpf_div(ax, mag, prec, rnd),
+    imag: @mpf.mpf_neg(try! @mpf.mpf_div(bx, mag, prec, rnd), prec, rnd),
   }
 }
 
@@ -247,7 +247,7 @@ pub fn mpc_pow_int(
   rnd : @mpf.RoundMode,
 ) -> RawMpc {
   if z.imag == @mpf.fzero {
-    return { real: @mpf.mpf_pow_int(z.real, n, prec, rnd), imag: @mpf.fzero }
+    return { real: try! @mpf.mpf_pow_int(z.real, n, prec, rnd), imag: @mpf.fzero }
   }
   if n == 0 {
     return one()
@@ -312,7 +312,7 @@ pub fn mpc_frac(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 
 ///|
 pub fn mpc_abs(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
-  @mpf.mpf_hypot(z.real, z.imag, prec, rnd)
+  try! @mpf.mpf_hypot(z.real, z.imag, prec, rnd)
 }
 
 ///|
@@ -329,10 +329,10 @@ pub fn mpc_sqrt(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
       return z
     }
     if a.sign == 1 {
-      let im = @mpf.mpf_sqrt(@mpf.mpf_neg(a, 0, @mpf.round_down), prec, rnd)
+      let im = try! @mpf.mpf_sqrt(@mpf.mpf_neg(a, 0, @mpf.round_down), prec, rnd)
       return { real: @mpf.fzero, imag: im }
     } else {
-      let re = @mpf.mpf_sqrt(a, prec, rnd)
+      let re = try! @mpf.mpf_sqrt(a, prec, rnd)
       return { real: re, imag: @mpf.fzero }
     }
   }
@@ -348,10 +348,10 @@ pub fn mpc_sqrt(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
       @mpf.round_nearest,
     )
     let u = @mpf.mpf_shift(t, -1)
-    let re = @mpf.mpf_sqrt(u, prec, rnd)
+    let re = try! @mpf.mpf_sqrt(u, prec, rnd)
     let v = @mpf.mpf_shift(t, 1)
-    let w = @mpf.mpf_sqrt(v, wp, @mpf.round_nearest)
-    let im = @mpf.mpf_div(b, w, prec, rnd)
+    let w = try! @mpf.mpf_sqrt(v, wp, @mpf.round_nearest)
+    let im = try! @mpf.mpf_div(b, w, prec, rnd)
     { real: re, imag: im }
   } else {
     let t = @mpf.mpf_sub(
@@ -361,10 +361,10 @@ pub fn mpc_sqrt(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
       @mpf.round_nearest,
     )
     let u = @mpf.mpf_shift(t, -1)
-    let mut im = @mpf.mpf_sqrt(u, prec, rnd)
+    let mut im = try! @mpf.mpf_sqrt(u, prec, rnd)
     let v = @mpf.mpf_shift(t, 1)
-    let w = @mpf.mpf_sqrt(v, wp, @mpf.round_nearest)
-    let mut re = @mpf.mpf_div(b, w, prec, rnd)
+    let w = try! @mpf.mpf_sqrt(v, wp, @mpf.round_nearest)
+    let mut re = try! @mpf.mpf_div(b, w, prec, rnd)
     if b.sign == 1 {
       re = @mpf.mpf_neg(re, prec, rnd)
       im = @mpf.mpf_neg(im, prec, rnd)
@@ -391,13 +391,17 @@ pub fn mpc_exp(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 }
 
 ///|
-pub fn mpc_log(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+pub fn mpc_log(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
   if z == zero() {
-    abort("mpc_log: logarithm singular at zero")
+    raise MpcError::PoleError("mpc_log: logarithm singular at zero")
   }
   let p = work_prec(prec)
   {
-    real: @libelefun.mpf_log(mpc_abs(z, p, @mpf.round_nearest), prec, rnd),
+    real: try! @libelefun.mpf_log(mpc_abs(z, p, @mpf.round_nearest), prec, rnd),
     imag: mpc_arg(z, prec, rnd),
   }
 }
@@ -408,13 +412,13 @@ pub fn mpc_pow(
   w : RawMpc,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> RawMpc {
+) -> RawMpc raise MpcError {
   if w == zero() {
     return one()
   }
   if z == zero() {
     if w.imag != @mpf.fzero || @mpf.mpf_sign(w.real) <= 0 {
-      abort(
+      raise MpcError::DomainError(
         "mpc_pow: undefined for zero base with non-positive/complex exponent",
       )
     }
@@ -433,7 +437,7 @@ pub fn mpc_pow_mpf(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> RawMpc {
-  mpc_pow(z, from_parts(x, @mpf.fzero), prec, rnd)
+  try! mpc_pow(z, from_parts(x, @mpf.fzero), prec, rnd)
 }
 
 ///|

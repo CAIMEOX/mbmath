@@ -8,6 +8,11 @@ fn abs_bigint(x : BigInt) -> BigInt {
 }
 
 ///|
+pub(all) suberror IntMathError {
+  ValueError(String)
+} derive(Show, Eq)
+
+///|
 pub fn bit_length(x : BigInt) -> Int {
   x.bit_length()
 }
@@ -45,9 +50,9 @@ pub fn gcd(a : BigInt, b : BigInt) -> BigInt {
 }
 
 ///|
-pub fn isqrt(n : BigInt) -> BigInt {
+pub fn isqrt(n : BigInt) -> BigInt raise IntMathError {
   if n < 0N {
-    abort("isqrt: negative input")
+    raise IntMathError::ValueError("isqrt: negative input")
   }
   if n <= 1N {
     n
@@ -62,9 +67,9 @@ pub fn isqrt(n : BigInt) -> BigInt {
 }
 
 ///|
-pub fn sqrtrem(n : BigInt) -> (BigInt, BigInt) {
+pub fn sqrtrem(n : BigInt) -> (BigInt, BigInt) raise IntMathError {
   if n < 0N {
-    abort("sqrtrem: negative input")
+    raise IntMathError::ValueError("sqrtrem: negative input")
   }
   let r = isqrt(n)
   (r, n - r * r)
@@ -76,12 +81,12 @@ pub fn bin_to_radix(
   xbits : Int,
   base : Int,
   bdigits : Int,
-) -> BigInt {
+) -> BigInt raise IntMathError {
   if base <= 1 {
-    abort("bin_to_radix: base must be greater than 1")
+    raise IntMathError::ValueError("bin_to_radix: base must be greater than 1")
   }
   if bdigits < 0 {
-    abort("bin_to_radix: bdigits must be non-negative")
+    raise IntMathError::ValueError("bin_to_radix: bdigits must be non-negative")
   }
   let factor = BigInt::from_int(base).pow(BigInt::from_int(bdigits))
   if xbits >= 0 {
@@ -92,9 +97,9 @@ pub fn bin_to_radix(
 }
 
 ///|
-pub fn numeral(n : BigInt, base? : Int = 10) -> String {
+pub fn numeral(n : BigInt, base? : Int = 10) -> String raise IntMathError {
   if base < 2 || base > 36 {
-    abort("numeral: base must be in [2, 36]")
+    raise IntMathError::ValueError("numeral: base must be in [2, 36]")
   }
   n.to_string(radix=base)
 }

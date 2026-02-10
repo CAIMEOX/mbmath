@@ -185,7 +185,12 @@ pub fn mpf_mul_int(x : RawMpf, n : Int, prec : Int, rnd : RoundMode) -> RawMpf {
 }
 
 ///|
-pub fn mpf_rdiv_int(n : Int, x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
+pub fn mpf_rdiv_int(
+  n : Int,
+  x : RawMpf,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf raise MpfError {
   if n == 0 || is_zero(x) || !is_finite(x) {
     return mpf_div(from_int(n), x, prec, rnd)
   }
@@ -223,6 +228,8 @@ fn mpf_round_int_inner(x : RawMpf, mode : RoundMode) -> RawMpf {
   let signed = match mode {
     RoundMode::Floor => if x.sign == 0 { int_part } else { -(int_part + bump) }
     RoundMode::Ceiling => if x.sign == 0 { int_part + bump } else { -int_part }
+    RoundMode::Down => if x.sign == 0 { int_part } else { -int_part }
+    RoundMode::Up => if x.sign == 0 { int_part + bump } else { -(int_part + bump) }
     RoundMode::Nearest => {
       let half = 1N << (shift - 1)
       let nearest = if rem > half || (rem == half && (int_part & 1N) == 1N) {
@@ -236,7 +243,6 @@ fn mpf_round_int_inner(x : RawMpf, mode : RoundMode) -> RawMpf {
         nearest
       }
     }
-    _ => abort("mpf_round_int_inner: unsupported rounding mode")
   }
   from_man_exp(signed, 0, 0, round_down)
 }
@@ -246,15 +252,16 @@ pub fn mpf_round_int(x : RawMpf, rnd : RoundMode) -> RawMpf {
   match rnd {
     RoundMode::Floor => mpf_round_int_inner(x, round_floor)
     RoundMode::Ceiling => mpf_round_int_inner(x, round_ceiling)
+    RoundMode::Down => mpf_round_int_inner(x, round_down)
+    RoundMode::Up => mpf_round_int_inner(x, round_up)
     RoundMode::Nearest => mpf_round_int_inner(x, round_nearest)
-    _ => abort("mpf_round_int: unsupported rounding mode")
   }
 }
 
 ///|
-pub fn mpf_min_max(seq : ArrayView[RawMpf]) -> (RawMpf, RawMpf) {
+pub fn mpf_min_max(seq : ArrayView[RawMpf]) -> (RawMpf, RawMpf) raise MpfError {
   if seq.length() == 0 {
-    abort("mpf_min_max: empty input")
+    raise MpfError::ValueError("mpf_min_max: empty input")
   }
   let mut min_v = seq[0]
   let mut max_v = seq[0]

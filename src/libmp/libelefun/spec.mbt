@@ -1,4 +1,11 @@
 ///|
+pub(all) suberror LibElefunError {
+  ValueError(String)
+  DomainError(String)
+  ComplexResult(String)
+} derive(Show, Eq)
+
+///|
 #declaration_only
 pub fn mpf_atan2(
   y : @mpf.RawMpf,
@@ -37,7 +44,11 @@ pub fn mpf_exp(
 
 ///|
 #declaration_only
-pub fn mpf_ln(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_ln(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise LibElefunError {
   ...
 }
 
@@ -47,7 +58,7 @@ pub fn mpf_log(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibElefunError {
   ...
 }
 
@@ -57,7 +68,7 @@ pub fn mpf_log1p(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibElefunError {
   ...
 }
 
@@ -127,7 +138,7 @@ pub fn mpf_asin(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibElefunError {
   ...
 }
 
@@ -137,7 +148,7 @@ pub fn mpf_acos(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibElefunError {
   ...
 }
 
@@ -157,7 +168,7 @@ pub fn mpf_acosh(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibElefunError {
   ...
 }
 
@@ -167,7 +178,7 @@ pub fn mpf_atanh(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibElefunError {
   ...
 }
 
@@ -178,7 +189,7 @@ pub fn mpf_pow(
   y : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise {
   ...
 }
 
@@ -189,7 +200,7 @@ pub fn mpf_nthroot(
   n : Int,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise {
   ...
 }
 
@@ -315,7 +326,7 @@ pub fn mpf_expj(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibElefunError {
   ...
 }
 
@@ -325,6 +336,6 @@ pub fn mpf_expjpi(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibElefunError {
   ...
 }

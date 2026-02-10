@@ -101,18 +101,23 @@ pub fn mpf_mul(x : RawMpf, y : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
 }
 
 ///|
-pub fn mpf_div(x : RawMpf, y : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
+pub fn mpf_div(
+  x : RawMpf,
+  y : RawMpf,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf raise MpfError {
   if is_nan(x) || is_nan(y) {
     return fnan
   }
   if is_zero(x) {
     if is_zero(y) {
-      abort("mpf_div: division by zero")
+      raise MpfError::DivisionByZero("mpf_div: division by zero")
     }
     return fzero
   }
   if is_zero(y) {
-    abort("mpf_div: division by zero")
+    raise MpfError::DivisionByZero("mpf_div: division by zero")
   }
   if is_inf(x) && is_inf(y) {
     return fnan

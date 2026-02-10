@@ -34,7 +34,7 @@ fn atan_series_small(x : @mpf.RawMpf, wp : Int) -> @mpf.RawMpf {
     let den = num + 2
     term = @mpf.mpf_mul(term, x2, wp, @mpf.round_nearest)
     term = @mpf.mpf_mul_int(term, -num, wp, @mpf.round_nearest)
-    term = @mpf.mpf_div(term, @mpf.from_int(den), wp, @mpf.round_nearest)
+    term = try! @mpf.mpf_div(term, @mpf.from_int(den), wp, @mpf.round_nearest)
     sum = @mpf.mpf_add(sum, term, wp, @mpf.round_nearest)
     if tiny_enough(abs_mpf(term, wp), wp + 8) {
       break
@@ -47,7 +47,7 @@ fn atan_series_small(x : @mpf.RawMpf, wp : Int) -> @mpf.RawMpf {
 ///|
 fn ln_series_near_one(y : @mpf.RawMpf, wp : Int) -> @mpf.RawMpf {
   let one = @mpf.fone
-  let t = @mpf.mpf_div(
+  let t = try! @mpf.mpf_div(
     @mpf.mpf_sub(y, one, wp, @mpf.round_nearest),
     @mpf.mpf_add(y, one, wp, @mpf.round_nearest),
     wp,
@@ -59,7 +59,7 @@ fn ln_series_near_one(y : @mpf.RawMpf, wp : Int) -> @mpf.RawMpf {
   let mut n = 1
   while n < 50000 {
     term = @mpf.mpf_mul(term, t2, wp, @mpf.round_nearest)
-    let frac = @mpf.mpf_div(
+    let frac = try! @mpf.mpf_div(
       term,
       @mpf.from_int(2 * n + 1),
       wp,
@@ -81,7 +81,7 @@ fn exp_series_small(x : @mpf.RawMpf, wp : Int) -> @mpf.RawMpf {
   let mut n = 1
   while n < 50000 {
     term = @mpf.mpf_mul(term, x, wp, @mpf.round_nearest)
-    term = @mpf.mpf_div(term, @mpf.from_int(n), wp, @mpf.round_nearest)
+    term = try! @mpf.mpf_div(term, @mpf.from_int(n), wp, @mpf.round_nearest)
     sum = @mpf.mpf_add(sum, term, wp, @mpf.round_nearest)
     if tiny_enough(abs_mpf(term, wp), wp + 10) {
       break
@@ -117,12 +117,12 @@ pub fn mpf_atan(
   let mut scale = 1
   while @mpf.mpf_gt(y, half) && scale < 1 << 16 {
     let y2 = @mpf.mpf_mul(y, y, wp, @mpf.round_nearest)
-    let root = @mpf.mpf_sqrt(
+    let root = try! @mpf.mpf_sqrt(
       @mpf.mpf_add(@mpf.fone, y2, wp, @mpf.round_nearest),
       wp,
       @mpf.round_nearest,
     )
-    y = @mpf.mpf_div(
+    y = try! @mpf.mpf_div(
       y,
       @mpf.mpf_add(@mpf.fone, root, wp, @mpf.round_nearest),
       wp,
@@ -143,8 +143,8 @@ pub fn mpf_atan(
 ///|
 pub fn mpf_pi(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
   let wp = work_prec(prec)
-  let a = @mpf.mpf_div(@mpf.fone, @mpf.from_int(5), wp, @mpf.round_nearest)
-  let b = @mpf.mpf_div(@mpf.fone, @mpf.from_int(239), wp, @mpf.round_nearest)
+  let a = try! @mpf.mpf_div(@mpf.fone, @mpf.from_int(5), wp, @mpf.round_nearest)
+  let b = try! @mpf.mpf_div(@mpf.fone, @mpf.from_int(239), wp, @mpf.round_nearest)
   let t1 = mpf_atan(a, wp, @mpf.round_nearest)
   let t2 = mpf_atan(b, wp, @mpf.round_nearest)
   let p = @mpf.mpf_sub(
@@ -178,7 +178,7 @@ pub fn mpf_atan2(
     }
     return @mpf.fzero
   }
-  let q = @mpf.mpf_div(y, x, wp, @mpf.round_nearest)
+  let q = try! @mpf.mpf_div(y, x, wp, @mpf.round_nearest)
   let a = mpf_atan(q, wp, @mpf.round_nearest)
   if sx > 0 {
     return @mpf.mpf_pos(a, prec, rnd)
@@ -226,13 +226,17 @@ pub fn mpf_exp(
 }
 
 ///|
-pub fn mpf_ln(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_ln(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise LibElefunError {
   if @mpf.is_nan(x) {
     return @mpf.fnan
   }
   if @mpf.is_inf(x) {
     if x.sign == 1 {
-      abort("mpf_ln: non-positive input")
+      raise LibElefunError::DomainError("mpf_ln: non-positive input")
     } else {
       return @mpf.finf
     }
@@ -241,7 +245,7 @@ pub fn mpf_ln(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf 
     return @mpf.fninf
   }
   if x.sign == 1 {
-    abort("mpf_ln: non-positive input")
+    raise LibElefunError::DomainError("mpf_ln: non-positive input")
   }
   if x == @mpf.fone {
     return @mpf.fzero
@@ -288,13 +292,13 @@ fn sin_cos_series_small(
   while k < 50000 {
     sin_term = @mpf.mpf_mul(sin_term, x2, wp, @mpf.round_nearest)
     sin_term = @mpf.mpf_mul_int(sin_term, -1, wp, @mpf.round_nearest)
-    sin_term = @mpf.mpf_div(
+    sin_term = try! @mpf.mpf_div(
       sin_term,
       @mpf.from_int(2 * k),
       wp,
       @mpf.round_nearest,
     )
-    sin_term = @mpf.mpf_div(
+    sin_term = try! @mpf.mpf_div(
       sin_term,
       @mpf.from_int(2 * k + 1),
       wp,
@@ -303,13 +307,13 @@ fn sin_cos_series_small(
     sin_sum = @mpf.mpf_add(sin_sum, sin_term, wp, @mpf.round_nearest)
     cos_term = @mpf.mpf_mul(cos_term, x2, wp, @mpf.round_nearest)
     cos_term = @mpf.mpf_mul_int(cos_term, -1, wp, @mpf.round_nearest)
-    cos_term = @mpf.mpf_div(
+    cos_term = try! @mpf.mpf_div(
       cos_term,
       @mpf.from_int(2 * k - 1),
       wp,
       @mpf.round_nearest,
     )
-    cos_term = @mpf.mpf_div(
+    cos_term = try! @mpf.mpf_div(
       cos_term,
       @mpf.from_int(2 * k),
       wp,
@@ -335,7 +339,7 @@ fn sin_cos_reduced(x : @mpf.RawMpf, wp : Int) -> (@mpf.RawMpf, @mpf.RawMpf) {
   let neg_quarter_pi = @mpf.mpf_neg(quarter_pi, 0, @mpf.round_down)
   let mut y = @mpf.mpf_pos(x, wp, @mpf.round_nearest)
   let turns = @mpf.mpf_nint(
-    @mpf.mpf_div(y, two_pi, wp, @mpf.round_nearest),
+    try! @mpf.mpf_div(y, two_pi, wp, @mpf.round_nearest),
     0,
     @mpf.round_nearest,
   )
@@ -381,7 +385,7 @@ pub fn mpf_log(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibElefunError {
   mpf_ln(x, prec, rnd)
 }
 
@@ -390,13 +394,13 @@ pub fn mpf_log1p(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibElefunError {
   if @mpf.is_nan(x) {
     return @mpf.fnan
   }
   if @mpf.is_inf(x) {
     if x.sign == 1 {
-      abort("mpf_log1p: x must be >= -1")
+      raise LibElefunError::DomainError("mpf_log1p: x must be >= -1")
     } else {
       return @mpf.finf
     }
@@ -408,7 +412,7 @@ pub fn mpf_log1p(
     return @mpf.fninf
   }
   if x.sign == 1 && @mpf.mpf_gt(@mpf.mpf_neg(x, 0, @mpf.round_down), @mpf.fone) {
-    abort("mpf_log1p: x must be >= -1")
+    raise LibElefunError::DomainError("mpf_log1p: x must be >= -1")
   }
   let wp = work_prec(prec) + 10
   let u = @mpf.mpf_add(@mpf.fone, x, wp * 2, @mpf.round_nearest)
@@ -416,14 +420,14 @@ pub fn mpf_log1p(
     return @mpf.fninf
   }
   if u.sign == 1 {
-    abort("mpf_log1p: x must be >= -1")
+    raise LibElefunError::DomainError("mpf_log1p: x must be >= -1")
   }
-  let lnu = mpf_ln(u, wp, @mpf.round_nearest)
+  let lnu = try! mpf_ln(u, wp, @mpf.round_nearest)
   let den = @mpf.mpf_sub(u, @mpf.fone, wp, @mpf.round_nearest)
   let corr = if @mpf.is_zero(den) {
     @mpf.fone
   } else {
-    @mpf.mpf_div(x, den, wp, @mpf.round_nearest)
+    try! @mpf.mpf_div(x, den, wp, @mpf.round_nearest)
   }
   @mpf.mpf_pos(@mpf.mpf_mul(lnu, corr, wp, @mpf.round_nearest), prec, rnd)
 }
@@ -473,7 +477,7 @@ pub fn mpf_tan(
   }
   let wp = work_prec(prec) + 8
   let (s, c) = sin_cos_reduced(x, wp)
-  @mpf.mpf_pos(@mpf.mpf_div(s, c, wp, @mpf.round_nearest), prec, rnd)
+  @mpf.mpf_pos(try! @mpf.mpf_div(s, c, wp, @mpf.round_nearest), prec, rnd)
 }
 
 ///|
@@ -547,7 +551,7 @@ pub fn mpf_tanh(
   let wp = work_prec(prec) + 8
   let sh = mpf_sinh(x, wp, @mpf.round_nearest)
   let ch = mpf_cosh(x, wp, @mpf.round_nearest)
-  @mpf.mpf_pos(@mpf.mpf_div(sh, ch, wp, @mpf.round_nearest), prec, rnd)
+  @mpf.mpf_pos(try! @mpf.mpf_div(sh, ch, wp, @mpf.round_nearest), prec, rnd)
 }
 
 ///|
@@ -555,17 +559,17 @@ pub fn mpf_asin(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibElefunError {
   if @mpf.is_nan(x) {
     return @mpf.fnan
   }
   if @mpf.is_inf(x) {
-    abort("mpf_asin: |x| must be <= 1")
+    raise LibElefunError::DomainError("mpf_asin: |x| must be <= 1")
   }
   let wp = work_prec(prec) + 8
   let ax = @mpf.mpf_abs(x, wp, @mpf.round_nearest)
   if @mpf.mpf_gt(ax, @mpf.fone) {
-    abort("mpf_asin: |x| must be <= 1")
+    raise LibElefunError::DomainError("mpf_asin: |x| must be <= 1")
   }
   let t = @mpf.mpf_sub(
     @mpf.fone,
@@ -573,7 +577,7 @@ pub fn mpf_asin(
     wp,
     @mpf.round_nearest,
   )
-  let root = @mpf.mpf_sqrt(t, wp, @mpf.round_nearest)
+  let root = try! @mpf.mpf_sqrt(t, wp, @mpf.round_nearest)
   mpf_atan2(x, root, prec, rnd)
 }
 
@@ -582,17 +586,17 @@ pub fn mpf_acos(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibElefunError {
   if @mpf.is_nan(x) {
     return @mpf.fnan
   }
   if @mpf.is_inf(x) {
-    abort("mpf_acos: |x| must be <= 1")
+    raise LibElefunError::DomainError("mpf_acos: |x| must be <= 1")
   }
   let wp = work_prec(prec) + 8
   let ax = @mpf.mpf_abs(x, wp, @mpf.round_nearest)
   if @mpf.mpf_gt(ax, @mpf.fone) {
-    abort("mpf_acos: |x| must be <= 1")
+    raise LibElefunError::DomainError("mpf_acos: |x| must be <= 1")
   }
   let t = @mpf.mpf_sub(
     @mpf.fone,
@@ -600,7 +604,7 @@ pub fn mpf_acos(
     wp,
     @mpf.round_nearest,
   )
-  let root = @mpf.mpf_sqrt(t, wp, @mpf.round_nearest)
+  let root = try! @mpf.mpf_sqrt(t, wp, @mpf.round_nearest)
   mpf_atan2(root, x, prec, rnd)
 }
 
@@ -618,12 +622,12 @@ pub fn mpf_asinh(
   }
   let wp = work_prec(prec) + 8
   let x2 = @mpf.mpf_mul(x, x, wp, @mpf.round_nearest)
-  let root = @mpf.mpf_sqrt(
+  let root = try! @mpf.mpf_sqrt(
     @mpf.mpf_add(x2, @mpf.fone, wp, @mpf.round_nearest),
     wp,
     @mpf.round_nearest,
   )
-  mpf_ln(@mpf.mpf_add(x, root, wp, @mpf.round_nearest), prec, rnd)
+  try! mpf_ln(@mpf.mpf_add(x, root, wp, @mpf.round_nearest), prec, rnd)
 }
 
 ///|
@@ -631,18 +635,18 @@ pub fn mpf_acosh(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibElefunError {
   if @mpf.is_nan(x) {
     return @mpf.fnan
   }
   if @mpf.is_inf(x) {
     if x.sign == 1 {
-      abort("mpf_acosh: x must be >= 1")
+      raise LibElefunError::DomainError("mpf_acosh: x must be >= 1")
     }
     return @mpf.finf
   }
   if @mpf.mpf_lt(x, @mpf.fone) {
-    abort("mpf_acosh: x must be >= 1")
+    raise LibElefunError::DomainError("mpf_acosh: x must be >= 1")
   }
   if @mpf.mpf_eq(x, @mpf.fone) {
     return @mpf.fzero
@@ -651,12 +655,12 @@ pub fn mpf_acosh(
   let xm1 = @mpf.mpf_sub(x, @mpf.fone, wp, @mpf.round_nearest)
   let xp1 = @mpf.mpf_add(x, @mpf.fone, wp, @mpf.round_nearest)
   let root = @mpf.mpf_mul(
-    @mpf.mpf_sqrt(xm1, wp, @mpf.round_nearest),
-    @mpf.mpf_sqrt(xp1, wp, @mpf.round_nearest),
+    try! @mpf.mpf_sqrt(xm1, wp, @mpf.round_nearest),
+    try! @mpf.mpf_sqrt(xp1, wp, @mpf.round_nearest),
     wp,
     @mpf.round_nearest,
   )
-  mpf_ln(@mpf.mpf_add(x, root, wp, @mpf.round_nearest), prec, rnd)
+  try! mpf_ln(@mpf.mpf_add(x, root, wp, @mpf.round_nearest), prec, rnd)
 }
 
 ///|
@@ -664,12 +668,12 @@ pub fn mpf_atanh(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibElefunError {
   if @mpf.is_nan(x) {
     return @mpf.fnan
   }
   if @mpf.is_inf(x) {
-    abort("mpf_atanh: |x| must be <= 1")
+    raise LibElefunError::DomainError("mpf_atanh: |x| must be <= 1")
   }
   if @mpf.mpf_eq(x, @mpf.fone) {
     return @mpf.finf
@@ -680,16 +684,16 @@ pub fn mpf_atanh(
   let wp = work_prec(prec) + 8
   let ax = @mpf.mpf_abs(x, wp, @mpf.round_nearest)
   if @mpf.mpf_gt(ax, @mpf.fone) {
-    abort("mpf_atanh: |x| must be <= 1")
+    raise LibElefunError::DomainError("mpf_atanh: |x| must be <= 1")
   }
-  let ratio = @mpf.mpf_div(
+  let ratio = try! @mpf.mpf_div(
     @mpf.mpf_add(@mpf.fone, x, wp, @mpf.round_nearest),
     @mpf.mpf_sub(@mpf.fone, x, wp, @mpf.round_nearest),
     wp,
     @mpf.round_nearest,
   )
   @mpf.mpf_pos(
-    @mpf.mpf_shift(mpf_ln(ratio, wp, @mpf.round_nearest), -1),
+    @mpf.mpf_shift(try! mpf_ln(ratio, wp, @mpf.round_nearest), -1),
     prec,
     rnd,
   )
@@ -701,7 +705,7 @@ pub fn mpf_pow(
   y : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise {
   if @mpf.is_nan(y) {
     return @mpf.fnan
   }
@@ -722,12 +726,12 @@ pub fn mpf_pow(
         }
       }
       if x.sign == 1 {
-        abort("mpf_pow: negative base with non-integer exponent")
+        raise LibElefunError::DomainError("mpf_pow: negative base with non-integer exponent")
       }
       let wp = work_prec(prec) + 8
       let t = @mpf.mpf_mul(
         y,
-        mpf_ln(x, wp, @mpf.round_nearest),
+        try! mpf_ln(x, wp, @mpf.round_nearest),
         wp,
         @mpf.round_nearest,
       )
@@ -742,9 +746,9 @@ pub fn mpf_nthroot(
   n : Int,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise {
   if n == 0 {
-    abort("mpf_nthroot: n must be non-zero")
+    raise LibElefunError::ValueError("mpf_nthroot: n must be non-zero")
   }
   if @mpf.is_nan(x) {
     return @mpf.fnan
@@ -752,12 +756,12 @@ pub fn mpf_nthroot(
   if n < 0 {
     let wp = work_prec(prec) + 8
     let y = mpf_nthroot(x, -n, wp, @mpf.round_nearest)
-    return @mpf.mpf_div(@mpf.fone, y, prec, rnd)
+    return try! @mpf.mpf_div(@mpf.fone, y, prec, rnd)
   }
   if @mpf.is_inf(x) {
     if x.sign == 1 {
       if (n & 1) == 0 {
-        abort("mpf_nthroot: even root of negative value")
+        raise LibElefunError::DomainError("mpf_nthroot: even root of negative value")
       }
       return @mpf.fninf
     }
@@ -767,10 +771,10 @@ pub fn mpf_nthroot(
     return @mpf.fzero
   }
   if x.sign == 1 && (n & 1) == 0 {
-    abort("mpf_nthroot: even root of negative value")
+    raise LibElefunError::DomainError("mpf_nthroot: even root of negative value")
   }
   let wp = work_prec(prec) + 8
-  let inv_n = @mpf.mpf_rdiv_int(1, @mpf.from_int(n), wp, @mpf.round_nearest)
+  let inv_n = try! @mpf.mpf_rdiv_int(1, @mpf.from_int(n), wp, @mpf.round_nearest)
   if x.sign == 1 {
     let ax = @mpf.mpf_abs(x, wp, @mpf.round_nearest)
     @mpf.mpf_neg(mpf_pow(ax, inv_n, prec, rnd), prec, rnd)
@@ -785,7 +789,7 @@ pub fn mpf_cbrt(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf {
-  mpf_nthroot(x, 3, prec, rnd)
+  try! mpf_nthroot(x, 3, prec, rnd)
 }
 
 ///|
@@ -795,19 +799,19 @@ pub fn mpf_e(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
 
 ///|
 pub fn mpf_ln2(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
-  mpf_ln(@mpf.from_int(2), prec, rnd)
+  try! mpf_ln(@mpf.from_int(2), prec, rnd)
 }
 
 ///|
 pub fn mpf_ln10(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
-  mpf_ln(@mpf.from_int(10), prec, rnd)
+  try! mpf_ln(@mpf.from_int(10), prec, rnd)
 }
 
 ///|
 pub fn mpf_sqrtpi(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
   let wp = work_prec(prec) + 8
   @mpf.mpf_pos(
-    @mpf.mpf_sqrt(mpf_pi(wp, @mpf.round_nearest), wp, @mpf.round_nearest),
+    try! @mpf.mpf_sqrt(mpf_pi(wp, @mpf.round_nearest), wp, @mpf.round_nearest),
     prec,
     rnd,
   )
@@ -823,7 +827,7 @@ pub fn mpf_ln_sqrt2pi(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
     @mpf.round_nearest,
   )
   @mpf.mpf_pos(
-    @mpf.mpf_shift(mpf_ln(two_pi, wp, @mpf.round_nearest), -1),
+    @mpf.mpf_shift(try! mpf_ln(two_pi, wp, @mpf.round_nearest), -1),
     prec,
     rnd,
   )
@@ -832,7 +836,7 @@ pub fn mpf_ln_sqrt2pi(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
 ///|
 pub fn mpf_phi(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
   let wp = work_prec(prec) + 8
-  let root5 = @mpf.mpf_sqrt(@mpf.from_int(5), wp, @mpf.round_nearest)
+  let root5 = try! @mpf.mpf_sqrt(@mpf.from_int(5), wp, @mpf.round_nearest)
   let t = @mpf.mpf_shift(
     @mpf.mpf_add(@mpf.fone, root5, wp, @mpf.round_nearest),
     -1,
@@ -844,7 +848,7 @@ pub fn mpf_phi(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
 pub fn mpf_degree(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
   let wp = work_prec(prec) + 8
   @mpf.mpf_pos(
-    @mpf.mpf_div(
+    try! @mpf.mpf_div(
       mpf_pi(wp, @mpf.round_nearest),
       @mpf.from_int(180),
       wp,
@@ -877,7 +881,7 @@ pub fn mpf_cos_sin(
   } else if which == 2 {
     (sin_v, @mpf.fzero)
   } else if which == 3 {
-    (@mpf.mpf_div(sin_v, cos_v, prec, rnd), @mpf.fzero)
+    (try! @mpf.mpf_div(sin_v, cos_v, prec, rnd), @mpf.fzero)
   } else {
     (cos_v, sin_v)
   }
@@ -940,8 +944,8 @@ pub fn mpf_log_hypot(
     return @mpf.fninf
   }
   let wp = work_prec(prec) + 8
-  let h = @mpf.mpf_hypot(a, b, wp, @mpf.round_nearest)
-  mpf_log(h, prec, rnd)
+  let h = try! @mpf.mpf_hypot(a, b, wp, @mpf.round_nearest)
+  try! mpf_log(h, prec, rnd)
 }
 
 ///|
@@ -949,9 +953,9 @@ pub fn mpf_expj(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibElefunError {
   let _ = (x, prec, rnd)
-  abort("mpf_expj: complex result")
+  raise LibElefunError::ComplexResult("mpf_expj: complex result")
 }
 
 ///|
@@ -959,7 +963,7 @@ pub fn mpf_expjpi(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibElefunError {
   let _ = (x, prec, rnd)
-  abort("mpf_expjpi: complex result")
+  raise LibElefunError::ComplexResult("mpf_expjpi: complex result")
 }

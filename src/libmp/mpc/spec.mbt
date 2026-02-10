@@ -6,6 +6,13 @@ pub struct RawMpc {
 } derive(Show, Eq)
 
 ///|
+pub(all) suberror MpcError {
+  ValueError(String)
+  DomainError(String)
+  PoleError(String)
+} derive(Show, Eq)
+
+///|
 pub fn zero() -> RawMpc {
   { real: @mpf.fzero, imag: @mpf.fzero }
 }
@@ -258,7 +265,11 @@ pub fn mpc_exp(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 
 ///|
 #declaration_only
-pub fn mpc_log(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+pub fn mpc_log(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
   ...
 }
 
@@ -269,7 +280,7 @@ pub fn mpc_pow(
   w : RawMpc,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> RawMpc {
+) -> RawMpc raise MpcError {
   ...
 }
 
@@ -477,7 +488,11 @@ pub fn mpc_agm1(a : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 
 ///|
 #declaration_only
-pub fn mpc_ei(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+pub fn mpc_ei(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
   ...
 }
 
@@ -571,7 +586,12 @@ pub fn mpc_psi0(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 
 ///|
 #declaration_only
-pub fn mpc_psi(m : Int, z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+pub fn mpc_psi(
+  m : Int,
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
   ...
 }
 

@@ -1,12 +1,27 @@
 ///|
+pub(all) suberror GammaZetaError {
+  ValueError(String)
+  DomainError(String)
+  PoleError(String)
+} derive(Show, Eq)
+
+///|
 #declaration_only
-pub fn mpf_factorial(n : Int, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_factorial(
+  n : Int,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
   ...
 }
 
 ///|
 #declaration_only
-pub fn mpf_bernoulli(n : Int, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_bernoulli(
+  n : Int,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
   ...
 }
 
@@ -16,13 +31,17 @@ pub fn mpf_bernoulli_huge(
   n : Int,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise GammaZetaError {
   ...
 }
 
 ///|
 #declaration_only
-pub fn mpf_zeta_int(n : Int, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_zeta_int(
+  n : Int,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
   ...
 }
 
@@ -32,7 +51,7 @@ pub fn mpf_gamma(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise GammaZetaError {
   ...
 }
 
@@ -42,7 +61,7 @@ pub fn mpf_rgamma(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise GammaZetaError {
   ...
 }
 
@@ -52,13 +71,17 @@ pub fn mpf_loggamma(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise GammaZetaError {
   ...
 }
 
 ///|
 #declaration_only
-pub fn mpf_gamma_int(n : Int, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_gamma_int(
+  n : Int,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
   ...
 }
 
@@ -68,7 +91,7 @@ pub fn mpf_psi0(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise GammaZetaError {
   ...
 }
 
@@ -78,7 +101,7 @@ pub fn mpf_harmonic(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise GammaZetaError {
   ...
 }
 
@@ -99,7 +122,7 @@ pub fn mpf_zeta(
   prec : Int,
   rnd : @mpf.RoundMode,
   alt? : Bool = false,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise GammaZetaError {
   ...
 }
 
@@ -109,7 +132,7 @@ pub fn mpf_altzeta(
   s : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise GammaZetaError {
   ...
 }
 
@@ -120,7 +143,7 @@ pub fn mpf_psi(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise GammaZetaError {
   ...
 }
 

@@ -25,6 +25,16 @@ pub struct RawMpf {
 } derive(Show, Eq)
 
 ///|
+pub(all) suberror MpfError {
+  ValueError(String)
+  DomainError(String)
+  DivisionByZero(String)
+  ParseError(String)
+  FormatError(String)
+  UnsupportedError(String)
+} derive(Show, Eq)
+
+///|
 #declaration_only
 pub fn normalize(
   sign : Int,
@@ -84,13 +94,13 @@ pub fn from_str(
   s : String,
   prec? : Int = 0,
   rnd? : RoundMode = round_nearest,
-) -> RawMpf {
+) -> RawMpf raise MpfError {
   ...
 }
 
 ///|
 #declaration_only
-pub fn to_str(x : RawMpf) -> String {
+pub fn to_str(x : RawMpf) -> String raise MpfError {
   ...
 }
 
@@ -101,13 +111,17 @@ pub fn to_str_opts(
   dps? : Int = 15,
   base? : Int = 10,
   binary_exp? : Bool = false,
-) -> String {
+) -> String raise MpfError {
   ...
 }
 
 ///|
 #declaration_only
-pub fn format_mpf(x : RawMpf, format_spec : String, dps? : Int = 15) -> String {
+pub fn format_mpf(
+  x : RawMpf,
+  format_spec : String,
+  dps? : Int = 15,
+) -> String raise MpfError {
   ...
 }
 
@@ -131,7 +145,12 @@ pub fn mpf_mul(x : RawMpf, y : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
 
 ///|
 #declaration_only
-pub fn mpf_div(x : RawMpf, y : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
+pub fn mpf_div(
+  x : RawMpf,
+  y : RawMpf,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf raise MpfError {
   ...
 }
 
@@ -209,7 +228,12 @@ pub fn mpf_mul_int(x : RawMpf, n : Int, prec : Int, rnd : RoundMode) -> RawMpf {
 
 ///|
 #declaration_only
-pub fn mpf_rdiv_int(n : Int, x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
+pub fn mpf_rdiv_int(
+  n : Int,
+  x : RawMpf,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf raise MpfError {
   ...
 }
 
@@ -245,7 +269,7 @@ pub fn mpf_frac(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
 
 ///|
 #declaration_only
-pub fn mpf_min_max(seq : ArrayView[RawMpf]) -> (RawMpf, RawMpf) {
+pub fn mpf_min_max(seq : ArrayView[RawMpf]) -> (RawMpf, RawMpf) raise MpfError {
   ...
 }
 
@@ -262,31 +286,50 @@ pub fn mpf_sum(
 
 ///|
 #declaration_only
-pub fn mpf_mod(x : RawMpf, y : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
+pub fn mpf_mod(
+  x : RawMpf,
+  y : RawMpf,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf raise MpfError {
   ...
 }
 
 ///|
 #declaration_only
-pub fn mpf_hypot(x : RawMpf, y : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
+pub fn mpf_hypot(
+  x : RawMpf,
+  y : RawMpf,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf raise MpfError {
   ...
 }
 
 ///|
 #declaration_only
-pub fn mpf_pow_int(x : RawMpf, n : Int, prec : Int, rnd : RoundMode) -> RawMpf {
+pub fn mpf_pow_int(
+  x : RawMpf,
+  n : Int,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf raise MpfError {
   ...
 }
 
 ///|
 #declaration_only
-pub fn mpf_sqrt(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
+pub fn mpf_sqrt(
+  x : RawMpf,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf raise MpfError {
   ...
 }
 
 ///|
 #declaration_only
-pub fn mpf_frexp(x : RawMpf) -> (RawMpf, Int) {
+pub fn mpf_frexp(x : RawMpf) -> (RawMpf, Int) raise MpfError {
   ...
 }
 

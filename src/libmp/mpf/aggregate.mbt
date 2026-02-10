@@ -63,7 +63,12 @@ pub fn mpf_sum(
 }
 
 ///|
-pub fn mpf_mod(x : RawMpf, y : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
+pub fn mpf_mod(
+  x : RawMpf,
+  y : RawMpf,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf raise MpfError {
   if (!is_finite(x) && !is_zero(x)) || (!is_finite(y) && !is_zero(y)) {
     if is_inf(y) {
       return x
@@ -71,7 +76,7 @@ pub fn mpf_mod(x : RawMpf, y : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
     return fnan
   }
   if is_zero(y) {
-    abort("mpf_mod: modulo by zero")
+    raise MpfError::DivisionByZero("mpf_mod: modulo by zero")
   }
   if x.sign == y.sign && y.exp > x.exp + x.bc {
     return mpf_pos(x, prec, rnd)
@@ -95,7 +100,12 @@ pub fn mpf_mod(x : RawMpf, y : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
 }
 
 ///|
-pub fn mpf_hypot(x : RawMpf, y : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
+pub fn mpf_hypot(
+  x : RawMpf,
+  y : RawMpf,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf raise MpfError {
   if y == fzero {
     return mpf_abs(x, prec, rnd)
   }
