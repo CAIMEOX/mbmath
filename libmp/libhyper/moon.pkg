@@ -1,0 +1,8 @@
+import {
+  "CAIMEOX/moon_floating/libmp/mpf",
+  "CAIMEOX/moon_floating/libmp/libelefun",
+}
+
+import {
+  "CAIMEOX/moon_floating/libmp/mpc",
+} for "test"

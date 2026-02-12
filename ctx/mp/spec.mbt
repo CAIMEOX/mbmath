@@ -11,6 +11,7 @@ pub(all) suberror MPError {
   DomainError(String)
   PoleError(String)
   ComplexResult(String)
+  ConvergenceError(String)
 } derive(Show, Eq)
 
 ///|
@@ -40,6 +41,7 @@ fn from_libhyper_error(err : @libhyper.LibHyperError) -> MPError {
     @libhyper.LibHyperError::ValueError(msg) => MPError::ValueError(msg)
     @libhyper.LibHyperError::DomainError(msg) => MPError::DomainError(msg)
     @libhyper.LibHyperError::PoleError(msg) => MPError::PoleError(msg)
+    @libhyper.LibHyperError::ComplexResult(msg) => MPError::ComplexResult(msg)
   }
 }
 
@@ -353,9 +355,7 @@ fn e1_complex_principal(
   if x.sign == 1 {
     let p = if prec > 0 { prec + 24 } else { 64 }
     let ax = @mpf.mpf_abs(x, p, @mpf.round_nearest)
-    let ei = @libhyper.mpf_ei(ax, p, @mpf.round_nearest) catch {
-      err => raise from_libhyper_error(err)
-    }
+    let ei = @libhyper.mpf_ei(ax, p, @mpf.round_nearest)
     let re = @mpf.mpf_neg(ei, p, @mpf.round_nearest)
     let im = @mpf.mpf_neg(
       @libelefun.mpf_pi(p, @mpf.round_nearest),

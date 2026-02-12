@@ -144,7 +144,12 @@ pub fn mpf_atan(
 pub fn mpf_pi(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
   let wp = work_prec(prec)
   let a = try! @mpf.mpf_div(@mpf.fone, @mpf.from_int(5), wp, @mpf.round_nearest)
-  let b = try! @mpf.mpf_div(@mpf.fone, @mpf.from_int(239), wp, @mpf.round_nearest)
+  let b = try! @mpf.mpf_div(
+    @mpf.fone,
+    @mpf.from_int(239),
+    wp,
+    @mpf.round_nearest,
+  )
   let t1 = mpf_atan(a, wp, @mpf.round_nearest)
   let t2 = mpf_atan(b, wp, @mpf.round_nearest)
   let p = @mpf.mpf_sub(
@@ -726,7 +731,9 @@ pub fn mpf_pow(
         }
       }
       if x.sign == 1 {
-        raise LibElefunError::DomainError("mpf_pow: negative base with non-integer exponent")
+        raise LibElefunError::DomainError(
+          "mpf_pow: negative base with non-integer exponent",
+        )
       }
       let wp = work_prec(prec) + 8
       let t = @mpf.mpf_mul(
@@ -761,7 +768,9 @@ pub fn mpf_nthroot(
   if @mpf.is_inf(x) {
     if x.sign == 1 {
       if (n & 1) == 0 {
-        raise LibElefunError::DomainError("mpf_nthroot: even root of negative value")
+        raise LibElefunError::DomainError(
+          "mpf_nthroot: even root of negative value",
+        )
       }
       return @mpf.fninf
     }
@@ -771,10 +780,17 @@ pub fn mpf_nthroot(
     return @mpf.fzero
   }
   if x.sign == 1 && (n & 1) == 0 {
-    raise LibElefunError::DomainError("mpf_nthroot: even root of negative value")
+    raise LibElefunError::DomainError(
+      "mpf_nthroot: even root of negative value",
+    )
   }
   let wp = work_prec(prec) + 8
-  let inv_n = try! @mpf.mpf_rdiv_int(1, @mpf.from_int(n), wp, @mpf.round_nearest)
+  let inv_n = try! @mpf.mpf_rdiv_int(
+    1,
+    @mpf.from_int(n),
+    wp,
+    @mpf.round_nearest,
+  )
   if x.sign == 1 {
     let ax = @mpf.mpf_abs(x, wp, @mpf.round_nearest)
     @mpf.mpf_neg(mpf_pow(ax, inv_n, prec, rnd), prec, rnd)

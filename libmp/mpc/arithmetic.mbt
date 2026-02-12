@@ -247,7 +247,10 @@ pub fn mpc_pow_int(
   rnd : @mpf.RoundMode,
 ) -> RawMpc {
   if z.imag == @mpf.fzero {
-    return { real: try! @mpf.mpf_pow_int(z.real, n, prec, rnd), imag: @mpf.fzero }
+    return {
+      real: try! @mpf.mpf_pow_int(z.real, n, prec, rnd),
+      imag: @mpf.fzero,
+    }
   }
   if n == 0 {
     return one()
@@ -329,7 +332,11 @@ pub fn mpc_sqrt(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
       return z
     }
     if a.sign == 1 {
-      let im = try! @mpf.mpf_sqrt(@mpf.mpf_neg(a, 0, @mpf.round_down), prec, rnd)
+      let im = try! @mpf.mpf_sqrt(
+        @mpf.mpf_neg(a, 0, @mpf.round_down),
+        prec,
+        rnd,
+      )
       return { real: @mpf.fzero, imag: im }
     } else {
       let re = try! @mpf.mpf_sqrt(a, prec, rnd)
@@ -468,6 +475,24 @@ pub fn mpc_cos(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 
 ///|
 pub fn mpc_tan(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  if @mpf.is_inf(z.imag) {
+    return from_parts(
+      @mpf.fzero,
+      if z.imag.sign == 1 {
+        @mpf.from_int(-1)
+      } else {
+        @mpf.fone
+      },
+    )
+  }
+  if @mpf.is_inf(z.real) {
+    if @mpf.is_zero(z.imag) {
+      return from_parts(@mpf.fnan, @mpf.fzero)
+    }
+    if @mpf.is_finite(z.imag) {
+      return from_parts(@mpf.fnan, @mpf.fnan)
+    }
+  }
   let p = work_prec(prec)
   mpc_div(
     mpc_sin(z, p, @mpf.round_nearest),
@@ -505,6 +530,24 @@ pub fn mpc_cosh(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 
 ///|
 pub fn mpc_tanh(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+  if @mpf.is_inf(z.real) {
+    return from_parts(
+      if z.real.sign == 1 {
+        @mpf.from_int(-1)
+      } else {
+        @mpf.fone
+      },
+      @mpf.fzero,
+    )
+  }
+  if @mpf.is_inf(z.imag) {
+    if @mpf.is_zero(z.real) {
+      return from_parts(@mpf.fzero, @mpf.fnan)
+    }
+    if @mpf.is_finite(z.real) {
+      return from_parts(@mpf.fnan, @mpf.fnan)
+    }
+  }
   let p = work_prec(prec)
   mpc_div(
     mpc_sinh(z, p, @mpf.round_nearest),

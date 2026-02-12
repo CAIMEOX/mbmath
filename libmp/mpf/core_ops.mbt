@@ -229,7 +229,12 @@ fn mpf_round_int_inner(x : RawMpf, mode : RoundMode) -> RawMpf {
     RoundMode::Floor => if x.sign == 0 { int_part } else { -(int_part + bump) }
     RoundMode::Ceiling => if x.sign == 0 { int_part + bump } else { -int_part }
     RoundMode::Down => if x.sign == 0 { int_part } else { -int_part }
-    RoundMode::Up => if x.sign == 0 { int_part + bump } else { -(int_part + bump) }
+    RoundMode::Up =>
+      if x.sign == 0 {
+        int_part + bump
+      } else {
+        -(int_part + bump)
+      }
     RoundMode::Nearest => {
       let half = 1N << (shift - 1)
       let nearest = if rem > half || (rem == half && (int_part & 1N) == 1N) {

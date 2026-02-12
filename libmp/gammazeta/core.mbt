@@ -46,7 +46,9 @@ pub fn mpf_bernoulli_huge(
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   if n < 0 {
-    raise GammaZetaError::ValueError("mpf_bernoulli_huge: n must be non-negative")
+    raise GammaZetaError::ValueError(
+      "mpf_bernoulli_huge: n must be non-negative",
+    )
   }
   if n == 0 {
     return @mpf.fone
@@ -119,7 +121,12 @@ pub fn mpf_bernoulli(
   let p = wp(prec)
   let a = Array::make(n + 1, @mpf.fzero)
   for m in 0..<=n {
-    a[m] = try! @mpf.mpf_div(@mpf.fone, @mpf.from_int(m + 1), p, @mpf.round_nearest)
+    a[m] = try! @mpf.mpf_div(
+      @mpf.fone,
+      @mpf.from_int(m + 1),
+      p,
+      @mpf.round_nearest,
+    )
     let mut j = m
     while j > 0 {
       a[j - 1] = @mpf.mpf_mul_int(
@@ -237,8 +244,11 @@ pub fn mpf_zeta_int(
 
 ///|
 fn maybe_integer(x : @mpf.RawMpf) -> Int? {
-  if !@mpf.is_finite(x) || @mpf.is_zero(x) {
+  if !@mpf.is_finite(x) {
     return None
+  }
+  if @mpf.is_zero(x) {
+    return Some(0)
   }
   if x.exp >= 0 {
     let v = x.man << x.exp
@@ -258,17 +268,31 @@ fn maybe_integer(x : @mpf.RawMpf) -> Int? {
 ///|
 fn gamma_lanczos_coeff(i : Int, p : Int) -> @mpf.RawMpf {
   match i {
-    0 => try! @mpf.from_str("0.99999999999980993", prec=p, rnd=@mpf.round_nearest)
+    0 =>
+      try! @mpf.from_str("0.99999999999980993", prec=p, rnd=@mpf.round_nearest)
     1 => try! @mpf.from_str("676.5203681218851", prec=p, rnd=@mpf.round_nearest)
-    2 => try! @mpf.from_str("-1259.1392167224028", prec=p, rnd=@mpf.round_nearest)
-    3 => try! @mpf.from_str("771.32342877765313", prec=p, rnd=@mpf.round_nearest)
-    4 => try! @mpf.from_str("-176.61502916214059", prec=p, rnd=@mpf.round_nearest)
-    5 => try! @mpf.from_str("12.507343278686905", prec=p, rnd=@mpf.round_nearest)
-    6 => try! @mpf.from_str("-0.13857109526572012", prec=p, rnd=@mpf.round_nearest)
+    2 =>
+      try! @mpf.from_str("-1259.1392167224028", prec=p, rnd=@mpf.round_nearest)
+    3 =>
+      try! @mpf.from_str("771.32342877765313", prec=p, rnd=@mpf.round_nearest)
+    4 =>
+      try! @mpf.from_str("-176.61502916214059", prec=p, rnd=@mpf.round_nearest)
+    5 =>
+      try! @mpf.from_str("12.507343278686905", prec=p, rnd=@mpf.round_nearest)
+    6 =>
+      try! @mpf.from_str("-0.13857109526572012", prec=p, rnd=@mpf.round_nearest)
     7 =>
-      try! @mpf.from_str("0.0000099843695780195716", prec=p, rnd=@mpf.round_nearest)
+      try! @mpf.from_str(
+        "0.0000099843695780195716",
+        prec=p,
+        rnd=@mpf.round_nearest,
+      )
     _ =>
-      try! @mpf.from_str("0.00000015056327351493116", prec=p, rnd=@mpf.round_nearest)
+      try! @mpf.from_str(
+        "0.00000015056327351493116",
+        prec=p,
+        rnd=@mpf.round_nearest,
+      )
   }
 }
 
@@ -347,7 +371,9 @@ pub fn mpf_gamma(
   match maybe_integer(x) {
     Some(n) => {
       if n <= 0 {
-        raise GammaZetaError::PoleError("mpf_gamma: pole at non-positive integer")
+        raise GammaZetaError::PoleError(
+          "mpf_gamma: pole at non-positive integer",
+        )
       }
       return mpf_factorial(n - 1, prec, rnd)
     }
@@ -356,7 +382,11 @@ pub fn mpf_gamma(
   let p = wp(prec)
   let half = @mpf.from_man_exp(1N, -1, 0, @mpf.round_down)
   if @mpf.mpf_eq(x, half) {
-    return try! @mpf.mpf_sqrt(@libelefun.mpf_pi(p, @mpf.round_nearest), prec, rnd)
+    return try! @mpf.mpf_sqrt(
+      @libelefun.mpf_pi(p, @mpf.round_nearest),
+      prec,
+      rnd,
+    )
   }
   if @mpf.mpf_eq(x, @mpf.mpf_neg(half, 0, @mpf.round_down)) {
     let root_pi = try! @mpf.mpf_sqrt(
@@ -408,7 +438,11 @@ pub fn mpf_rgamma(
 ) -> @mpf.RawMpf raise GammaZetaError {
   let p = wp(prec) + 8
   let g = mpf_gamma(x, p, @mpf.round_nearest)
-  @mpf.mpf_pos(try! @mpf.mpf_div(@mpf.fone, g, p, @mpf.round_nearest), prec, rnd)
+  @mpf.mpf_pos(
+    try! @mpf.mpf_div(@mpf.fone, g, p, @mpf.round_nearest),
+    prec,
+    rnd,
+  )
 }
 
 ///|
@@ -469,7 +503,9 @@ pub fn mpf_psi0(
   match maybe_integer(x) {
     Some(n) => {
       if n <= 0 {
-        raise GammaZetaError::PoleError("mpf_psi0: poles at non-positive integers")
+        raise GammaZetaError::PoleError(
+          "mpf_psi0: poles at non-positive integers",
+        )
       }
       let p = wp(prec) + 8
       return @mpf.mpf_pos(
@@ -486,7 +522,9 @@ pub fn mpf_psi0(
     None => ()
   }
   if @mpf.is_zero(x) {
-    raise GammaZetaError::DomainError("mpf_psi0: non-positive input is unsupported")
+    raise GammaZetaError::DomainError(
+      "mpf_psi0: non-positive input is unsupported",
+    )
   }
   if x.sign == 1 {
     let p = wp(prec) + 24
@@ -561,7 +599,9 @@ pub fn mpf_harmonic(
   match maybe_integer(x) {
     Some(n) => {
       if n < 0 {
-        raise GammaZetaError::PoleError("mpf_harmonic: poles at negative integers")
+        raise GammaZetaError::PoleError(
+          "mpf_harmonic: poles at negative integers",
+        )
       }
       let p = wp(prec) + 8
       return @mpf.mpf_pos(harmonic_int(n, p), prec, rnd)
@@ -647,7 +687,11 @@ pub fn mpf_fibonacci(
         p,
         @mpf.round_nearest,
       )
-      @mpf.mpf_pos(try! @mpf.mpf_div(numer, sqrt5, p, @mpf.round_nearest), prec, rnd)
+      @mpf.mpf_pos(
+        try! @mpf.mpf_div(numer, sqrt5, p, @mpf.round_nearest),
+        prec,
+        rnd,
+      )
     }
   }
 }
@@ -855,7 +899,12 @@ fn zeta_reflection_real(
 ) -> @mpf.RawMpf raise GammaZetaError {
   let pi = @libelefun.mpf_pi(p, @mpf.round_nearest)
   let one_minus_s = @mpf.mpf_sub(@mpf.fone, s, p, @mpf.round_nearest)
-  let two_pow_s = try! @libelefun.mpf_pow(@mpf.from_int(2), s, p, @mpf.round_nearest)
+  let two_pow_s = try! @libelefun.mpf_pow(
+    @mpf.from_int(2),
+    s,
+    p,
+    @mpf.round_nearest,
+  )
   let pi_pow = try! @libelefun.mpf_pow(
     pi,
     @mpf.mpf_sub(s, @mpf.fone, p, @mpf.round_nearest),
@@ -913,6 +962,15 @@ pub fn mpf_zeta(
   match maybe_integer(s) {
     Some(n) => {
       if n == 1 {
+        if alt {
+          let p = wp(prec) + 16
+          let ln2 = try! @libelefun.mpf_log(
+            @mpf.from_int(2),
+            p,
+            @mpf.round_nearest,
+          )
+          return @mpf.mpf_pos(ln2, prec, rnd)
+        }
         raise GammaZetaError::PoleError("mpf_zeta: pole at s=1")
       }
       if n > 1 {
@@ -1097,7 +1155,12 @@ fn hurwitz_power_sum_em(x : @mpf.RawMpf, s : Int, p : Int) -> @mpf.RawMpf {
       p,
       @mpf.round_nearest,
     )
-    let xpow = try! @mpf.mpf_pow_int(xn, -(s + two_r - 1), p, @mpf.round_nearest)
+    let xpow = try! @mpf.mpf_pow_int(
+      xn,
+      -(s + two_r - 1),
+      p,
+      @mpf.round_nearest,
+    )
     let term = @mpf.mpf_mul(
       coeff,
       @mpf.mpf_mul(poch, xpow, p, @mpf.round_nearest),
@@ -1148,7 +1211,12 @@ pub fn mpf_psi(
     raise GammaZetaError::PoleError("mpf_psi: poles at non-positive integers")
   }
   match maybe_integer(x) {
-    Some(n) => if n <= 0 { raise GammaZetaError::PoleError("mpf_psi: poles at non-positive integers") }
+    Some(n) =>
+      if n <= 0 {
+        raise GammaZetaError::PoleError(
+          "mpf_psi: poles at non-positive integers",
+        )
+      }
     None => ()
   }
   let p = wp(prec) + 24

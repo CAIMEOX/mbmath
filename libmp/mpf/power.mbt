@@ -98,7 +98,11 @@ pub fn mpf_pow_int(
 }
 
 ///|
-pub fn mpf_sqrt(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf raise MpfError {
+pub fn mpf_sqrt(
+  x : RawMpf,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf raise MpfError {
   if is_nan(x) {
     return fnan
   }

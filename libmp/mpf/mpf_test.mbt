@@ -65,6 +65,50 @@ test "mpf div 1 over 3 rounding" {
 }
 
 ///|
+test "mpf_rdiv_int 1 over 3 rounding from mpmath test_division" {
+  let three = from_int(3)
+  assert_eq(mpf_rdiv_int(1, three, 7, round_floor), from_str("0b0.01010101"))
+  assert_eq(mpf_rdiv_int(1, three, 7, round_ceiling), from_str("0b0.01010110"))
+  assert_eq(mpf_rdiv_int(1, three, 7, round_down), from_str("0b0.01010101"))
+  assert_eq(mpf_rdiv_int(1, three, 7, round_up), from_str("0b0.01010110"))
+  assert_eq(mpf_rdiv_int(1, three, 7, round_nearest), from_str("0b0.01010101"))
+  assert_eq(mpf_rdiv_int(-1, three, 7, round_floor), from_str("-0b0.01010110"))
+  assert_eq(
+    mpf_rdiv_int(-1, three, 7, round_ceiling),
+    from_str("-0b0.01010101"),
+  )
+  assert_eq(mpf_rdiv_int(-1, three, 7, round_down), from_str("-0b0.01010101"))
+  assert_eq(mpf_rdiv_int(-1, three, 7, round_up), from_str("-0b0.01010110"))
+  assert_eq(
+    mpf_rdiv_int(-1, three, 7, round_nearest),
+    from_str("-0b0.01010101"),
+  )
+}
+
+///|
+test "mpf div half-integer tie-even from mpmath test_division" {
+  let q = from_int(1000000)
+  let a = from_int(300499999)
+  let b = from_int(300500000)
+  let c = from_int(300500001)
+  assert_eq(mpf_div(a, q, 9, round_down), from_int(300))
+  assert_eq(mpf_div(b, q, 9, round_down), from_int(300))
+  assert_eq(mpf_div(c, q, 9, round_down), from_int(300))
+  assert_eq(mpf_div(a, q, 9, round_up), from_int(301))
+  assert_eq(mpf_div(b, q, 9, round_up), from_int(301))
+  assert_eq(mpf_div(c, q, 9, round_up), from_int(301))
+  assert_eq(mpf_div(a, q, 9, round_nearest), from_int(300))
+  assert_eq(mpf_div(b, q, 9, round_nearest), from_int(300))
+  assert_eq(mpf_div(c, q, 9, round_nearest), from_int(301))
+  let a2 = from_int(301499999)
+  let b2 = from_int(301500000)
+  let c2 = from_int(301500001)
+  assert_eq(mpf_div(a2, q, 9, round_nearest), from_int(301))
+  assert_eq(mpf_div(b2, q, 9, round_nearest), from_int(302))
+  assert_eq(mpf_div(c2, q, 9, round_nearest), from_int(302))
+}
+
+///|
 test "mpf arithmetic special values" {
   assert_true(is_nan(mpf_add(fnan, finf, 20, round_nearest)))
   assert_eq(mpf_add(finf, from_int(1), 20, round_nearest), finf)
@@ -167,6 +211,35 @@ test "mpf mod and sum helpers" {
   assert_eq(mpf_sum(xs, 40, round_nearest), from_int(6))
   let ys : Array[RawMpf] = [from_int(-2), from_int(3), from_int(-4)]
   assert_eq(mpf_sum(ys, 40, round_nearest, absolute=true), from_int(9))
+}
+
+///|
+test "mpf mod signed semantics from mpmath test_division" {
+  assert_eq(mpf_mod(from_int(234), from_int(1), 20, round_nearest), fzero)
+  assert_eq(
+    mpf_mod(from_int(-3), from_int(256), 20, round_nearest),
+    from_int(253),
+  )
+  assert_eq(
+    mpf_mod(from_str("0.25"), from_str("23490.5"), 80, round_nearest),
+    from_str("0.25"),
+  )
+  assert_eq(
+    mpf_mod(from_str("0.25"), from_str("-23490.5"), 80, round_nearest),
+    from_str("-23490.25"),
+  )
+  assert_eq(
+    mpf_mod(from_str("-0.25"), from_str("23490.5"), 80, round_nearest),
+    from_str("23490.25"),
+  )
+  assert_eq(
+    mpf_mod(from_str("-0.25"), from_str("-23490.5"), 80, round_nearest),
+    from_str("-0.25"),
+  )
+  assert_eq(
+    mpf_mod(from_int(3), from_str("1.75"), 80, round_nearest),
+    from_str("1.25"),
+  )
 }
 
 ///|
@@ -292,6 +365,36 @@ test "mpf perturb rounding subset from mpmath" {
   assert_eq(mpf_perturb(a_neg, 1, 53, round_floor), c_neg)
   assert_eq(mpf_perturb(a_neg, 1, 53, round_down), a_neg)
   assert_eq(mpf_perturb(a_neg, 1, 53, round_ceiling), a_neg)
+}
+
+///|
+test "mpf div negative regression points from mpmath test_division" {
+  let d1 = mpf_div(
+    from_int(-3),
+    from_str("0.1531879017645047"),
+    180,
+    round_nearest,
+  )
+  let expected1 = from_str("-19.583791966887116")
+  let err1 = mpf_abs(
+    mpf_sub(d1, expected1, 220, round_nearest),
+    220,
+    round_nearest,
+  )
+  assert_true(mpf_lt(err1, from_str("1e-12")))
+  let d2 = mpf_div(
+    from_str("-2.6342475750861301"),
+    from_str("0.35126216427941814"),
+    180,
+    round_nearest,
+  )
+  let expected2 = from_str("-7.4993775104985909")
+  let err2 = mpf_abs(
+    mpf_sub(d2, expected2, 220, round_nearest),
+    220,
+    round_nearest,
+  )
+  assert_true(mpf_lt(err2, from_str("1e-12")))
 }
 
 ///|

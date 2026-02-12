@@ -55,9 +55,7 @@ test "mpf_ln baseline" {
 ///|
 test "mpf_log1p and constant helpers subset" {
   let l_small = mpf_log1p(@mpf.from_str("1e-10"), 180, @mpf.round_nearest)
-  assert_true(
-    @mpf.to_str_opts(l_small, dps=18).has_prefix("9.999999999500000"),
-  )
+  assert_true(@mpf.to_str_opts(l_small, dps=18).has_prefix("9.999999999500000"))
   assert_eq(mpf_log1p(@mpf.from_int(-1), 120, @mpf.round_nearest), @mpf.fninf)
   let sp = mpf_sqrtpi(160, @mpf.round_nearest)
   assert_true(@mpf.to_str_opts(sp, dps=16).has_prefix("1.772453850905516"))

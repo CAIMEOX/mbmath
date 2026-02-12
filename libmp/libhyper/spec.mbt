@@ -3,6 +3,7 @@ pub(all) suberror LibHyperError {
   ValueError(String)
   DomainError(String)
   PoleError(String)
+  ComplexResult(String)
 } derive(Show, Eq)
 
 ///|
@@ -18,11 +19,7 @@ pub fn mpf_agm(
 
 ///|
 #declaration_only
-pub fn mpf_ei(
-  x : @mpf.RawMpf,
-  prec : Int,
-  rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf raise LibHyperError {
+pub fn mpf_ei(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
   ...
 }
 

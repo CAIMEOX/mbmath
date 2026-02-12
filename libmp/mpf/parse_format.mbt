@@ -919,16 +919,22 @@ pub fn to_str_opts(
     sign_prefix + body
   } else if base == 2 {
     if binary_exp {
-      raise MpfError::ValueError("to_str_opts: binary_exp is only supported with base=16")
+      raise MpfError::ValueError(
+        "to_str_opts: binary_exp is only supported with base=16",
+      )
     }
     sign_prefix + to_pow2_fixed_abs(absx, 2, 1, "0b")
   } else if base == 8 {
     if binary_exp {
-      raise MpfError::ValueError("to_str_opts: binary_exp is only supported with base=16")
+      raise MpfError::ValueError(
+        "to_str_opts: binary_exp is only supported with base=16",
+      )
     }
     sign_prefix + to_pow2_fixed_abs(absx, 8, 3, "0o")
   } else {
-    raise MpfError::ValueError("to_str_opts: supported bases are 2, 8, 10 and 16")
+    raise MpfError::ValueError(
+      "to_str_opts: supported bases are 2, 8, 10 and 16",
+    )
   }
 }
 
@@ -1013,7 +1019,9 @@ fn format_pow2_scientific_abs(
     let frac = match precision {
       Some(p) =>
         if p < 0 {
-          raise MpfError::FormatError("format_mpf: precision must be non-negative")
+          raise MpfError::FormatError(
+            "format_mpf: precision must be non-negative",
+          )
         } else if p == 0 {
           if alternate {
             "."
@@ -1032,7 +1040,9 @@ fn format_pow2_scientific_abs(
   let frac = match precision {
     Some(p) =>
       if p < 0 {
-        raise MpfError::FormatError("format_mpf: precision must be non-negative")
+        raise MpfError::FormatError(
+          "format_mpf: precision must be non-negative",
+        )
       } else {
         pad_or_truncate(exact_frac, p)
       }
@@ -1429,7 +1439,10 @@ pub fn format_mpf(
           ),
           "",
         )
-      _ => raise MpfError::FormatError("format_mpf: supported types are f, e, g, %, a and b")
+      _ =>
+        raise MpfError::FormatError(
+          "format_mpf: supported types are f, e, g, %, a and b",
+        )
     }
     let sign_prefix = if x.sign == 1 &&
       spec.no_neg_0 &&
