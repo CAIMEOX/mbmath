@@ -64,26 +64,38 @@ fn from_mpc_error(err : @mpc.MpcError) -> MPError {
 }
 
 ///|
+/// Create a high-level arbitrary-precision context.
+///
+/// This is the MoonBit counterpart of constructing an `mpmath.mp`-like runtime
+/// state. `prec` is binary precision (bits), and `rounding` controls final
+/// rounding for wrapper operations.
 pub fn new(prec : Int, rounding : @mpf.RoundMode) -> MPContext {
   { prec, rounding }
 }
 
 ///|
+/// Return the context precision in bits.
 pub fn MPContext::precision(self : MPContext) -> Int {
   self.prec
 }
 
 ///|
+/// Return the context rounding mode.
 pub fn MPContext::round_mode(self : MPContext) -> @mpf.RoundMode {
   self.rounding
 }
 
 ///|
+/// Construct an `mpf` value from an integer using this context precision.
 pub fn MPContext::make_int(self : MPContext, n : Int) -> @mpf.RawMpf {
   @mpf.from_man_exp(BigInt::from_int(n), 0, self.prec, self.rounding)
 }
 
 ///|
+/// Parse a decimal string into an `mpf` using context precision.
+///
+/// Compatible with mpmath-style numeric spellings (`inf`, `nan`, exponents,
+/// signed literals). Parse failures are normalized to `MPError::ValueError`.
 pub fn MPContext::make_float(
   self : MPContext,
   s : String,
@@ -94,6 +106,10 @@ pub fn MPContext::make_float(
 }
 
 ///|
+/// Convert an `mpf` to a plain decimal string with optional `dps`.
+///
+/// This wraps `@mpf.to_str_opts` and follows mpmath's default user-facing
+/// conversion style for finite/special values.
 pub fn MPContext::to_string(
   self : MPContext,
   x : @mpf.RawMpf,
@@ -106,6 +122,10 @@ pub fn MPContext::to_string(
 }
 
 ///|
+/// Format an `mpf` using mpmath/Python-like format mini-language subset.
+///
+/// `format_spec` is forwarded to `@mpf.format_mpf` (alignment, sign, percent,
+/// base/precision options implemented by libmp).
 pub fn MPContext::format(
   self : MPContext,
   x : @mpf.RawMpf,
@@ -119,6 +139,7 @@ pub fn MPContext::format(
 }
 
 ///|
+/// Build a complex number from real and imaginary `mpf` parts.
 pub fn MPContext::make_complex(
   self : MPContext,
   re : @mpf.RawMpf,
@@ -129,6 +150,10 @@ pub fn MPContext::make_complex(
 }
 
 ///|
+/// Convert an `mpc` value to string in `(re + im*j)` style.
+///
+/// `dps` controls displayed digits. Behavior follows `mpmath.nstr`-style
+/// compact conversion for complex numbers.
 pub fn MPContext::complex_to_string(
   self : MPContext,
   z : @mpc.RawMpc,
@@ -139,6 +164,7 @@ pub fn MPContext::complex_to_string(
 }
 
 ///|
+/// Context-aware floating-point addition.
 pub fn MPContext::add(
   self : MPContext,
   x : @mpf.RawMpf,
@@ -148,6 +174,7 @@ pub fn MPContext::add(
 }
 
 ///|
+/// Context-aware floating-point subtraction.
 pub fn MPContext::sub(
   self : MPContext,
   x : @mpf.RawMpf,
@@ -157,6 +184,7 @@ pub fn MPContext::sub(
 }
 
 ///|
+/// Context-aware floating-point multiplication.
 pub fn MPContext::mul(
   self : MPContext,
   x : @mpf.RawMpf,
@@ -166,6 +194,10 @@ pub fn MPContext::mul(
 }
 
 ///|
+/// Context-aware floating-point division.
+///
+/// Raises `MPError::PoleError` for division-by-zero paths and maps other
+/// libmp errors into structured `MPError`.
 pub fn MPContext::div(
   self : MPContext,
   x : @mpf.RawMpf,
@@ -177,16 +209,22 @@ pub fn MPContext::div(
 }
 
 ///|
+/// Unary negation with context rounding.
 pub fn MPContext::neg(self : MPContext, x : @mpf.RawMpf) -> @mpf.RawMpf {
   @mpf.mpf_neg(x, self.prec, self.rounding)
 }
 
 ///|
+/// Absolute value with context rounding.
 pub fn MPContext::abs(self : MPContext, x : @mpf.RawMpf) -> @mpf.RawMpf {
   @mpf.mpf_abs(x, self.prec, self.rounding)
 }
 
 ///|
+/// Principal square root on real inputs.
+///
+/// Raises `MPError::DomainError` for negative finite real values, matching
+/// mpmath real-domain semantics.
 pub fn MPContext::sqrt(
   self : MPContext,
   x : @mpf.RawMpf,
@@ -197,6 +235,10 @@ pub fn MPContext::sqrt(
 }
 
 ///|
+/// Integer power `x^n` in the current context.
+///
+/// Uses fast exponentiation in libmp and propagates structured errors for
+/// invalid edge cases.
 pub fn MPContext::pow_int(
   self : MPContext,
   x : @mpf.RawMpf,
@@ -208,11 +250,15 @@ pub fn MPContext::pow_int(
 }
 
 ///|
+/// Exponential `exp(x)` for real `mpf`.
 pub fn MPContext::exp(self : MPContext, x : @mpf.RawMpf) -> @mpf.RawMpf {
   @libelefun.mpf_exp(x, self.prec, self.rounding)
 }
 
 ///|
+/// Natural logarithm `ln(x)` on reals.
+///
+/// Raises `MPError::DomainError` when called outside the real domain.
 pub fn MPContext::ln(
   self : MPContext,
   x : @mpf.RawMpf,
@@ -223,21 +269,28 @@ pub fn MPContext::ln(
 }
 
 ///|
+/// Sine function on reals.
 pub fn MPContext::sin(self : MPContext, x : @mpf.RawMpf) -> @mpf.RawMpf {
   @libelefun.mpf_sin(x, self.prec, self.rounding)
 }
 
 ///|
+/// Cosine function on reals.
 pub fn MPContext::cos(self : MPContext, x : @mpf.RawMpf) -> @mpf.RawMpf {
   @libelefun.mpf_cos(x, self.prec, self.rounding)
 }
 
 ///|
+/// Tangent function on reals.
 pub fn MPContext::tan(self : MPContext, x : @mpf.RawMpf) -> @mpf.RawMpf {
   @libelefun.mpf_tan(x, self.prec, self.rounding)
 }
 
 ///|
+/// Euler gamma `Gamma(x)` for real arguments.
+///
+/// Pole/domain behavior is mapped to `MPError::PoleError` and
+/// `MPError::DomainError`, matching mpmath-style semantics.
 pub fn MPContext::gamma(
   self : MPContext,
   x : @mpf.RawMpf,
@@ -248,6 +301,9 @@ pub fn MPContext::gamma(
 }
 
 ///|
+/// Riemann zeta `zeta(s)` (or alternating eta form when `alt=true`) on reals.
+///
+/// `alt=true` maps to mpmath's alternate zeta continuation behavior.
 pub fn MPContext::zeta(
   self : MPContext,
   s : @mpf.RawMpf,
@@ -267,6 +323,10 @@ fn is_real_integer(x : @mpf.RawMpf) -> Bool {
 }
 
 ///|
+/// Complex principal logarithm.
+///
+/// Equivalent to mpmath principal branch `log(z)`. Explicitly rejects `z=0`
+/// with `MPError::PoleError`.
 pub fn MPContext::complex_log(
   self : MPContext,
   z : @mpc.RawMpc,
@@ -280,6 +340,9 @@ pub fn MPContext::complex_log(
 }
 
 ///|
+/// Complex principal square root.
+///
+/// Branch behavior follows mpmath principal square root convention.
 pub fn MPContext::complex_sqrt(
   self : MPContext,
   z : @mpc.RawMpc,
@@ -288,6 +351,10 @@ pub fn MPContext::complex_sqrt(
 }
 
 ///|
+/// Complex power `z^w` on principal branches.
+///
+/// Matches mpmath's principal-branch definition and explicitly guards the
+/// ambiguous `0^w` cases with non-positive/complex exponents.
 pub fn MPContext::complex_pow(
   self : MPContext,
   z : @mpc.RawMpc,
@@ -307,6 +374,9 @@ pub fn MPContext::complex_pow(
 }
 
 ///|
+/// Complex gamma function.
+///
+/// Raises `MPError::PoleError` at non-positive integers on the real axis.
 pub fn MPContext::complex_gamma(
   self : MPContext,
   z : @mpc.RawMpc,
@@ -320,6 +390,10 @@ pub fn MPContext::complex_gamma(
 }
 
 ///|
+/// Complex zeta continuation.
+///
+/// At `s=1`, returns pole error for standard zeta and `log(2)` for alternating
+/// zeta (`alt=true`), consistent with mpmath expectations.
 pub fn MPContext::complex_zeta(
   self : MPContext,
   s : @mpc.RawMpc,
@@ -371,6 +445,10 @@ fn e1_complex_principal(
 }
 
 ///|
+/// Real-valued `E1(x)` helper.
+///
+/// For `x < 0`, real `E1` is not single-valued; this API reports
+/// `MPError::ComplexResult` to force callers to use complex principal value.
 pub fn MPContext::e1_real(
   self : MPContext,
   x : @mpf.RawMpf,
@@ -384,6 +462,10 @@ pub fn MPContext::e1_real(
 }
 
 ///|
+/// Complex principal value of `E1(x)` for real `x`.
+///
+/// For negative reals this follows the principal branch
+/// `E1(x) = -Ei(-x) - i*pi`.
 pub fn MPContext::e1(
   self : MPContext,
   x : @mpf.RawMpf,
@@ -392,6 +474,12 @@ pub fn MPContext::e1(
 }
 
 ///|
+/// Exponential integral family wrapper:
+/// - `gamma=false`: `E_n(x)`
+/// - `gamma=true`: upper incomplete gamma form.
+///
+/// For negative real arguments in the non-gamma form, this function returns the
+/// complex principal value instead of failing, matching mpmath branch behavior.
 pub fn MPContext::expint(
   self : MPContext,
   n : Int,

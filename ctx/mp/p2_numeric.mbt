@@ -250,6 +250,12 @@ fn MPContext::p2_diff_central_n(
 }
 
 ///|
+/// High-precision compensated summation helper.
+///
+/// Mirrors mpmath `fsum` subset:
+/// - `absolute=true`: sum of absolute values.
+/// - `squared=true`: sum of squares (optionally after absolute).
+/// Uses extra working precision to reduce cancellation error.
 pub fn MPContext::fsum(
   self : MPContext,
   xs : ArrayView[@mpf.RawMpf],
@@ -274,6 +280,9 @@ pub fn MPContext::fsum(
 }
 
 ///|
+/// Product of an array of `mpf` values with context-aware rounding.
+///
+/// Mirrors mpmath `fprod` behavior for real inputs.
 pub fn MPContext::fprod(
   self : MPContext,
   xs : ArrayView[@mpf.RawMpf],
@@ -287,6 +296,13 @@ pub fn MPContext::fprod(
 }
 
 ///|
+/// Numerical derivative `d^n f(x)` for unary real functions.
+///
+/// Semantics aligned with mpmath `diff` subset:
+/// - `n=0` returns `f(x)`.
+/// - `n=1` supports one-sided derivative with `direction`.
+/// - `n>=2` uses symmetric finite-difference formulas, and for higher order
+///   derivatives uses central stencil + Richardson correction.
 pub fn MPContext::diff(
   self : MPContext,
   f : UnaryMpfFn,
@@ -372,6 +388,12 @@ fn MPContext::p2_findroot_secant(
 }
 
 ///|
+/// Scalar root finder for real functions.
+///
+/// - With `x1`: secant method.
+/// - Without `x1`: Newton method with automatic secant fallback when slope is
+///   near zero.
+/// Raises `MPError::ConvergenceError` when the iteration budget is exhausted.
 pub fn MPContext::findroot(
   self : MPContext,
   f : UnaryMpfFn,
@@ -427,6 +449,10 @@ pub fn MPContext::findroot(
 }
 
 ///|
+/// Bracketed root finder on a real interval using bisection.
+///
+/// Requires opposite signs at interval endpoints (or an endpoint root).
+/// This corresponds to mpmath `findroot(..., solver='bisect')` subset.
 pub fn MPContext::findroot_interval(
   self : MPContext,
   f : UnaryMpfFn,
@@ -514,6 +540,13 @@ fn MPContext::p2_eval_system2(
 }
 
 ///|
+/// Two-dimensional nonlinear system solver using Newton iteration.
+///
+/// Solves:
+/// - `f1(x,y)=0`
+/// - `f2(x,y)=0`
+/// with numerically estimated Jacobian from central differences.
+/// This is the current mpmath-like multidimensional `findroot` subset.
 pub fn MPContext::findroot2(
   self : MPContext,
   f : System2Fn,
@@ -886,6 +919,10 @@ fn MPContext::p2_quad_segment(
 }
 
 ///|
+/// One-dimensional numerical integration (tanh-sinh-style entrypoint).
+///
+/// Current implementation supports finite and infinite endpoints via variable
+/// transformations; API shape matches mpmath `quadts` subset.
 pub fn MPContext::quadts(
   self : MPContext,
   f : UnaryMpfFn,
@@ -897,6 +934,10 @@ pub fn MPContext::quadts(
 }
 
 ///|
+/// One-dimensional numerical integration (Gauss-Legendre-style entrypoint).
+///
+/// This currently shares the same adaptive core as `quadts`, providing mpmath
+/// API compatibility for the migrated subset.
 pub fn MPContext::quadgl(
   self : MPContext,
   f : UnaryMpfFn,
@@ -908,6 +949,10 @@ pub fn MPContext::quadgl(
 }
 
 ///|
+/// Piecewise one-dimensional numerical integration over multiple breakpoints.
+///
+/// `points=[x0, x1, ..., xn]` integrates each adjacent segment and sums the
+/// results. Supports finite and selected infinite endpoint combinations.
 pub fn MPContext::quad(
   self : MPContext,
   f : UnaryMpfFn,

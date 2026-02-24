@@ -7,6 +7,10 @@ pub(all) suberror LibHyperError {
 } derive(Show, Eq)
 
 ///|
+/// Arithmetic-geometric mean `agm(x, y)` on real arguments.
+///
+/// Uses the classical AGM iteration and raises structured errors for invalid
+/// domain/special-value combinations.
 #declaration_only
 pub fn mpf_agm(
   x : @mpf.RawMpf,
@@ -18,12 +22,16 @@ pub fn mpf_agm(
 }
 
 ///|
+/// Exponential integral `Ei(x)` on real axis.
 #declaration_only
 pub fn mpf_ei(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
   ...
 }
 
 ///|
+/// Taylor-series kernel used by `Ci`/`Si` near zero.
+///
+/// `which` selects the target integral variant.
 #declaration_only
 pub fn mpf_ci_si_taylor(
   x : @mpf.RawMpf,
@@ -34,12 +42,16 @@ pub fn mpf_ci_si_taylor(
 }
 
 ///|
+/// Sine integral `Si(x)`.
 #declaration_only
 pub fn mpf_si(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
   ...
 }
 
 ///|
+/// Cosine integral `Ci(x)` on the real branch.
+///
+/// Raises domain/branch errors when real-valued result is not defined.
 #declaration_only
 pub fn mpf_ci(
   x : @mpf.RawMpf,
@@ -50,6 +62,7 @@ pub fn mpf_ci(
 }
 
 ///|
+/// Complete elliptic integral of first kind `K(m)`.
 #declaration_only
 pub fn mpf_ellipk(
   m : @mpf.RawMpf,
@@ -60,6 +73,7 @@ pub fn mpf_ellipk(
 }
 
 ///|
+/// Complete elliptic integral of second kind `E(m)`.
 #declaration_only
 pub fn mpf_ellipe(
   m : @mpf.RawMpf,
@@ -70,6 +84,7 @@ pub fn mpf_ellipe(
 }
 
 ///|
+/// Convenience wrapper `agm(1, a)`.
 #declaration_only
 pub fn mpf_agm1(
   a : @mpf.RawMpf,
@@ -80,6 +95,9 @@ pub fn mpf_agm1(
 }
 
 ///|
+/// Joint evaluator returning `(Ci(x), Si(x))` variants.
+///
+/// `which` controls whether one or both values are targeted by internal path.
 #declaration_only
 pub fn mpf_ci_si(
   x : @mpf.RawMpf,
@@ -91,6 +109,7 @@ pub fn mpf_ci_si(
 }
 
 ///|
+/// Exponential integral `E1(x)` principal real branch.
 #declaration_only
 pub fn mpf_e1(
   x : @mpf.RawMpf,
@@ -101,6 +120,7 @@ pub fn mpf_e1(
 }
 
 ///|
+/// Error function `erf(x)`.
 #declaration_only
 pub fn mpf_erf(
   x : @mpf.RawMpf,
@@ -111,6 +131,7 @@ pub fn mpf_erf(
 }
 
 ///|
+/// Complementary error function `erfc(x)`.
 #declaration_only
 pub fn mpf_erfc(
   x : @mpf.RawMpf,
@@ -121,6 +142,9 @@ pub fn mpf_erfc(
 }
 
 ///|
+/// Generalized exponential integral family `expint(n, x)`.
+///
+/// With `gamma=true`, computes the upper incomplete-gamma related form.
 #declaration_only
 pub fn mpf_expint(
   n : Int,
@@ -133,6 +157,7 @@ pub fn mpf_expint(
 }
 
 ///|
+/// Bessel function of the first kind `J_n(x)` for integer order `n`.
 #declaration_only
 pub fn mpf_besseljn(
   n : Int,
