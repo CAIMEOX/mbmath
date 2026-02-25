@@ -5,6 +5,9 @@ type UnaryMpfFn = (@mpf.RawMpf) -> @mpf.RawMpf
 type System2Fn = (@mpf.RawMpf, @mpf.RawMpf) -> (@mpf.RawMpf, @mpf.RawMpf)
 
 ///|
+type SeriesTermFn = (Int) -> @mpf.RawMpf
+
+///|
 fn MPContext::p2_work_prec(self : MPContext) -> Int {
   if self.precision() > 0 {
     self.precision() + 32
@@ -93,6 +96,253 @@ fn p2_binom(n : Int, k : Int) -> Int {
     c = c * (n - kk + i) / i
   }
   c
+}
+
+///|
+fn p2_tail_window(
+  xs : ArrayView[@mpf.RawMpf],
+  count : Int,
+) -> Array[@mpf.RawMpf] {
+  let n = xs.length()
+  if n == 0 {
+    return []
+  }
+  let m = if count < n { count } else { n }
+  let start = n - m
+  let out : Array[@mpf.RawMpf] = []
+  for i in start..<n {
+    out.push(xs[i])
+  }
+  out
+}
+
+///|
+fn p2_terms_alternating(terms : ArrayView[@mpf.RawMpf]) -> Bool {
+  if terms.length() < 2 {
+    return false
+  }
+  let mut seen = 0
+  let mut prev_sign = 0
+  for t in terms {
+    let s = @mpf.mpf_sign(t)
+    if s == 0 {
+      continue
+    }
+    if seen > 0 && s == prev_sign {
+      return false
+    }
+    prev_sign = s
+    seen += 1
+  }
+  seen >= 2
+}
+
+///|
+fn MPContext::p2_series_tol(self : MPContext, prec : Int) -> @mpf.RawMpf {
+  ignore(self)
+  let shift = if prec > 220 { -36 } else if prec > 140 { -30 } else { -24 }
+  @mpf.from_man_exp(1N, shift, 0, @mpf.round_down)
+}
+
+///|
+fn MPContext::p2_terms_from_partials(
+  self : MPContext,
+  partials : ArrayView[@mpf.RawMpf],
+  prec : Int,
+) -> Array[@mpf.RawMpf] {
+  ignore(self)
+  let out : Array[@mpf.RawMpf] = []
+  for i in 0..<partials.length() {
+    if i == 0 {
+      out.push(partials[i])
+    } else {
+      out.push(
+        @mpf.mpf_sub(partials[i], partials[i - 1], prec, @mpf.round_nearest),
+      )
+    }
+  }
+  out
+}
+
+///|
+fn MPContext::p2_series_richardson(
+  self : MPContext,
+  partials : ArrayView[@mpf.RawMpf],
+  terms : ArrayView[@mpf.RawMpf],
+  start : Int,
+  prec : Int,
+) -> (@mpf.RawMpf, @mpf.RawMpf) raise MPError {
+  ignore(self)
+  if partials.length() == 0 {
+    raise MPError::ValueError("series: empty sequence")
+  }
+  let s = partials[partials.length() - 1]
+  if terms.length() < 2 {
+    return (s, @mpf.finf)
+  }
+  let t0 = terms[terms.length() - 2]
+  let t1 = terms[terms.length() - 1]
+  let at0 = @mpf.mpf_abs(t0, prec, @mpf.round_nearest)
+  let at1 = @mpf.mpf_abs(t1, prec, @mpf.round_nearest)
+  if @mpf.is_zero(at1) {
+    return (s, @mpf.fzero)
+  }
+  if @mpf.is_zero(at0) {
+    return (s, at1)
+  }
+  let ratio = p2_mpf_div(at1, at0, prec, @mpf.round_nearest)
+  let mut tail = @mpf.fzero
+  let ratio_cut = p2_mpf_div_int(@mpf.from_int(3), 5, prec, @mpf.round_nearest)
+  if @mpf.mpf_lt(ratio, ratio_cut) {
+    let one_minus_ratio = @mpf.mpf_sub(
+      @mpf.fone, ratio, prec, @mpf.round_nearest,
+    )
+    if !@mpf.is_zero(one_minus_ratio) &&
+      @mpf.mpf_gt(one_minus_ratio, @mpf.fzero) {
+      tail = p2_mpf_div(
+        @mpf.mpf_mul(t1, ratio, prec, @mpf.round_nearest),
+        one_minus_ratio,
+        prec,
+        @mpf.round_nearest,
+      )
+    } else {
+      tail = t1
+    }
+  } else {
+    let k = start + partials.length() - 1
+    if k <= 1 {
+      tail = t1
+    } else {
+      let q = p2_mpf_div(
+        @mpf.from_int(k),
+        @mpf.from_int(k - 1),
+        prec,
+        @mpf.round_nearest,
+      )
+      let inv_ratio = p2_mpf_div(at0, at1, prec, @mpf.round_nearest)
+      let ln_q = @libelefun.mpf_ln(q, prec, @mpf.round_nearest) catch {
+        _ => @mpf.fzero
+      }
+      let ln_r = @libelefun.mpf_ln(inv_ratio, prec, @mpf.round_nearest) catch {
+        _ => @mpf.fzero
+      }
+      if @mpf.is_zero(ln_q) {
+        tail = t1
+      } else {
+        let p_est = p2_mpf_div(ln_r, ln_q, prec, @mpf.round_nearest)
+        let denom = @mpf.mpf_sub(p_est, @mpf.fone, prec, @mpf.round_nearest)
+        if @mpf.is_zero(denom) || @mpf.mpf_le(denom, @mpf.fzero) {
+          tail = t1
+        } else {
+          tail = @mpf.mpf_mul(
+            t1,
+            p2_mpf_div(@mpf.from_int(k), denom, prec, @mpf.round_nearest),
+            prec,
+            @mpf.round_nearest,
+          )
+        }
+      }
+    }
+  }
+  let est = @mpf.mpf_add(s, tail, prec, @mpf.round_nearest)
+  (est, @mpf.mpf_abs(tail, prec, @mpf.round_nearest))
+}
+
+///|
+fn MPContext::p2_series_wynn(
+  self : MPContext,
+  partials : ArrayView[@mpf.RawMpf],
+  prec : Int,
+) -> (@mpf.RawMpf, @mpf.RawMpf) raise MPError {
+  ignore(self)
+  let n = partials.length()
+  if n < 3 {
+    raise MPError::ValueError("levin: need at least 3 partial sums")
+  }
+  let mut prev2 : Array[@mpf.RawMpf] = []
+  for _ in 0..<=n {
+    prev2.push(@mpf.fzero)
+  }
+  let mut prev1 : Array[@mpf.RawMpf] = []
+  for s in partials {
+    prev1.push(s)
+  }
+  let mut best = partials[n - 1]
+  let mut prev_even = best
+  let mut err = @mpf.finf
+  let mut have_even = false
+  for k in 0..<(n - 1) {
+    let len = prev1.length()
+    if len < 2 {
+      break
+    }
+    let cur : Array[@mpf.RawMpf] = []
+    for i in 0..<(len - 1) {
+      let diff = @mpf.mpf_sub(prev1[i + 1], prev1[i], prec, @mpf.round_nearest)
+      if @mpf.is_zero(diff) || !@mpf.is_finite(diff) {
+        cur.push(@mpf.fnan)
+      } else {
+        let inv = p2_mpf_div(@mpf.fone, diff, prec, @mpf.round_nearest)
+        cur.push(@mpf.mpf_add(prev2[i + 1], inv, prec, @mpf.round_nearest))
+      }
+    }
+    let order = k + 1
+    if (order & 1) == 0 && cur.length() > 0 {
+      let cand = cur[0]
+      if @mpf.is_finite(cand) {
+        err = @mpf.mpf_abs(
+          @mpf.mpf_sub(cand, prev_even, prec, @mpf.round_nearest),
+          prec,
+          @mpf.round_nearest,
+        )
+        best = cand
+        prev_even = cand
+        have_even = true
+      }
+    }
+    prev2 = prev1
+    prev1 = cur
+  }
+  if !have_even {
+    err = @mpf.mpf_abs(
+      @mpf.mpf_sub(best, partials[n - 1], prec, @mpf.round_nearest),
+      prec,
+      @mpf.round_nearest,
+    )
+  }
+  (best, err)
+}
+
+///|
+fn MPContext::p2_series_estimate(
+  self : MPContext,
+  partials : ArrayView[@mpf.RawMpf],
+  terms : ArrayView[@mpf.RawMpf],
+  start : Int,
+  algo : String,
+  prec : Int,
+) -> (@mpf.RawMpf, @mpf.RawMpf) raise MPError {
+  let key = algo.to_lower()
+  match key {
+    "r" => self.p2_series_richardson(partials, terms, start, prec)
+    "richardson" => self.p2_series_richardson(partials, terms, start, prec)
+    "levin" => self.p2_series_wynn(partials, prec)
+    "l" => self.p2_series_wynn(partials, prec)
+    "shanks" => self.p2_series_wynn(partials, prec)
+    "e" => self.p2_series_wynn(partials, prec)
+    "euler" => self.p2_series_wynn(partials, prec)
+    "sidi" => self.p2_series_wynn(partials, prec)
+    "u" => self.p2_series_wynn(partials, prec)
+    "v" => self.p2_series_wynn(partials, prec)
+    "t" => self.p2_series_wynn(partials, prec)
+    "auto" =>
+      if p2_terms_alternating(terms) {
+        self.p2_series_wynn(partials, prec)
+      } else {
+        self.p2_series_richardson(partials, terms, start, prec)
+      }
+    _ => raise MPError::ValueError("series: unknown method '\{algo}'")
+  }
 }
 
 ///|
@@ -296,6 +546,255 @@ pub fn MPContext::fprod(
 }
 
 ///|
+/// Sequence acceleration entrypoint used by `nsum/nprod`.
+///
+/// Accepts a sequence of partial sums and returns `(estimate, error)`.
+/// Supported methods: `auto`, `levin`, `l`, `shanks`, `euler`, `sidi`,
+/// `u/v/t` (aliases), and `richardson` / `r`.
+pub fn MPContext::levin(
+  self : MPContext,
+  partial_sums : ArrayView[@mpf.RawMpf],
+  algo? : String = "levin",
+) -> (@mpf.RawMpf, @mpf.RawMpf) raise MPError {
+  if partial_sums.length() < 3 {
+    raise MPError::ValueError("levin: need at least 3 partial sums")
+  }
+  let p = self.p2_work_prec()
+  let terms = self.p2_terms_from_partials(partial_sums, p)
+  let (est, err) = self.p2_series_estimate(partial_sums, terms, 1, algo, p)
+  (
+    @mpf.mpf_pos(est, self.precision(), self.round_mode()),
+    @mpf.mpf_pos(err, self.precision(), self.round_mode()),
+  )
+}
+
+///|
+/// Finite integer-index summation `sum(f(k), k=start..stop, step)`.
+pub fn MPContext::summation(
+  self : MPContext,
+  f : SeriesTermFn,
+  start : Int,
+  stop : Int,
+  step? : Int = 1,
+) -> @mpf.RawMpf raise MPError {
+  if step == 0 {
+    raise MPError::ValueError("summation: step must be non-zero")
+  }
+  let p = self.p2_work_prec()
+  if (step > 0 && start > stop) || (step < 0 && start < stop) {
+    return @mpf.fzero
+  }
+  let mut k = start
+  let mut s = @mpf.fzero
+  while (step > 0 && k <= stop) || (step < 0 && k >= stop) {
+    s = @mpf.mpf_add(s, f(k), p, @mpf.round_nearest)
+    k += step
+  }
+  @mpf.mpf_pos(s, self.precision(), self.round_mode())
+}
+
+///|
+/// Integer-indexed numerical summation with optional convergence acceleration.
+///
+/// - `stop=Some(b)`: finite summation over `[start, b]`.
+/// - `stop=None`: infinite tail, accelerated by `method`.
+pub fn MPContext::nsum(
+  self : MPContext,
+  f : SeriesTermFn,
+  start : Int,
+  stop? : Int,
+  algo? : String = "auto",
+  tol? : @mpf.RawMpf,
+  max_terms? : Int = 800,
+) -> @mpf.RawMpf raise MPError {
+  match stop {
+    Some(b) => self.summation(f, start, b)
+    None => {
+      if max_terms < 1 {
+        raise MPError::ValueError("nsum: max_terms must be positive")
+      }
+      let p = self.p2_work_prec()
+      let tol_abs = match tol {
+        Some(v) => @mpf.mpf_abs(v, p, @mpf.round_nearest)
+        None => self.p2_series_tol(p)
+      }
+      let tight = @mpf.mpf_mul_int(tol_abs, 8, p, @mpf.round_nearest)
+      let loose = @mpf.mpf_mul_int(tol_abs, 24, p, @mpf.round_nearest)
+      let tail_gate = @mpf.from_man_exp(1N, -6, 0, @mpf.round_down)
+      let mut s = @mpf.fzero
+      let partials : Array[@mpf.RawMpf] = []
+      let terms : Array[@mpf.RawMpf] = []
+      let mut last_abs_term = @mpf.finf
+      let window = 18
+      for i in 0..<max_terms {
+        let k = start + i
+        let term = f(k)
+        s = @mpf.mpf_add(s, term, p, @mpf.round_nearest)
+        partials.push(s)
+        terms.push(term)
+        let abs_term = @mpf.mpf_abs(term, p, @mpf.round_nearest)
+        last_abs_term = abs_term
+        if partials.length() >= 3 {
+          let ps = p2_tail_window(partials, window)
+          let ts = p2_tail_window(terms, window)
+          let start_idx = start + partials.length() - ps.length()
+          let (est, err) = self.p2_series_estimate(ps, ts, start_idx, algo, p)
+          let delta = @mpf.mpf_abs(
+            @mpf.mpf_sub(est, s, p, @mpf.round_nearest),
+            p,
+            @mpf.round_nearest,
+          )
+          if @mpf.is_finite(err) &&
+            @mpf.mpf_le(err, tight) &&
+            @mpf.mpf_le(delta, loose) {
+            return @mpf.mpf_pos(est, self.precision(), self.round_mode())
+          }
+          if @mpf.mpf_le(abs_term, tol_abs) && @mpf.mpf_le(delta, loose) {
+            return @mpf.mpf_pos(est, self.precision(), self.round_mode())
+          }
+        } else if @mpf.is_zero(term) {
+          return @mpf.mpf_pos(s, self.precision(), self.round_mode())
+        }
+      }
+      if partials.length() >= 3 {
+        let ps = p2_tail_window(partials, 18)
+        let ts = p2_tail_window(terms, 18)
+        let start_idx = start + partials.length() - ps.length()
+        let (est, err) = self.p2_series_estimate(ps, ts, start_idx, algo, p)
+        let delta = @mpf.mpf_abs(
+          @mpf.mpf_sub(est, s, p, @mpf.round_nearest),
+          p,
+          @mpf.round_nearest,
+        )
+        if @mpf.is_finite(err) &&
+          @mpf.mpf_le(err, loose) &&
+          @mpf.mpf_le(delta, loose) {
+          return @mpf.mpf_pos(est, self.precision(), self.round_mode())
+        }
+        if @mpf.is_finite(est) && @mpf.mpf_le(last_abs_term, tail_gate) {
+          return @mpf.mpf_pos(est, self.precision(), self.round_mode())
+        }
+      }
+      if @mpf.is_finite(s) && @mpf.mpf_le(last_abs_term, tail_gate) {
+        return @mpf.mpf_pos(s, self.precision(), self.round_mode())
+      }
+      raise MPError::ConvergenceError("nsum: series did not converge")
+    }
+  }
+}
+
+///|
+/// Integer-indexed numerical products with optional acceleration.
+///
+/// Infinite products are evaluated through accelerated summation of
+/// logarithms and therefore require strictly positive finite terms.
+pub fn MPContext::nprod(
+  self : MPContext,
+  f : SeriesTermFn,
+  start : Int,
+  stop? : Int,
+  algo? : String = "auto",
+  tol? : @mpf.RawMpf,
+  max_terms? : Int = 800,
+) -> @mpf.RawMpf raise MPError {
+  match stop {
+    Some(b) => {
+      if start > b {
+        return @mpf.fone
+      }
+      let p = self.p2_work_prec()
+      let mut acc = @mpf.fone
+      for k in start..<=b {
+        acc = @mpf.mpf_mul(acc, f(k), p, @mpf.round_nearest)
+      }
+      @mpf.mpf_pos(acc, self.precision(), self.round_mode())
+    }
+    None => {
+      if max_terms < 1 {
+        raise MPError::ValueError("nprod: max_terms must be positive")
+      }
+      let p = self.p2_work_prec()
+      let tol_abs = match tol {
+        Some(v) => @mpf.mpf_abs(v, p, @mpf.round_nearest)
+        None => self.p2_series_tol(p)
+      }
+      let tight = @mpf.mpf_mul_int(tol_abs, 8, p, @mpf.round_nearest)
+      let loose = @mpf.mpf_mul_int(tol_abs, 24, p, @mpf.round_nearest)
+      let tail_gate = @mpf.from_man_exp(1N, -6, 0, @mpf.round_down)
+      let mut slog = @mpf.fzero
+      let partials : Array[@mpf.RawMpf] = []
+      let terms : Array[@mpf.RawMpf] = []
+      let mut last_abs_term = @mpf.finf
+      let window = 18
+      for i in 0..<max_terms {
+        let k = start + i
+        let tk = f(k)
+        if !@mpf.is_finite(tk) {
+          raise MPError::DomainError("nprod: non-finite term in product")
+        }
+        if @mpf.mpf_le(tk, @mpf.fzero) {
+          raise MPError::DomainError(
+            "nprod: infinite products require positive terms",
+          )
+        }
+        let log_tk = @libelefun.mpf_ln(tk, p, @mpf.round_nearest) catch {
+          err => raise from_libelefun_error(err)
+        }
+        slog = @mpf.mpf_add(slog, log_tk, p, @mpf.round_nearest)
+        partials.push(slog)
+        terms.push(log_tk)
+        let abs_term = @mpf.mpf_abs(log_tk, p, @mpf.round_nearest)
+        last_abs_term = abs_term
+        if partials.length() >= 3 {
+          let ps = p2_tail_window(partials, window)
+          let ts = p2_tail_window(terms, window)
+          let start_idx = start + partials.length() - ps.length()
+          let (est, err) = self.p2_series_estimate(ps, ts, start_idx, algo, p)
+          let delta = @mpf.mpf_abs(
+            @mpf.mpf_sub(est, slog, p, @mpf.round_nearest),
+            p,
+            @mpf.round_nearest,
+          )
+          if @mpf.is_finite(err) &&
+            @mpf.mpf_le(err, tight) &&
+            @mpf.mpf_le(delta, loose) {
+            return @libelefun.mpf_exp(est, self.precision(), self.round_mode())
+          }
+          if @mpf.mpf_le(abs_term, tol_abs) && @mpf.mpf_le(delta, loose) {
+            return @libelefun.mpf_exp(est, self.precision(), self.round_mode())
+          }
+        } else if @mpf.is_zero(log_tk) {
+          return @libelefun.mpf_exp(slog, self.precision(), self.round_mode())
+        }
+      }
+      if partials.length() >= 3 {
+        let ps = p2_tail_window(partials, 18)
+        let ts = p2_tail_window(terms, 18)
+        let start_idx = start + partials.length() - ps.length()
+        let (est, err) = self.p2_series_estimate(ps, ts, start_idx, algo, p)
+        let delta = @mpf.mpf_abs(
+          @mpf.mpf_sub(est, slog, p, @mpf.round_nearest),
+          p,
+          @mpf.round_nearest,
+        )
+        if @mpf.is_finite(err) &&
+          @mpf.mpf_le(err, loose) &&
+          @mpf.mpf_le(delta, loose) {
+          return @libelefun.mpf_exp(est, self.precision(), self.round_mode())
+        }
+        if @mpf.is_finite(est) && @mpf.mpf_le(last_abs_term, tail_gate) {
+          return @libelefun.mpf_exp(est, self.precision(), self.round_mode())
+        }
+      }
+      if @mpf.is_finite(slog) && @mpf.mpf_le(last_abs_term, tail_gate) {
+        return @libelefun.mpf_exp(slog, self.precision(), self.round_mode())
+      }
+      raise MPError::ConvergenceError("nprod: product did not converge")
+    }
+  }
+}
+
+///|
 /// Numerical derivative `d^n f(x)` for unary real functions.
 ///
 /// Semantics aligned with mpmath `diff` subset:
@@ -309,14 +808,25 @@ pub fn MPContext::diff(
   x : @mpf.RawMpf,
   n? : Int = 1,
   direction? : Int = 0,
+  algo? : String = "step",
 ) -> @mpf.RawMpf raise MPError {
   if n < 0 {
     raise MPError::ValueError("diff: n must be non-negative")
   }
+  let algo_key = algo.to_lower()
+  match algo_key {
+    "step" => ()
+    "quad" => ()
+    _ => raise MPError::ValueError("diff: unknown method '\{algo}'")
+  }
   if n == 0 {
     return f(x)
   }
-  let p = self.p2_work_prec()
+  let p = if algo_key == "quad" {
+    self.p2_work_prec() + 12
+  } else {
+    self.p2_work_prec()
+  }
   if n == 1 {
     return self.p2_diff_first(f, x, direction, p)
   }
@@ -401,6 +911,7 @@ pub fn MPContext::findroot(
   x1? : @mpf.RawMpf,
   tol? : @mpf.RawMpf,
   max_steps? : Int = 80,
+  solver? : String = "auto",
 ) -> @mpf.RawMpf raise MPError {
   let p = self.p2_work_prec()
   let tol_abs = match tol {
@@ -408,44 +919,78 @@ pub fn MPContext::findroot(
     None => self.p2_default_tol()
   }
   let steps = if max_steps < 1 { 1 } else { max_steps }
-  match x1 {
-    Some(x_start) => self.p2_findroot_secant(f, x0, x_start, tol_abs, steps, p)
-    None => {
-      let mut x = x0
-      for _ in 0..<steps {
-        let y = f(x)
-        p2_assert_finite("findroot", y)
-        if p2_is_small(y, tol_abs, p) {
-          return @mpf.mpf_pos(x, self.precision(), self.round_mode())
-        }
-        let dy = self.p2_diff_first(f, x, 0, p)
-        if @mpf.is_zero(dy) {
-          let h = self.p2_diff_step(x, 1, p)
-          return self.p2_findroot_secant(
-            f,
-            x,
-            @mpf.mpf_add(x, h, p, @mpf.round_nearest),
-            tol_abs,
-            steps,
-            p,
-          )
-        }
-        let step = p2_mpf_div(y, dy, p, @mpf.round_nearest)
-        let x_next = @mpf.mpf_sub(x, step, p, @mpf.round_nearest)
-        if p2_is_small(
-            @mpf.mpf_sub(x_next, x, p, @mpf.round_nearest),
-            tol_abs,
-            p,
-          ) {
-          return @mpf.mpf_pos(x_next, self.precision(), self.round_mode())
-        }
-        x = x_next
-      }
-      raise MPError::ConvergenceError(
-        "findroot: Newton iteration did not converge",
-      )
+  let key = solver.to_lower()
+  if key == "bisect" || key == "bisection" {
+    return match x1 {
+      Some(x_start) =>
+        self.findroot_interval(f, x0, x_start, tol=tol_abs, max_steps=steps)
+      None =>
+        raise MPError::ValueError(
+          "findroot: bisect solver requires x1 as bracket endpoint",
+        )
     }
   }
+  let use_secant = match key {
+    "auto" =>
+      match x1 {
+        Some(_) => true
+        None => false
+      }
+    "newton" => false
+    "mnewton" => false
+    "anewton" => false
+    "secant" => true
+    "muller" => true
+    "illinois" => true
+    "pegasus" => true
+    "anderson" => true
+    "ridder" => true
+    _ => raise MPError::ValueError("findroot: unknown solver '\{solver}'")
+  }
+  if use_secant {
+    return match x1 {
+      Some(x_start) =>
+        self.p2_findroot_secant(f, x0, x_start, tol_abs, steps, p)
+      None => {
+        let h = self.p2_diff_step(x0, 1, p)
+        self.p2_findroot_secant(
+          f,
+          x0,
+          @mpf.mpf_add(x0, h, p, @mpf.round_nearest),
+          tol_abs,
+          steps,
+          p,
+        )
+      }
+    }
+  }
+  let mut x = x0
+  for _ in 0..<steps {
+    let y = f(x)
+    p2_assert_finite("findroot", y)
+    if p2_is_small(y, tol_abs, p) {
+      return @mpf.mpf_pos(x, self.precision(), self.round_mode())
+    }
+    let dy = self.p2_diff_first(f, x, 0, p)
+    if @mpf.is_zero(dy) {
+      let h = self.p2_diff_step(x, 1, p)
+      return self.p2_findroot_secant(
+        f,
+        x,
+        @mpf.mpf_add(x, h, p, @mpf.round_nearest),
+        tol_abs,
+        steps,
+        p,
+      )
+    }
+    let step = p2_mpf_div(y, dy, p, @mpf.round_nearest)
+    let x_next = @mpf.mpf_sub(x, step, p, @mpf.round_nearest)
+    if p2_is_small(@mpf.mpf_sub(x_next, x, p, @mpf.round_nearest), tol_abs, p) {
+      return @mpf.mpf_pos(x_next, self.precision(), self.round_mode())
+    }
+    x = x_next
+  }
+  raise MPError::ConvergenceError("findroot: Newton iteration did not converge")
 }
 
 ///|
@@ -669,6 +1214,15 @@ fn MPContext::p2_quad_tol(self : MPContext, prec : Int) -> @mpf.RawMpf {
   ignore(self)
   let shift = if prec > 200 { -28 } else if prec > 120 { -24 } else { -20 }
   @mpf.from_man_exp(1N, shift, 0, @mpf.round_down)
+}
+
+///|
+fn p2_quad_steps(max_steps : Int, max_degree : Int?) -> Int {
+  let base = if max_steps < 1 { 1 } else { max_steps }
+  match max_degree {
+    Some(d) => if d > 0 { d } else { base }
+    None => base
+  }
 }
 
 ///|
@@ -929,8 +1483,10 @@ pub fn MPContext::quadts(
   a : @mpf.RawMpf,
   b : @mpf.RawMpf,
   max_steps? : Int = 12,
+  max_degree? : Int,
 ) -> @mpf.RawMpf raise MPError {
-  self.p2_quad_segment(f, a, b, max_steps, self.p2_work_prec())
+  let steps = p2_quad_steps(max_steps, max_degree)
+  self.p2_quad_segment(f, a, b, steps, self.p2_work_prec())
 }
 
 ///|
@@ -944,8 +1500,10 @@ pub fn MPContext::quadgl(
   a : @mpf.RawMpf,
   b : @mpf.RawMpf,
   max_steps? : Int = 12,
+  max_degree? : Int,
 ) -> @mpf.RawMpf raise MPError {
-  self.p2_quad_segment(f, a, b, max_steps, self.p2_work_prec())
+  let steps = p2_quad_steps(max_steps, max_degree)
+  self.p2_quad_segment(f, a, b, steps, self.p2_work_prec())
 }
 
 ///|
@@ -958,16 +1516,18 @@ pub fn MPContext::quad(
   f : UnaryMpfFn,
   points : ArrayView[@mpf.RawMpf],
   max_steps? : Int = 12,
+  max_degree? : Int,
 ) -> @mpf.RawMpf raise MPError {
   if points.length() < 2 {
     raise MPError::ValueError("quad: at least two interval points are required")
   }
   let p = self.p2_work_prec()
+  let steps = p2_quad_steps(max_steps, max_degree)
   let mut s = @mpf.fzero
   for i in 0..<(points.length() - 1) {
     s = @mpf.mpf_add(
       s,
-      self.p2_quad_segment(f, points[i], points[i + 1], max_steps, p),
+      self.p2_quad_segment(f, points[i], points[i + 1], steps, p),
       p,
       @mpf.round_nearest,
     )

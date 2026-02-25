@@ -13,8 +13,15 @@ test "p2 quad finite and piecewise subset from mpmath test_quad" {
   }
   let i_poly_ts = ctx.quadts(poly, ctx.make_int(-2), ctx.make_int(4))
   let i_poly_gl = ctx.quadgl(poly, ctx.make_int(-2), ctx.make_int(4))
+  let i_poly_gl_degree = ctx.quadgl(
+    poly,
+    ctx.make_int(-2),
+    ctx.make_int(4),
+    max_degree=12,
+  )
   assert_close_mpf_str(i_poly_ts, "-12", "2e-8")
   assert_close_mpf_str(i_poly_gl, "-12", "2e-8")
+  assert_close_mpf_str(i_poly_gl_degree, "-12", "2e-8")
 
   let pi = @libelefun.mpf_pi(260, @mpf.round_nearest)
   let i_sin = ctx.quadts((x : @mpf.RawMpf) => ctx.sin(x), @mpf.fzero, pi)
@@ -32,7 +39,13 @@ test "p2 quad finite and piecewise subset from mpmath test_quad" {
     ctx.make_float("0.9"),
     ctx.make_int(1),
   ])
+  let i_piece_degree = ctx.quad(
+    sign_fn,
+    [ctx.make_float("-0.5"), ctx.make_float("0.9"), ctx.make_int(1)],
+    max_degree=12,
+  )
   assert_close_mpf_str(i_piece, "0.5", "3e-5")
+  assert_close_mpf_str(i_piece_degree, "0.5", "4e-5")
 
   let i_left_inf = ctx.quadts(
     (x : @mpf.RawMpf) => @libelefun.mpf_exp(x, 260, @mpf.round_nearest),

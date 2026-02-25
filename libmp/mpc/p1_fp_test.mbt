@@ -924,3 +924,39 @@ test "p1 fp acos remaining +/-inf +/-0 combinations from mpmath test_fp" {
   assert_neg_inf(ninf_p1.imag)
   assert_pos_inf(ninf_n1.imag)
 }
+
+///|
+test "p1 fp zeta extra deep-plane relation subset" {
+  let p = 320
+  let s = from_parts(@mpf.from_str("-7.25"), @mpf.from_str("19.5"))
+  let z = mpc_zeta(s, p, @mpf.round_nearest)
+  let eta = mpc_altzeta(s, p, @mpf.round_nearest)
+  let factor = mpc_sub(
+    one(),
+    mpc_pow(
+      from_parts(@mpf.from_int(2), @mpf.fzero),
+      mpc_sub(one(), s, p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    ),
+    p,
+    @mpf.round_nearest,
+  )
+  let rhs = mpc_mul(z, factor, p, @mpf.round_nearest)
+  let rel_err = mpc_abs(
+    mpc_sub(eta, rhs, p, @mpf.round_nearest),
+    p,
+    @mpf.round_nearest,
+  )
+  assert_true(@mpf.mpf_lt(rel_err, @mpf.from_str("5e-9")))
+
+  let sc = mpc_conjugate(s, p, @mpf.round_nearest)
+  let zc = mpc_zeta(sc, p, @mpf.round_nearest)
+  let z_conj = mpc_conjugate(z, p, @mpf.round_nearest)
+  let conj_err = mpc_abs(
+    mpc_sub(zc, z_conj, p, @mpf.round_nearest),
+    p,
+    @mpf.round_nearest,
+  )
+  assert_true(@mpf.mpf_lt(conj_err, @mpf.from_str("5e-9")))
+}

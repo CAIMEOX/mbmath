@@ -153,3 +153,36 @@ test "ctx complex api and structured errors" {
   )
   assert_eq(zeta_alt_one.imag, @mpf.fzero)
 }
+
+///|
+test "ctx mpmath wrapper critical-line zeta subset" {
+  let ctx = new(300, @mpf.round_nearest)
+  let s = ctx.make_complex(
+    ctx.make_float("0.5"),
+    ctx.make_float("14.134725141734693"),
+  )
+  let z = ctx.complex_zeta(s)
+  let z_abs = @mpc.mpc_abs(z, 300, @mpf.round_nearest)
+  assert_true(@mpf.mpf_lt(z_abs, @mpf.from_str("1e-8")))
+}
+
+///|
+test "ctx mpmath wrapper zeta conjugation subset" {
+  let ctx = new(300, @mpf.round_nearest)
+  let sp = ctx.make_complex(ctx.make_float("0.7"), ctx.make_float("13"))
+  let sn = ctx.make_complex(ctx.make_float("0.7"), ctx.make_float("-13"))
+  let zp = ctx.complex_zeta(sp)
+  let zn = ctx.complex_zeta(sn)
+  let re_diff = @mpf.mpf_abs(
+    @mpf.mpf_sub(zp.real, zn.real, 320, @mpf.round_nearest),
+    320,
+    @mpf.round_nearest,
+  )
+  let im_sum = @mpf.mpf_abs(
+    @mpf.mpf_add(zp.imag, zn.imag, 320, @mpf.round_nearest),
+    320,
+    @mpf.round_nearest,
+  )
+  assert_true(@mpf.mpf_lt(re_diff, @mpf.from_str("2e-12")))
+  assert_true(@mpf.mpf_lt(im_sum, @mpf.from_str("2e-12")))
+}

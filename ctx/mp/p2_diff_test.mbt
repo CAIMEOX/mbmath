@@ -53,6 +53,24 @@ test "p2 diff subset from mpmath test_diff" {
   let d5sin0 = ctx.diff((x : @mpf.RawMpf) => ctx.sin(x), @mpf.fzero, n=5)
   assert_close_mpf_str(d5sin0, "1", "5e-6")
 
+  let d_quad = ctx.diff(
+    (x : @mpf.RawMpf) => @mpf.mpf_mul(x, x, 260, @mpf.round_nearest),
+    ctx.make_int(3),
+    algo="quad",
+  )
+  assert_close_mpf_str(d_quad, "6", "2e-6")
+
+  let bad_method : Result[@mpf.RawMpf, MPError] = try? ctx.diff(
+    (x : @mpf.RawMpf) => x,
+    ctx.make_int(2),
+    algo="bad",
+  )
+  match bad_method {
+    Ok(_) => fail("expected ValueError for unknown diff method")
+    Err(MPError::ValueError(_)) => ()
+    Err(_) => fail("unexpected error type")
+  }
+
   let bad : Result[@mpf.RawMpf, MPError] = try? ctx.diff(
     (x : @mpf.RawMpf) => x,
     ctx.make_int(2),

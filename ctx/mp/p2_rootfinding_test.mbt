@@ -15,10 +15,25 @@ test "p2 rootfinding findroot subset from mpmath test_rootfinding" {
     ctx.make_int(3),
     x1=ctx.make_float("3.14"),
   )
+  let r_sin_newton_solver = ctx.findroot(
+    f_sin,
+    ctx.make_int(3),
+    solver="newton",
+  )
   assert_true(
     @mpf.mpf_lt(
       @mpf.mpf_abs(
         @mpf.mpf_sub(r_sin_newton, pi, 260, @mpf.round_nearest),
+        260,
+        @mpf.round_nearest,
+      ),
+      @mpf.from_str("1e-9"),
+    ),
+  )
+  assert_true(
+    @mpf.mpf_lt(
+      @mpf.mpf_abs(
+        @mpf.mpf_sub(r_sin_newton_solver, pi, 260, @mpf.round_nearest),
         260,
         @mpf.round_nearest,
       ),
@@ -64,12 +79,19 @@ test "p2 rootfinding findroot subset from mpmath test_rootfinding" {
     )
   }
   let r_bisect = ctx.findroot_interval(sq_minus_1, @mpf.fzero, ctx.make_int(2))
+  let r_bisect_solver = ctx.findroot(
+    sq_minus_1,
+    @mpf.fzero,
+    x1=ctx.make_int(2),
+    solver="bisect",
+  )
   let r_bisect_rev = ctx.findroot_interval(
     sq_minus_1,
     ctx.make_int(2),
     @mpf.fzero,
   )
   assert_close_mpf_str(r_bisect, "1", "1e-18")
+  assert_close_mpf_str(r_bisect_solver, "1", "1e-18")
   assert_close_mpf_str(r_bisect_rev, "1", "1e-18")
 
   let bracket_bad : Result[@mpf.RawMpf, MPError] = try? ctx.findroot_interval(
@@ -86,6 +108,17 @@ test "p2 rootfinding findroot subset from mpmath test_rootfinding" {
   )
   match bracket_bad {
     Ok(_) => fail("expected bracketing ValueError")
+    Err(MPError::ValueError(_)) => ()
+    Err(_) => fail("unexpected error type")
+  }
+
+  let solver_bad : Result[@mpf.RawMpf, MPError] = try? ctx.findroot(
+    (x : @mpf.RawMpf) => x,
+    @mpf.fzero,
+    solver="bad",
+  )
+  match solver_bad {
+    Ok(_) => fail("expected ValueError for unknown solver")
     Err(MPError::ValueError(_)) => ()
     Err(_) => fail("unexpected error type")
   }

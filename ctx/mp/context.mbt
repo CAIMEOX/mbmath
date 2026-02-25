@@ -565,3 +565,222 @@ pub fn MPContext::expint(
   }
   lift_real(re)
 }
+
+///|
+fn identify_work_prec(prec : Int) -> Int {
+  if prec > 0 {
+    prec + 32
+  } else {
+    96
+  }
+}
+
+///|
+fn identify_decimals(prec : Int) -> Int {
+  if prec > 0 {
+    let dps = prec / 6
+    if dps > 12 {
+      dps
+    } else {
+      12
+    }
+  } else {
+    18
+  }
+}
+
+///|
+fn identify_tol(prec : Int) -> @mpf.RawMpf {
+  let dps = identify_decimals(prec)
+  @mpf.from_str(
+    "1e-\{dps}",
+    prec=identify_work_prec(prec),
+    rnd=@mpf.round_nearest,
+  ) catch {
+    _ => @mpf.from_man_exp(1N, -48, 0, @mpf.round_down)
+  }
+}
+
+///|
+fn mpf_close(
+  a : @mpf.RawMpf,
+  b : @mpf.RawMpf,
+  p : Int,
+  tol : @mpf.RawMpf,
+) -> Bool {
+  let err = @mpf.mpf_abs(
+    @mpf.mpf_sub(a, b, p, @mpf.round_nearest),
+    p,
+    @mpf.round_nearest,
+  )
+  @mpf.mpf_le(err, tol)
+}
+
+///|
+fn format_ratio(num : Int, den : Int) -> String {
+  if den == 1 {
+    "\{num}"
+  } else {
+    "(\{num}/\{den})"
+  }
+}
+
+///|
+fn find_small_rational(
+  x : @mpf.RawMpf,
+  p : Int,
+  tol : @mpf.RawMpf,
+  max_num : Int,
+  max_den : Int,
+) -> (Int, Int)? {
+  for den in 1..<=max_den {
+    for num in -max_num..<=max_num {
+      let cand = @mpf.mpf_div(
+        @mpf.from_int(num),
+        @mpf.from_int(den),
+        p,
+        @mpf.round_nearest,
+      ) catch {
+        _ => @mpf.fnan
+      }
+      if !@mpf.is_nan(cand) && mpf_close(x, cand, p, tol) {
+        return Some((num, den))
+      }
+    }
+  }
+  None
+}
+
+///|
+fn identify_by_basis(
+  x : @mpf.RawMpf,
+  bases : Map[String, @mpf.RawMpf],
+  p : Int,
+  tol : @mpf.RawMpf,
+) -> String? {
+  for name, base in bases {
+    if @mpf.is_zero(base) || !@mpf.is_finite(base) {
+      continue
+    }
+    let ratio = @mpf.mpf_div(x, base, p, @mpf.round_nearest) catch {
+      _ => @mpf.fnan
+    }
+    if !@mpf.is_nan(ratio) {
+      match find_small_rational(ratio, p, tol, 512, 192) {
+        Some((num, den)) => return Some("(\{format_ratio(num, den)}*\{name})")
+        None => ()
+      }
+    }
+    for off in -8..<=8 {
+      let shifted = @mpf.mpf_sub(x, @mpf.from_int(off), p, @mpf.round_nearest)
+      let ratio2 = @mpf.mpf_div(shifted, base, p, @mpf.round_nearest) catch {
+        _ => @mpf.fnan
+      }
+      if @mpf.is_nan(ratio2) {
+        continue
+      }
+      match find_small_rational(ratio2, p, tol, 128, 128) {
+        Some((num, den)) => {
+          if num == 0 {
+            continue
+          }
+          return Some("(\{off} + \{format_ratio(num, den)}*\{name})")
+        }
+        None => ()
+      }
+    }
+  }
+  None
+}
+
+///|
+/// Minimal symbolic identify subset for Stage-B migration.
+///
+/// Supported patterns:
+/// - small integer/rational values
+/// - `exp(n)`, `log(n)` for small integers
+/// - linear/rational combinations against provided `constants`
+/// - basic builtins (`pi`, `log(2)`, `pi**4`)
+pub fn MPContext::identify(
+  self : MPContext,
+  x : @mpf.RawMpf,
+  constants? : Map[String, @mpf.RawMpf] = {},
+) -> String raise MPError {
+  let p = identify_work_prec(self.prec)
+  let tol = identify_tol(self.prec)
+  if @mpf.is_nan(x) {
+    return "nan"
+  }
+  if @mpf.is_inf(x) {
+    return if x.sign == 1 { "-inf" } else { "inf" }
+  }
+  if @mpf.is_zero(x) {
+    return "0"
+  }
+
+  for n in -10..<=10 {
+    let e_n = @libelefun.mpf_exp(@mpf.from_int(n), p, @mpf.round_nearest)
+    if mpf_close(x, e_n, p, tol) {
+      return "exp(\{n})"
+    }
+  }
+
+  for n in 2..<=20 {
+    let l_n = @libelefun.mpf_ln(@mpf.from_int(n), p, @mpf.round_nearest) catch {
+      _ => @mpf.fnan
+    }
+    if !@mpf.is_nan(l_n) && mpf_close(x, l_n, p, tol) {
+      return "log(\{n})"
+    }
+  }
+
+  let pi = @libelefun.mpf_pi(p, @mpf.round_nearest)
+  if @mpf.mpf_sign(x) > 0 {
+    let ln_x = @libelefun.mpf_ln(x, p, @mpf.round_nearest) catch {
+      _ => @mpf.fnan
+    }
+    if !@mpf.is_nan(ln_x) {
+      let ratio = @mpf.mpf_div(ln_x, pi, p, @mpf.round_nearest) catch {
+        _ => @mpf.fnan
+      }
+      if !@mpf.is_nan(ratio) {
+        match find_small_rational(ratio, p, tol, 64, 32) {
+          Some((num, den)) => return "exp((\{format_ratio(num, den)}*pi))"
+          None => ()
+        }
+      }
+    }
+  }
+
+  match identify_by_basis(x, constants, p, tol) {
+    Some(expr) => return expr
+    None => ()
+  }
+
+  let builtins : Map[String, @mpf.RawMpf] = {
+    "pi": pi,
+    "log(2)": @libelefun.mpf_ln2(p, @mpf.round_nearest),
+  }
+  let pi4 = @mpf.mpf_pow_int(pi, 4, p, @mpf.round_nearest) catch {
+    _ => @mpf.fnan
+  }
+  if !@mpf.is_nan(pi4) {
+    builtins["pi**4"] = pi4
+  }
+  match identify_by_basis(x, builtins, p, tol) {
+    Some(expr) => return expr
+    None => ()
+  }
+
+  match find_small_rational(x, p, tol, 2048, 256) {
+    Some((num, den)) => {
+      if den == 1 {
+        return "\{num}"
+      }
+      return "(\{num}/\{den})"
+    }
+    None => ()
+  }
+
+  self.to_string(x, dps=identify_decimals(self.prec))
+}
