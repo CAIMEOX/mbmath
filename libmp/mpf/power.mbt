@@ -39,7 +39,7 @@ fn bigint_isqrt(n : BigInt) -> BigInt {
     let mut x = 1N << ((n.bit_length() + 1) / 2)
     while x > n / x {
       x = (x + n / x) >> 1
-    } else {
+    } nobreak {
       x
     }
   }
