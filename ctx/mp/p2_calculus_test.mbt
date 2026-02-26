@@ -508,6 +508,39 @@ test "p2 calculus differint subset from mpmath test_calculus" {
     _ => @mpf.fnan
   }
   p2_calc_close(y, target, "6e-4")
+
+  let d1 = ctx.differint(
+    (t : @mpf.RawMpf) => {
+      @mpf.mpf_pow_int(t, 2, 300, @mpf.round_nearest) catch {
+        _ => @mpf.fnan
+      }
+    },
+    ctx.make_int(2),
+    ctx.make_int(1),
+  )
+  p2_calc_close(d1, ctx.make_int(4), "2e-6")
+
+  let d2 = ctx.differint(
+    (t : @mpf.RawMpf) => {
+      @mpf.mpf_pow_int(t, 3, 300, @mpf.round_nearest) catch {
+        _ => @mpf.fnan
+      }
+    },
+    ctx.make_int(2),
+    ctx.make_int(2),
+  )
+  p2_calc_close(d2, ctx.make_int(12), "2e-4")
+
+  let bad_order : Result[@mpf.RawMpf, MPError] = try? ctx.differint(
+    (t : @mpf.RawMpf) => t,
+    ctx.make_int(2),
+    ctx.make_float("0.5"),
+  )
+  match bad_order {
+    Ok(_) => fail("expected ValueError for positive non-integer order")
+    Err(MPError::ValueError(_)) => ()
+    Err(_) => fail("unexpected error type")
+  }
 }
 
 ///|

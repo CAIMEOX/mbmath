@@ -1058,6 +1058,30 @@ pub fn MPContext::fourierval(
 }
 
 ///|
+fn p2_maybe_integer(x : @mpf.RawMpf) -> Int? {
+  if !@mpf.is_finite(x) {
+    return None
+  }
+  if @mpf.is_zero(x) {
+    return Some(0)
+  }
+  if x.exp < 0 {
+    return None
+  }
+  let v = x.man << x.exp
+  if v.bit_length() > 60 {
+    return None
+  }
+  let n = v.to_int()
+  let signed_n = if x.sign == 1 { -n } else { n }
+  if @mpf.mpf_eq(x, @mpf.from_int(signed_n)) {
+    Some(signed_n)
+  } else {
+    None
+  }
+}
+
+///|
 /// Fractional differintegral subset.
 ///
 /// Currently supports `a <= 0` (fractional integrals) for finite positive `x`.
@@ -1075,7 +1099,18 @@ pub fn MPContext::differint(
     return f(x)
   }
   if @mpf.mpf_gt(a, @mpf.fzero) {
-    raise MPError::ValueError("differint: positive order not implemented")
+    match p2_maybe_integer(a) {
+      Some(n) =>
+        if n < 0 {
+          raise MPError::ValueError("differint: order must be finite real")
+        } else {
+          return self.diff(f, x, n~)
+        }
+      None =>
+        raise MPError::ValueError(
+          "differint: positive non-integer order not supported",
+        )
+    }
   }
   if !@mpf.is_finite(x) || @mpf.mpf_lt(x, @mpf.fzero) {
     raise MPError::DomainError("differint: require finite non-negative x")

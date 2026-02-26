@@ -2,6 +2,9 @@
 type UnaryMpfFn = (@mpf.RawMpf) -> @mpf.RawMpf
 
 ///|
+type TernaryMpfFn = (@mpf.RawMpf, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf
+
+///|
 type System2Fn = (@mpf.RawMpf, @mpf.RawMpf) -> (@mpf.RawMpf, @mpf.RawMpf)
 
 ///|
@@ -839,6 +842,348 @@ pub fn MPContext::diff(
     return self.p2_diff_second(f, x, p)
   }
   self.p2_diff_central_n(f, x, n, p)
+}
+
+///|
+/// Return derivatives `[f(x), f'(x), ..., f^(n)(x)]`.
+///
+/// This mirrors mpmath `diffs` for unary real functions.
+pub fn MPContext::diffs(
+  self : MPContext,
+  f : UnaryMpfFn,
+  x : @mpf.RawMpf,
+  n? : Int = 1,
+  algo? : String = "step",
+) -> Array[@mpf.RawMpf] raise MPError {
+  if n < 0 {
+    raise MPError::ValueError("diffs: n must be non-negative")
+  }
+  let out : Array[@mpf.RawMpf] = []
+  for k in 0..<=n {
+    out.push(self.diff(f, x, n=k, algo~))
+  }
+  out
+}
+
+///|
+/// Build the unary function `x -> d^n f(x)`.
+///
+/// Runtime derivative errors are mapped to `nan`, matching the permissive
+/// high-level behavior expected by mpmath-compatible helper paths.
+pub fn MPContext::diffun(
+  self : MPContext,
+  f : UnaryMpfFn,
+  n? : Int = 1,
+  algo? : String = "step",
+) -> UnaryMpfFn {
+  (x : @mpf.RawMpf) => self.diff(f, x, n~, algo~) catch { _ => @mpf.fnan }
+}
+
+///|
+/// Return Taylor coefficients `[a0, ..., an]` around `x`, where
+/// `a_k = f^(k)(x) / k!`.
+pub fn MPContext::taylor(
+  self : MPContext,
+  f : UnaryMpfFn,
+  x : @mpf.RawMpf,
+  n : Int,
+  algo? : String = "step",
+) -> Array[@mpf.RawMpf] raise MPError {
+  if n < 0 {
+    raise MPError::ValueError("taylor: n must be non-negative")
+  }
+  let p = self.p2_work_prec() + 12
+  let out : Array[@mpf.RawMpf] = []
+  let mut fact = @mpf.fone
+  for k in 0..<=n {
+    if k > 0 {
+      fact = @mpf.mpf_mul_int(fact, k, p, @mpf.round_nearest)
+    }
+    let dk = self.diff(f, x, n=k, algo~)
+    let ck = if k == 0 {
+      dk
+    } else {
+      p2_mpf_div(dk, fact, p, @mpf.round_nearest)
+    }
+    out.push(@mpf.mpf_pos(ck, self.precision(), self.round_mode()))
+  }
+  out
+}
+
+///|
+fn MPContext::p2_diff_partial3_apply(
+  self : MPContext,
+  f : TernaryMpfFn,
+  xyz : (@mpf.RawMpf, @mpf.RawMpf, @mpf.RawMpf),
+  orders : (Int, Int, Int),
+  algo : String,
+) -> @mpf.RawMpf raise MPError {
+  let (x, y, z) = xyz
+  let (nx, ny, nz) = orders
+  if nx < 0 || ny < 0 || nz < 0 {
+    raise MPError::ValueError(
+      "diff_partial3: derivative orders must be non-negative",
+    )
+  }
+  if nx == 0 && ny == 0 && nz == 0 {
+    let v = f(x, y, z)
+    p2_assert_finite("diff_partial3", v)
+    return v
+  }
+  let algo_key = algo.to_lower()
+  match algo_key {
+    "step" => ()
+    "quad" => ()
+    _ => raise MPError::ValueError("diff_partial3: unknown method '\{algo}'")
+  }
+  let p = if algo_key == "quad" {
+    self.p2_work_prec() + 12
+  } else {
+    self.p2_work_prec()
+  }
+  let total_order = nx + ny + nz
+  let step_cap = if total_order >= 4 {
+    140
+  } else if total_order >= 3 {
+    168
+  } else {
+    220
+  }
+  let step_prec = if self.precision() > step_cap {
+    step_cap
+  } else {
+    self.precision()
+  }
+  let hx = if nx == 0 { @mpf.fone } else { self.p2_diff_step(x, nx, step_prec) }
+  let hy = if ny == 0 { @mpf.fone } else { self.p2_diff_step(y, ny, step_prec) }
+  let hz = if nz == 0 { @mpf.fone } else { self.p2_diff_step(z, nz, step_prec) }
+  let mut sum1 = @mpf.fzero
+  let half_hx = if nx == 0 {
+    @mpf.fzero
+  } else {
+    p2_mpf_div_int(hx, 2, p, @mpf.round_nearest)
+  }
+  let half_hy = if ny == 0 {
+    @mpf.fzero
+  } else {
+    p2_mpf_div_int(hy, 2, p, @mpf.round_nearest)
+  }
+  let half_hz = if nz == 0 {
+    @mpf.fzero
+  } else {
+    p2_mpf_div_int(hz, 2, p, @mpf.round_nearest)
+  }
+  for i in 0..<=nx {
+    let ci = p2_binom(nx, i)
+    let xi = if nx == 0 {
+      x
+    } else {
+      @mpf.mpf_add(
+        x,
+        @mpf.mpf_mul_int(half_hx, nx - 2 * i, p, @mpf.round_nearest),
+        p,
+        @mpf.round_nearest,
+      )
+    }
+    for j in 0..<=ny {
+      let cj = p2_binom(ny, j)
+      let yj = if ny == 0 {
+        y
+      } else {
+        @mpf.mpf_add(
+          y,
+          @mpf.mpf_mul_int(half_hy, ny - 2 * j, p, @mpf.round_nearest),
+          p,
+          @mpf.round_nearest,
+        )
+      }
+      for k in 0..<=nz {
+        let ck = p2_binom(nz, k)
+        let sign = if ((i + j + k) & 1) == 0 { 1 } else { -1 }
+        let coeff = sign * ci * cj * ck
+        let zk = if nz == 0 {
+          z
+        } else {
+          @mpf.mpf_add(
+            z,
+            @mpf.mpf_mul_int(half_hz, nz - 2 * k, p, @mpf.round_nearest),
+            p,
+            @mpf.round_nearest,
+          )
+        }
+        let fv = f(xi, yj, zk)
+        p2_assert_finite("diff_partial3", fv)
+        sum1 = @mpf.mpf_add(
+          sum1,
+          @mpf.mpf_mul_int(fv, coeff, p, @mpf.round_nearest),
+          p,
+          @mpf.round_nearest,
+        )
+      }
+    }
+  }
+  let mut den1 = @mpf.fone
+  if nx > 0 {
+    den1 = @mpf.mpf_mul(
+      den1,
+      p2_mpf_pow_int(hx, nx, p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    )
+  }
+  if ny > 0 {
+    den1 = @mpf.mpf_mul(
+      den1,
+      p2_mpf_pow_int(hy, ny, p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    )
+  }
+  if nz > 0 {
+    den1 = @mpf.mpf_mul(
+      den1,
+      p2_mpf_pow_int(hz, nz, p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    )
+  }
+  let d1 = p2_mpf_div(sum1, den1, p, self.round_mode())
+  let hx2 = if nx == 0 {
+    hx
+  } else {
+    p2_mpf_div_int(hx, 2, p, @mpf.round_nearest)
+  }
+  let hy2 = if ny == 0 {
+    hy
+  } else {
+    p2_mpf_div_int(hy, 2, p, @mpf.round_nearest)
+  }
+  let hz2 = if nz == 0 {
+    hz
+  } else {
+    p2_mpf_div_int(hz, 2, p, @mpf.round_nearest)
+  }
+  if nx + ny + nz <= 1 {
+    return d1
+  }
+  let mut sum2 = @mpf.fzero
+  let half_hx2 = if nx == 0 {
+    @mpf.fzero
+  } else {
+    p2_mpf_div_int(hx2, 2, p, @mpf.round_nearest)
+  }
+  let half_hy2 = if ny == 0 {
+    @mpf.fzero
+  } else {
+    p2_mpf_div_int(hy2, 2, p, @mpf.round_nearest)
+  }
+  let half_hz2 = if nz == 0 {
+    @mpf.fzero
+  } else {
+    p2_mpf_div_int(hz2, 2, p, @mpf.round_nearest)
+  }
+  for i in 0..<=nx {
+    let ci = p2_binom(nx, i)
+    let xi = if nx == 0 {
+      x
+    } else {
+      @mpf.mpf_add(
+        x,
+        @mpf.mpf_mul_int(half_hx2, nx - 2 * i, p, @mpf.round_nearest),
+        p,
+        @mpf.round_nearest,
+      )
+    }
+    for j in 0..<=ny {
+      let cj = p2_binom(ny, j)
+      let yj = if ny == 0 {
+        y
+      } else {
+        @mpf.mpf_add(
+          y,
+          @mpf.mpf_mul_int(half_hy2, ny - 2 * j, p, @mpf.round_nearest),
+          p,
+          @mpf.round_nearest,
+        )
+      }
+      for k in 0..<=nz {
+        let ck = p2_binom(nz, k)
+        let sign = if ((i + j + k) & 1) == 0 { 1 } else { -1 }
+        let coeff = sign * ci * cj * ck
+        let zk = if nz == 0 {
+          z
+        } else {
+          @mpf.mpf_add(
+            z,
+            @mpf.mpf_mul_int(half_hz2, nz - 2 * k, p, @mpf.round_nearest),
+            p,
+            @mpf.round_nearest,
+          )
+        }
+        let fv = f(xi, yj, zk)
+        p2_assert_finite("diff_partial3", fv)
+        sum2 = @mpf.mpf_add(
+          sum2,
+          @mpf.mpf_mul_int(fv, coeff, p, @mpf.round_nearest),
+          p,
+          @mpf.round_nearest,
+        )
+      }
+    }
+  }
+  let mut den2 = @mpf.fone
+  if nx > 0 {
+    den2 = @mpf.mpf_mul(
+      den2,
+      p2_mpf_pow_int(hx2, nx, p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    )
+  }
+  if ny > 0 {
+    den2 = @mpf.mpf_mul(
+      den2,
+      p2_mpf_pow_int(hy2, ny, p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    )
+  }
+  if nz > 0 {
+    den2 = @mpf.mpf_mul(
+      den2,
+      p2_mpf_pow_int(hz2, nz, p, @mpf.round_nearest),
+      p,
+      @mpf.round_nearest,
+    )
+  }
+  let d2 = p2_mpf_div(sum2, den2, p, self.round_mode())
+  let correction = p2_mpf_div_int(
+    @mpf.mpf_sub(d2, d1, p, @mpf.round_nearest),
+    3,
+    p,
+    @mpf.round_nearest,
+  )
+  @mpf.mpf_add(d2, correction, p, self.round_mode())
+}
+
+///|
+/// Mixed partial derivative for 3-variable real functions.
+///
+/// `orders=(nx, ny, nz)` computes
+/// `d^(nx+ny+nz) f / (dx^nx dy^ny dz^nz)` at `(x, y, z)`.
+pub fn MPContext::diff_partial3(
+  self : MPContext,
+  f : TernaryMpfFn,
+  xyz : (@mpf.RawMpf, @mpf.RawMpf, @mpf.RawMpf),
+  orders : (Int, Int, Int),
+  algo? : String = "step",
+) -> @mpf.RawMpf raise MPError {
+  let (x, y, z) = xyz
+  p2_assert_finite("diff_partial3", x)
+  p2_assert_finite("diff_partial3", y)
+  p2_assert_finite("diff_partial3", z)
+  let v = self.p2_diff_partial3_apply(f, xyz, orders, algo)
+  @mpf.mpf_pos(v, self.precision(), self.round_mode())
 }
 
 ///|
