@@ -1,9 +1,14 @@
 ///|
-/// Minimal high-level context for libmp.
+/// High-level arbitrary-precision numerical context.
 pub struct MPContext {
   prec : Int
   rounding : @mpf.RoundMode
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for MPContext with fn output(self, logger) {
+  logger.write_object(self.to_repr())
+}
 
 ///|
 pub(all) suberror MPError {
@@ -12,54 +17,59 @@ pub(all) suberror MPError {
   PoleError(String)
   ComplexResult(String)
   ConvergenceError(String)
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for MPError with fn output(self, logger) {
+  logger.write_object(self.to_repr())
+}
 
 ///|
 fn from_mpf_error(err : @mpf.MpfError) -> MPError {
   match err {
-    @mpf.MpfError::ValueError(msg) => MPError::ValueError(msg)
-    @mpf.MpfError::DomainError(msg) => MPError::DomainError(msg)
-    @mpf.MpfError::DivisionByZero(msg) => MPError::PoleError(msg)
-    @mpf.MpfError::ParseError(msg) => MPError::ValueError(msg)
-    @mpf.MpfError::FormatError(msg) => MPError::ValueError(msg)
-    @mpf.MpfError::UnsupportedError(msg) => MPError::ValueError(msg)
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    DivisionByZero(msg) => PoleError(msg)
+    ParseError(msg) => ValueError(msg)
+    FormatError(msg) => ValueError(msg)
+    UnsupportedError(msg) => ValueError(msg)
   }
 }
 
 ///|
 fn from_libelefun_error(err : @libelefun.LibElefunError) -> MPError {
   match err {
-    @libelefun.LibElefunError::ValueError(msg) => MPError::ValueError(msg)
-    @libelefun.LibElefunError::DomainError(msg) => MPError::DomainError(msg)
-    @libelefun.LibElefunError::ComplexResult(msg) => MPError::ComplexResult(msg)
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    ComplexResult(msg) => ComplexResult(msg)
   }
 }
 
 ///|
 fn from_libhyper_error(err : @libhyper.LibHyperError) -> MPError {
   match err {
-    @libhyper.LibHyperError::ValueError(msg) => MPError::ValueError(msg)
-    @libhyper.LibHyperError::DomainError(msg) => MPError::DomainError(msg)
-    @libhyper.LibHyperError::PoleError(msg) => MPError::PoleError(msg)
-    @libhyper.LibHyperError::ComplexResult(msg) => MPError::ComplexResult(msg)
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    PoleError(msg) => PoleError(msg)
+    ComplexResult(msg) => ComplexResult(msg)
   }
 }
 
 ///|
 fn from_gammazeta_error(err : @gammazeta.GammaZetaError) -> MPError {
   match err {
-    @gammazeta.GammaZetaError::ValueError(msg) => MPError::ValueError(msg)
-    @gammazeta.GammaZetaError::DomainError(msg) => MPError::DomainError(msg)
-    @gammazeta.GammaZetaError::PoleError(msg) => MPError::PoleError(msg)
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    PoleError(msg) => PoleError(msg)
   }
 }
 
 ///|
 fn from_mpc_error(err : @mpc.MpcError) -> MPError {
   match err {
-    @mpc.MpcError::ValueError(msg) => MPError::ValueError(msg)
-    @mpc.MpcError::DomainError(msg) => MPError::DomainError(msg)
-    @mpc.MpcError::PoleError(msg) => MPError::PoleError(msg)
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    PoleError(msg) => PoleError(msg)
   }
 }
 
@@ -332,7 +342,7 @@ pub fn MPContext::complex_log(
   z : @mpc.RawMpc,
 ) -> @mpc.RawMpc raise MPError {
   if z == @mpc.zero() {
-    raise MPError::PoleError("complex_log: logarithm singular at zero")
+    raise PoleError("complex_log: logarithm singular at zero")
   }
   @mpc.mpc_log(z, self.prec, self.rounding) catch {
     err => raise from_mpc_error(err)
@@ -364,7 +374,7 @@ pub fn MPContext::complex_pow(
     return @mpc.one()
   }
   if z == @mpc.zero() && (w.imag != @mpf.fzero || @mpf.mpf_sign(w.real) <= 0) {
-    raise MPError::DomainError(
+    raise DomainError(
       "complex_pow: zero base with non-positive/complex exponent",
     )
   }
@@ -384,7 +394,7 @@ pub fn MPContext::complex_gamma(
   if z.imag == @mpf.fzero &&
     @mpf.mpf_le(z.real, @mpf.fzero) &&
     is_real_integer(z.real) {
-    raise MPError::PoleError("complex_gamma: pole at non-positive integer")
+    raise PoleError("complex_gamma: pole at non-positive integer")
   }
   @mpc.mpc_gamma(z, self.prec, self.rounding)
 }
@@ -403,7 +413,7 @@ pub fn MPContext::complex_zeta(
     return if alt {
       @mpc.from_parts(@libelefun.mpf_ln2(self.prec, self.rounding), @mpf.fzero)
     } else {
-      raise MPError::PoleError("complex_zeta: pole at s=1")
+      raise PoleError("complex_zeta: pole at s=1")
     }
   }
   @mpc.mpc_zeta(s, self.prec, self.rounding, alt~)
@@ -454,7 +464,7 @@ pub fn MPContext::e1_real(
   x : @mpf.RawMpf,
 ) -> @mpf.RawMpf raise MPError {
   if !@mpf.is_nan(x) && !@mpf.is_zero(x) && x.sign == 1 {
-    raise MPError::ComplexResult("e1_real: E1(x) for x < 0")
+    raise ComplexResult("e1_real: E1(x) for x < 0")
   }
   @libhyper.mpf_e1(x, self.prec, self.rounding) catch {
     err => raise from_libhyper_error(err)
@@ -487,7 +497,7 @@ pub fn MPContext::expint(
   gamma? : Bool = false,
 ) -> @mpc.RawMpc raise MPError {
   if n <= 0 {
-    raise MPError::ValueError("expint: n must be positive")
+    raise ValueError("expint: n must be positive")
   }
   if @mpf.is_nan(x) {
     return @mpc.from_parts(@mpf.fnan, @mpf.fnan)

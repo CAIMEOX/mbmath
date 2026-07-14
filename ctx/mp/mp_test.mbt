@@ -1,37 +1,73 @@
 ///|
+fn assert_text_close_to_str_mp(
+  actual_text : String,
+  expected_text : String,
+  tol : String,
+) -> Unit raise {
+  let actual = @mpf.from_str(actual_text, prec=460, rnd=@mpf.round_nearest)
+  let expected = @mpf.from_str(expected_text, prec=460, rnd=@mpf.round_nearest)
+  let err = @mpf.mpf_abs(
+    @mpf.mpf_sub(actual, expected, 420, @mpf.round_nearest),
+    420,
+    @mpf.round_nearest,
+  )
+  let tol_v = @mpf.from_str(tol, prec=420, rnd=@mpf.round_nearest)
+  assert_true(@mpf.mpf_lt(err, tol_v))
+}
+
+///|
 test "ctx mpf basic wrappers" {
   let ctx = new(160, @mpf.round_nearest)
   let a = ctx.make_float("1.5")
   let b = ctx.make_int(2)
-  assert_true(ctx.to_string(ctx.add(a, b), dps=8).has_prefix("3.5"))
-  assert_true(ctx.to_string(ctx.sub(a, b), dps=8).has_prefix("-0.5"))
-  assert_true(ctx.to_string(ctx.mul(a, b), dps=8).has_prefix("3"))
-  assert_true(
-    ctx
-    .to_string(ctx.div(@mpf.fone, @mpf.from_int(3)), dps=12)
-    .has_prefix("0.333333333333"),
+  assert_text_close_to_str_mp(
+    ctx.to_string(ctx.add(a, b), dps=8),
+    "3.5",
+    "1e-8",
   )
-  assert_true(
-    ctx.to_string(ctx.sqrt(ctx.make_int(2)), dps=12).has_prefix("1.41421356237"),
+  assert_text_close_to_str_mp(
+    ctx.to_string(ctx.sub(a, b), dps=8),
+    "-0.5",
+    "1e-8",
+  )
+  assert_text_close_to_str_mp(ctx.to_string(ctx.mul(a, b), dps=8), "3", "1e-8")
+  assert_text_close_to_str_mp(
+    ctx.to_string(ctx.div(@mpf.fone, @mpf.from_int(3)), dps=12),
+    "0.333333333333",
+    "1e-12",
+  )
+  assert_text_close_to_str_mp(
+    ctx.to_string(ctx.sqrt(ctx.make_int(2)), dps=12),
+    "1.41421356237",
+    "1e-11",
   )
 }
 
 ///|
 test "ctx high-level transcendentals subset" {
   let ctx = new(180, @mpf.round_nearest)
-  assert_true(
-    ctx.to_string(ctx.exp(ctx.make_int(1)), dps=10).has_prefix("2.718281828"),
+  assert_text_close_to_str_mp(
+    ctx.to_string(ctx.exp(ctx.make_int(1)), dps=10),
+    "2.718281828",
+    "1e-9",
   )
-  assert_true(
-    ctx.to_string(ctx.ln(ctx.make_int(2)), dps=10).has_prefix("0.693147180"),
+  assert_text_close_to_str_mp(
+    ctx.to_string(ctx.ln(ctx.make_int(2)), dps=10),
+    "0.693147180",
+    "1e-9",
   )
-  assert_true(
-    ctx
-    .to_string(ctx.gamma(@mpf.from_man_exp(1N, -1, 0, @mpf.round_down)), dps=10)
-    .has_prefix("1.772453"),
+  assert_text_close_to_str_mp(
+    ctx.to_string(
+      ctx.gamma(@mpf.from_man_exp(1N, -1, 0, @mpf.round_down)),
+      dps=10,
+    ),
+    "1.772453",
+    "1e-6",
   )
-  assert_true(
-    ctx.to_string(ctx.zeta(ctx.make_int(2)), dps=9).has_prefix("1.6449340"),
+  assert_text_close_to_str_mp(
+    ctx.to_string(ctx.zeta(ctx.make_int(2)), dps=9),
+    "1.6449340",
+    "1e-7",
   )
 }
 
@@ -39,18 +75,28 @@ test "ctx high-level transcendentals subset" {
 test "ctx e1 real/complex semantics" {
   let ctx = new(180, @mpf.round_nearest)
   let pos = ctx.e1(ctx.make_float("2"))
-  assert_true(@mpf.to_str_opts(pos.real, dps=10).has_prefix("0.048900510"))
+  assert_text_close_to_str_mp(
+    @mpf.to_str_opts(pos.real, dps=10),
+    "0.048900510",
+    "1e-9",
+  )
   assert_eq(pos.imag, @mpf.fzero)
   let neg = ctx.e1(ctx.make_float("-2"))
-  assert_true(@mpf.to_str_opts(neg.real, dps=8).has_prefix("-4.95423"))
-  assert_true(@mpf.to_str_opts(neg.imag, dps=9).has_prefix("-3.14159265"))
-  let real_e1_neg : Result[@mpf.RawMpf, MPError] = try? ctx.e1_real(
-    ctx.make_float("-2"),
+  assert_text_close_to_str_mp(
+    @mpf.to_str_opts(neg.real, dps=8),
+    "-4.95423",
+    "1e-5",
   )
-  match real_e1_neg {
-    Ok(_) => fail("expected complex-result error for negative input")
-    Err(MPError::ComplexResult(msg)) => assert_true(msg.contains("e1_real"))
-    Err(_) => fail("unexpected error kind")
+  assert_text_close_to_str_mp(
+    @mpf.to_str_opts(neg.imag, dps=9),
+    "-3.14159265",
+    "1e-8",
+  )
+  try ctx.e1_real(ctx.make_float("-2")) catch {
+    ComplexResult(msg) => assert_true(msg.contains("e1_real"))
+    _ => fail("unexpected error kind")
+  } noraise {
+    _ => fail("expected complex-result error for negative input")
   }
 }
 
@@ -59,13 +105,29 @@ test "ctx expint negative real principal-branch subset" {
   let ctx = new(220, @mpf.round_nearest)
   let pi = @libelefun.mpf_pi(220, @mpf.round_nearest)
   let e2 = ctx.expint(2, ctx.make_float("-2"))
-  assert_true(@mpf.to_str_opts(e2.real, dps=9).has_prefix("-2.51941261"))
+  assert_text_close_to_str_mp(
+    @mpf.to_str_opts(e2.real, dps=9),
+    "-2.51941261",
+    "1e-8",
+  )
   let e2_im_ratio = @mpf.mpf_div(e2.imag, pi, 220, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(e2_im_ratio, dps=8).has_prefix("-2"))
+  assert_text_close_to_str_mp(
+    @mpf.to_str_opts(e2_im_ratio, dps=8),
+    "-2",
+    "1e-6",
+  )
   let e3 = ctx.expint(3, ctx.make_float("-2"))
-  assert_true(@mpf.to_str_opts(e3.real, dps=7).has_prefix("1.17511"))
+  assert_text_close_to_str_mp(
+    @mpf.to_str_opts(e3.real, dps=7),
+    "1.17511",
+    "1e-5",
+  )
   let e3_im_ratio = @mpf.mpf_div(e3.imag, pi, 220, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(e3_im_ratio, dps=8).has_prefix("-2"))
+  assert_text_close_to_str_mp(
+    @mpf.to_str_opts(e3_im_ratio, dps=8),
+    "-2",
+    "1e-6",
+  )
   let ge2 = ctx.expint(2, ctx.make_float("-2"), gamma=true)
   let ge2_target = @mpf.mpf_neg(
     ctx.exp(ctx.make_int(2)),
@@ -109,47 +171,52 @@ test "ctx expint negative real principal-branch subset" {
 test "ctx complex api and structured errors" {
   let ctx = new(180, @mpf.round_nearest)
   let zero = @mpc.zero()
-  let zero_log : Result[@mpc.RawMpc, MPError] = try? ctx.complex_log(zero)
-  match zero_log {
-    Ok(_) => fail("expected complex_log pole error")
-    Err(MPError::PoleError(msg)) => assert_true(msg.contains("complex_log"))
-    Err(_) => fail("unexpected error kind")
+  try ctx.complex_log(zero) catch {
+    PoleError(msg) => assert_true(msg.contains("complex_log"))
+    _ => fail("unexpected error kind")
+  } noraise {
+    _ => fail("expected complex_log pole error")
   }
-  let zero_pow_neg : Result[@mpc.RawMpc, MPError] = try? ctx.complex_pow(
-    zero,
-    @mpc.from_parts(@mpf.from_int(-1), @mpf.fzero),
-  )
-  match zero_pow_neg {
-    Ok(_) => fail("expected complex_pow domain error")
-    Err(MPError::DomainError(msg)) => assert_true(msg.contains("complex_pow"))
-    Err(_) => fail("unexpected error kind")
+  try
+    ctx.complex_pow(zero, @mpc.from_parts(@mpf.from_int(-1), @mpf.fzero))
+  catch {
+    DomainError(msg) => assert_true(msg.contains("complex_pow"))
+    _ => fail("unexpected error kind")
+  } noraise {
+    _ => fail("expected complex_pow domain error")
   }
   let minus_one = @mpc.from_parts(@mpf.from_int(-1), @mpf.fzero)
   let sqrt_minus_one = ctx.complex_sqrt(minus_one)
-  assert_true(@mpf.to_str_opts(sqrt_minus_one.real, dps=6).has_prefix("0"))
-  assert_true(@mpf.to_str_opts(sqrt_minus_one.imag, dps=10).has_prefix("1"))
-  let gamma_pole : Result[@mpc.RawMpc, MPError] = try? ctx.complex_gamma(
-    @mpc.from_parts(@mpf.from_int(0), @mpf.fzero),
+  assert_text_close_to_str_mp(
+    @mpf.to_str_opts(sqrt_minus_one.real, dps=6),
+    "0",
+    "1e-6",
   )
-  match gamma_pole {
-    Ok(_) => fail("expected complex_gamma pole error")
-    Err(MPError::PoleError(msg)) => assert_true(msg.contains("complex_gamma"))
-    Err(_) => fail("unexpected error kind")
+  assert_text_close_to_str_mp(
+    @mpf.to_str_opts(sqrt_minus_one.imag, dps=10),
+    "1",
+    "1e-9",
+  )
+  try ctx.complex_gamma(@mpc.from_parts(@mpf.from_int(0), @mpf.fzero)) catch {
+    PoleError(msg) => assert_true(msg.contains("complex_gamma"))
+    _ => fail("unexpected error kind")
+  } noraise {
+    _ => fail("expected complex_gamma pole error")
   }
-  let zeta_pole : Result[@mpc.RawMpc, MPError] = try? ctx.complex_zeta(
-    @mpc.from_parts(@mpf.fone, @mpf.fzero),
-  )
-  match zeta_pole {
-    Ok(_) => fail("expected complex_zeta pole error")
-    Err(MPError::PoleError(msg)) => assert_true(msg.contains("complex_zeta"))
-    Err(_) => fail("unexpected error kind")
+  try ctx.complex_zeta(@mpc.from_parts(@mpf.fone, @mpf.fzero)) catch {
+    PoleError(msg) => assert_true(msg.contains("complex_zeta"))
+    _ => fail("unexpected error kind")
+  } noraise {
+    _ => fail("expected complex_zeta pole error")
   }
   let zeta_alt_one = ctx.complex_zeta(
     @mpc.from_parts(@mpf.fone, @mpf.fzero),
     alt=true,
   )
-  assert_true(
-    @mpf.to_str_opts(zeta_alt_one.real, dps=10).has_prefix("0.693147180"),
+  assert_text_close_to_str_mp(
+    @mpf.to_str_opts(zeta_alt_one.real, dps=10),
+    "0.693147180",
+    "1e-9",
   )
   assert_eq(zeta_alt_one.imag, @mpf.fzero)
 }

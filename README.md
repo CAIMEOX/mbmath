@@ -1,31 +1,76 @@
-# MoonBit Arbitrary-Precision Math Library
+# mbmath
 
-## Introduction
+`mbmath` is an arbitrary-precision numerical computing library for MoonBit. It provides real, complex, and interval arithmetic together with special functions, calculus, root finding, quadrature, matrix algorithms, and ordinary differential equation solvers.
 
-`mbmath` is an active MoonBit port of core `mpmath` layers, including arbitrary-precision real (`mpf`), complex (`mpc`), interval (`mpi`/`mpci`) arithmetic, and selected special-function families.
+The design follows the layered architecture and numerical semantics of Python's [`mpmath`](https://mpmath.org/), while exposing MoonBit-native values, explicit precision and rounding, and typed errors.
 
-Current baseline (2026-02-25):
+## Features
 
-- Runtime test baseline: `moon -C mbmath test --target native` => `309 passed`, `0 failed`.
-- Python migration board: `30` files in `部分`, `7` files still `未开始`, `0` files marked `已迁移`.
-- High-level numeric APIs now include Stage C (`diff/quad/findroot/summation/levin/nsum/nprod`) and Stage D first slice (`matrix/linalg/eigen/ode` subsets).
+- Arbitrary-precision real arithmetic with configurable binary precision and rounding modes
+- Complex arithmetic, elementary functions, powers, roots, and branch-aware special functions
+- Real and complex interval arithmetic with outward rounding
+- Decimal parsing, formatting, base conversion, infinities, signed zero, and NaN support
+- Elementary functions including logarithms, exponentials, trigonometric, and hyperbolic functions
+- Gamma, log-gamma, reciprocal gamma, factorial, Bernoulli, psi, harmonic, and zeta functions
+- Exponential and trigonometric integrals, AGM, and complete elliptic integrals
+- Numerical differentiation, Taylor expansion, limits, summation, products, convergence acceleration, root finding, and quadrature
+- Polynomial, Fourier, inverse Laplace, matrix-function, linear algebra, eigensystem, SVD, and ODE utilities
 
-The project is usable on the implemented surface, but still not full-parity with upstream `mpmath`.
+## Packages
 
-## Roadmap
+| Package | Purpose |
+| --- | --- |
+| `libmp/mpf` | Core arbitrary-precision real representation, arithmetic, conversion, and formatting |
+| `libmp/mpc` | Arbitrary-precision complex arithmetic and special functions |
+| `libmp/libmpi` | Real and complex interval arithmetic, interval functions, and interval matrices |
+| `libmp/libelefun` | Elementary transcendental functions and constants |
+| `libmp/gammazeta` | Gamma, factorial, Bernoulli, psi, harmonic, and zeta families |
+| `libmp/libhyper` | Exponential integrals, trigonometric integrals, AGM, and elliptic integrals |
+| `libmp/intmath` | Integer helpers used by the numerical kernels |
+| `ctx/mp` | High-level precision context, calculus, numerical methods, matrices, and ODE solvers |
 
-1. Deepen Stage D
-- Expand matrix/linalg/eigen coverage beyond current subset (`qr/svd/hermitian` and broader random-matrix parity).
-- Add higher-level ODE APIs (`odefun`-style cached evaluator and adaptive stepping).
+## Installation
 
-2. Finish remaining P2 unstarted files
-- `test_calculus.py`, `test_cli.py`, `test_compatibility.py`, `test_matrices.py`, `test_pickle.py`, `test_torture.py`, `test_visualization.py`.
+Add the module to a MoonBit project:
 
-3. Reliability hardening
-- Continue removing remaining runtime `try!` and replace with structured `raise` propagation.
-- Add focused regression tests for difficult precision/conditioning edge cases.
+```bash
+moon add CAIMEOX/moon_floating
+```
 
-4. Release preparation
-- Publish explicit parity matrix (supported/partial/unsupported functions).
-- Cut preview release with compatibility notes and known limitations.
+Import the high-level context and real-number kernel in `moon.pkg`:
 
+```moonbit
+import {
+  "CAIMEOX/moon_floating/ctx/mp",
+  "CAIMEOX/moon_floating/libmp/mpf",
+}
+```
+
+## Quick Start
+
+```moonbit
+let ctx = @mp.new(256, @mpf.round_nearest)
+let two = ctx.make_int(2)
+let root = ctx.sqrt(two)
+println(ctx.to_string(root, dps=50))
+```
+
+The precision passed to `@mp.new` is measured in bits. Low-level `libmp` functions also accept precision and rounding explicitly, which makes numerical behavior reproducible and allows directed rounding for interval calculations.
+
+Operations with invalid domains, poles, malformed input, or failed convergence raise package-specific suberrors. Callers can let these errors propagate or handle them with MoonBit's `catch` syntax.
+
+## mpmath Compatibility
+
+`mbmath` aims to match `mpmath` semantics and precision on the operations it implements, including special values and complex branch behavior. It is not a Python binding or a source-compatible translation: APIs use MoonBit types, explicit contexts, and structured errors.
+
+## Development
+
+```bash
+moon check --target all
+moon test --target native
+moon fmt
+```
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE).

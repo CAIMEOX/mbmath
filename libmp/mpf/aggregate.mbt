@@ -76,7 +76,7 @@ pub fn mpf_mod(
     return fnan
   }
   if is_zero(y) {
-    raise MpfError::DivisionByZero("mpf_mod: modulo by zero")
+    raise DivisionByZero("mpf_mod: modulo by zero")
   }
   if x.sign == y.sign && y.exp > x.exp + x.bc {
     return mpf_pos(x, prec, rnd)

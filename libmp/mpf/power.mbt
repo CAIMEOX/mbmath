@@ -1,18 +1,18 @@
 ///|
 fn reciprocal_round(rnd : RoundMode) -> RoundMode {
   match rnd {
-    RoundMode::Down => round_up
-    RoundMode::Up => round_down
-    RoundMode::Floor => round_ceiling
-    RoundMode::Ceiling => round_floor
-    RoundMode::Nearest => round_nearest
+    Down => round_up
+    Up => round_down
+    Floor => round_ceiling
+    Ceiling => round_floor
+    Nearest => round_nearest
   }
 }
 
 ///|
 fn big_pow(base : BigInt, n : Int) -> BigInt raise MpfError {
   if n < 0 {
-    raise MpfError::ValueError("mpf_pow_int: exponent must be non-negative")
+    raise ValueError("mpf_pow_int: exponent must be non-negative")
   }
   let mut result = 1N
   let mut b = base
@@ -108,12 +108,12 @@ pub fn mpf_sqrt(
   }
   if is_inf(x) {
     if x.sign == 1 {
-      raise MpfError::DomainError("mpf_sqrt: square root of a negative number")
+      raise DomainError("mpf_sqrt: square root of a negative number")
     }
     return finf
   }
   if x.sign == 1 {
-    raise MpfError::DomainError("mpf_sqrt: square root of a negative number")
+    raise DomainError("mpf_sqrt: square root of a negative number")
   }
   if is_zero(x) {
     return x

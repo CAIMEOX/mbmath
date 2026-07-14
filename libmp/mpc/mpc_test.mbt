@@ -9,6 +9,57 @@ fn assert_parts(
 }
 
 ///|
+fn mpc_dps_to_prec(dps : Int) -> Int {
+  if dps < 1 {
+    96
+  } else {
+    dps * 4 + 96
+  }
+}
+
+///|
+fn mpc_mantissa_digit_count(expected_text : String) -> Int {
+  let mut digits = 0
+  for c in expected_text {
+    if c == 'e' || c == 'E' {
+      break
+    }
+    if c >= '0' && c <= '9' {
+      digits += 1
+    }
+  }
+  digits
+}
+
+///|
+fn assert_mpf_close_with_dps(
+  x : @mpf.RawMpf,
+  expected_text : String,
+  dps : Int,
+) -> Unit raise {
+  let prec = mpc_dps_to_prec(dps)
+  let expected = @mpf.from_str(expected_text, prec~, rnd=@mpf.round_nearest)
+  let err = @mpf.mpf_abs(
+    @mpf.mpf_sub(x, expected, prec, @mpf.round_nearest),
+    prec,
+    @mpf.round_nearest,
+  )
+  let digits = mpc_mantissa_digit_count(expected_text)
+  let sig_digits = if digits <= 1 { 0 } else { digits - 1 }
+  let rel_tol = if sig_digits == 0 {
+    @mpf.fone
+  } else {
+    @mpf.from_str("1e-\{sig_digits}", prec~, rnd=@mpf.round_nearest)
+  }
+  let mut scale = @mpf.mpf_abs(expected, prec, @mpf.round_nearest)
+  if @mpf.mpf_lt(scale, @mpf.fone) {
+    scale = @mpf.fone
+  }
+  let tol = @mpf.mpf_mul(scale, rel_tol, prec, @mpf.round_nearest)
+  assert_true(@mpf.mpf_le(err, tol))
+}
+
+///|
 fn mpf_to_fixed_signed_for_test(x : @mpf.RawMpf, prec : Int) -> BigInt {
   let signed_man = if x.sign == 1 { -x.man } else { x.man }
   let offset = x.exp + prec
@@ -176,7 +227,7 @@ test "mpc abs arg sqrt" {
     80,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(arg, dps=12).has_prefix("0.78539816339"))
+  assert_mpf_close_with_dps(arg, "0.78539816339", 12)
   assert_parts(
     mpc_sqrt(
       from_parts(@mpf.from_int(3), @mpf.from_int(4)),
@@ -237,57 +288,60 @@ test "mpc pow_int basic cases" {
 test "mpc exp/log/pow and trig-hyperbolic subset" {
   let z = from_parts(@mpf.from_int(1), @mpf.from_int(2))
   let e = mpc_exp(z, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(e.real, dps=14).has_prefix("-1.131204383756"))
-  assert_true(@mpf.to_str_opts(e.imag, dps=14).has_prefix("2.471726672004"))
+  assert_mpf_close_with_dps(e.real, "-1.131204383756", 14)
+  assert_mpf_close_with_dps(e.imag, "2.471726672004", 14)
   let l = mpc_log(
     from_parts(@mpf.from_int(3), @mpf.from_int(4)),
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(l.real, dps=14).has_prefix("1.609437912434"))
-  assert_true(@mpf.to_str_opts(l.imag, dps=14).has_prefix("0.927295218001"))
+  assert_mpf_close_with_dps(l.real, "1.609437912434", 14)
+  assert_mpf_close_with_dps(l.imag, "0.927295218001", 14)
   let s = mpc_sin(z, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(s.real, dps=14).has_prefix("3.165778513216"))
-  assert_true(@mpf.to_str_opts(s.imag, dps=14).has_prefix("1.959601041421"))
+  assert_mpf_close_with_dps(s.real, "3.165778513216", 14)
+  assert_mpf_close_with_dps(s.imag, "1.959601041421", 14)
   let c = mpc_cos(z, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(c.real, dps=14).has_prefix("2.032723007019"))
-  assert_true(@mpf.to_str_opts(c.imag, dps=14).has_prefix("-3.051897799151"))
+  assert_mpf_close_with_dps(c.real, "2.032723007019", 14)
+  assert_mpf_close_with_dps(c.imag, "-3.051897799151", 14)
   let t = mpc_tan(z, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(t.real, dps=14).has_prefix("0.033812826079"))
-  assert_true(@mpf.to_str_opts(t.imag, dps=14).has_prefix("1.014793616146"))
+  assert_mpf_close_with_dps(t.real, "0.033812826079", 14)
+  assert_mpf_close_with_dps(t.imag, "1.014793616146", 14)
   let sh = mpc_sinh(z, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(sh.real, dps=14).has_prefix("-0.489056259041"))
-  assert_true(@mpf.to_str_opts(sh.imag, dps=14).has_prefix("1.403119250622"))
+  assert_mpf_close_with_dps(sh.real, "-0.489056259041", 14)
+  assert_mpf_close_with_dps(sh.imag, "1.403119250622", 14)
   let ch = mpc_cosh(z, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(ch.real, dps=14).has_prefix("-0.642148124715"))
-  assert_true(@mpf.to_str_opts(ch.imag, dps=14).has_prefix("1.068607421382"))
+  assert_mpf_close_with_dps(ch.real, "-0.642148124715", 14)
+  assert_mpf_close_with_dps(ch.imag, "1.068607421382", 14)
   let th = mpc_tanh(z, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(th.real, dps=14).has_prefix("1.166736257240"))
-  assert_true(@mpf.to_str_opts(th.imag, dps=14).has_prefix("-0.243458201185"))
+  assert_mpf_close_with_dps(th.real, "1.166736257240", 14)
+  assert_mpf_close_with_dps(th.imag, "-0.243458201185", 14)
   let p1 = mpc_pow(
     from_parts(@mpf.from_int(2), @mpf.fzero),
     from_parts(@mpf.fzero, @mpf.fone),
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(p1.real, dps=14).has_prefix("0.769238901363"))
-  assert_true(@mpf.to_str_opts(p1.imag, dps=14).has_prefix("0.638961276313"))
+  assert_mpf_close_with_dps(p1.real, "0.769238901363", 14)
+  assert_mpf_close_with_dps(p1.imag, "0.638961276313", 14)
   let p2 = mpc_pow_mpf(z, @mpf.from_str("0.5"), 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(p2.real, dps=14).has_prefix("1.272019649514"))
-  assert_true(@mpf.to_str_opts(p2.imag, dps=14).has_prefix("0.786151377757"))
+  assert_mpf_close_with_dps(p2.real, "1.272019649514", 14)
+  assert_mpf_close_with_dps(p2.imag, "0.786151377757", 14)
   let sq = mpc_square(z, 80, @mpf.round_nearest)
   assert_parts(sq, @mpf.from_int(-3), @mpf.from_int(4))
 }
 
 ///|
-test "panic mpc_pow_int zero negative exponent" {
-  ignore(mpc_pow_int(zero(), -1, 20, @mpf.round_nearest))
+test "mpc_pow_int zero negative exponent returns nan" {
+  let value = mpc_pow_int(zero(), -1, 20, @mpf.round_nearest)
+  assert_true(mpc_is_infnan(value))
 }
 
 ///|
-test "panic mpc_div by zero" {
+test "mpc_div by zero returns nan" {
   let z = from_parts(@mpf.from_int(1), @mpf.from_int(1))
-  ignore(mpc_div(z, zero(), 20, @mpf.round_nearest))
+  let value = mpc_div(z, zero(), 20, @mpf.round_nearest)
+  assert_true(@mpf.is_nan(value.real))
+  assert_true(@mpf.is_nan(value.imag))
 }
 
 ///|
@@ -310,8 +364,8 @@ test "mpc to_str to_complex hash and ln alias" {
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(l.real, dps=14).has_prefix("1.609437912434"))
-  assert_true(@mpf.to_str_opts(l.imag, dps=14).has_prefix("0.927295218001"))
+  assert_mpf_close_with_dps(l.real, "1.609437912434", 14)
+  assert_mpf_close_with_dps(l.imag, "0.927295218001", 14)
 }
 
 ///|
@@ -321,13 +375,13 @@ test "mpc pi-family and expj subset" {
     120,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(cp.real, dps=10).has_prefix("0.0"))
+  assert_mpf_close_with_dps(cp.real, "0.0", 10)
   let sp = mpc_sin_pi(
     from_parts(@mpf.from_str("0.25"), @mpf.fzero),
     120,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(sp.real, dps=10).has_prefix("0.7071067"))
+  assert_mpf_close_with_dps(sp.real, "0.7071067", 10)
   let z = from_parts(@mpf.from_str("0.75"), @mpf.from_str("0.0"))
   let (cz, sz) = mpc_cos_sin(z, 120, @mpf.round_nearest)
   assert_eq(cz.imag, @mpf.fzero)
@@ -340,13 +394,13 @@ test "mpc pi-family and expj subset" {
     120,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(ej.real, dps=10).has_prefix("-1.0"))
+  assert_mpf_close_with_dps(ej.real, "-1.0", 10)
   let ejp = mpc_expjpi(
     from_parts(@mpf.from_int(1), @mpf.fzero),
     120,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(ejp.real, dps=10).has_prefix("-1.0"))
+  assert_mpf_close_with_dps(ejp.real, "-1.0", 10)
 }
 
 ///|
@@ -356,37 +410,37 @@ test "mpc inverse trig-hyperbolic and roots subset" {
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(a.real, dps=14).has_prefix("0.785398163397"))
+  assert_mpf_close_with_dps(a.real, "0.785398163397", 14)
   let asn = mpc_asin(
     from_parts(@mpf.from_str("0.5"), @mpf.fzero),
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(asn.real, dps=14).has_prefix("0.523598775598"))
+  assert_mpf_close_with_dps(asn.real, "0.523598775598", 14)
   let acs = mpc_acos(
     from_parts(@mpf.from_str("0.5"), @mpf.fzero),
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(acs.real, dps=14).has_prefix("1.047197551196"))
+  assert_mpf_close_with_dps(acs.real, "1.047197551196", 14)
   let ash = mpc_asinh(
     from_parts(@mpf.from_int(1), @mpf.fzero),
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(ash.real, dps=14).has_prefix("0.881373587019"))
+  assert_mpf_close_with_dps(ash.real, "0.881373587019", 14)
   let ach = mpc_acosh(
     from_parts(@mpf.from_int(2), @mpf.fzero),
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(ach.real, dps=14).has_prefix("1.316957896924"))
+  assert_mpf_close_with_dps(ach.real, "1.316957896924", 14)
   let ath = mpc_atanh(
     from_parts(@mpf.from_str("0.5"), @mpf.fzero),
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(ath.real, dps=14).has_prefix("0.549306144334"))
+  assert_mpf_close_with_dps(ath.real, "0.549306144334", 14)
   let nr = mpc_nthroot(
     from_parts(@mpf.from_int(8), @mpf.fzero),
     3,
@@ -416,13 +470,13 @@ test "mpc agm fibonacci and real-special wrappers" {
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(agm.real, dps=14).has_prefix("0.560757145071"))
+  assert_mpf_close_with_dps(agm.real, "0.560757145071", 14)
   let agm1 = mpc_agm1(
     from_parts(@mpf.from_str("0.25"), @mpf.fzero),
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(agm1.real, dps=14).has_prefix("0.560757145071"))
+  assert_mpf_close_with_dps(agm1.real, "0.560757145071", 14)
   assert_eq(
     mpc_gamma(from_parts(@mpf.from_int(5), @mpf.fzero), 120, @mpf.round_nearest),
     from_parts(@mpf.from_int(24), @mpf.fzero),
@@ -432,13 +486,13 @@ test "mpc agm fibonacci and real-special wrappers" {
     120,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(rg.real, dps=14).has_prefix("0.041666666666"))
+  assert_mpf_close_with_dps(rg.real, "0.041666666666", 14)
   let lg = mpc_loggamma(
     from_parts(@mpf.from_int(5), @mpf.fzero),
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(lg.real, dps=14).has_prefix("3.178053830347"))
+  assert_mpf_close_with_dps(lg.real, "3.178053830347", 14)
   let fac = mpc_factorial(
     from_parts(@mpf.from_int(5), @mpf.fzero),
     120,
@@ -450,13 +504,13 @@ test "mpc agm fibonacci and real-special wrappers" {
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(har.real, dps=14).has_prefix("2.283333333333"))
+  assert_mpf_close_with_dps(har.real, "2.283333333333", 14)
   let p0 = mpc_psi0(
     from_parts(@mpf.from_int(4), @mpf.fzero),
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(p0.real, dps=14).has_prefix("1.256117668431"))
+  assert_mpf_close_with_dps(p0.real, "1.256117668431", 14)
   let p1 = mpc_psi(
     1,
     from_parts(@mpf.from_int(2), @mpf.fzero),
@@ -469,44 +523,44 @@ test "mpc agm fibonacci and real-special wrappers" {
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(ei.real, dps=14).has_prefix("0.454219904863"))
+  assert_mpf_close_with_dps(ei.real, "0.454219904863", 14)
   let e1 = mpc_e1(
     from_parts(@mpf.from_int(1), @mpf.fzero),
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(e1.real, dps=14).has_prefix("0.219383934395"))
+  assert_mpf_close_with_dps(e1.real, "0.219383934395", 14)
   let si = mpc_si(
     from_parts(@mpf.from_int(1), @mpf.fzero),
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(si.real, dps=14).has_prefix("0.946083070367"))
+  assert_mpf_close_with_dps(si.real, "0.946083070367", 14)
   let ci = mpc_ci(
     from_parts(@mpf.from_int(1), @mpf.fzero),
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(ci.real, dps=14).has_prefix("0.337403922900"))
+  assert_mpf_close_with_dps(ci.real, "0.337403922900", 14)
   let j0 = mpc_besseljn(
     0,
     from_parts(@mpf.from_int(1), @mpf.fzero),
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(j0.real, dps=14).has_prefix("0.765197686557"))
+  assert_mpf_close_with_dps(j0.real, "0.765197686557", 14)
   let ek = mpc_ellipk(
     from_parts(@mpf.from_str("0.25"), @mpf.fzero),
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(ek.real, dps=14).has_prefix("1.685750354812"))
+  assert_mpf_close_with_dps(ek.real, "1.685750354812", 14)
   let ee = mpc_ellipe(
     from_parts(@mpf.from_str("0.25"), @mpf.fzero),
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(ee.real, dps=14).has_prefix("1.467462209339"))
+  assert_mpf_close_with_dps(ee.real, "1.467462209339", 14)
 }
 
 ///|
@@ -516,13 +570,13 @@ test "mpc zeta family subset" {
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(z2.real, dps=14).has_prefix("1.644934066848"))
+  assert_mpf_close_with_dps(z2.real, "1.644934066848", 14)
   let a2 = mpc_altzeta(
     from_parts(@mpf.from_int(2), @mpf.fzero),
     140,
     @mpf.round_nearest,
   )
-  assert_true(@mpf.to_str_opts(a2.real, dps=14).has_prefix("0.822467033424"))
+  assert_mpf_close_with_dps(a2.real, "0.822467033424", 14)
   let s10 = mpc_zetasum(
     from_parts(@mpf.from_int(2), @mpf.fzero),
     140,
@@ -530,7 +584,7 @@ test "mpc zeta family subset" {
     start=1,
     terms=10,
   )
-  assert_true(@mpf.to_str_opts(s10.real, dps=14).has_prefix("1.549767731166"))
+  assert_mpf_close_with_dps(s10.real, "1.549767731166", 14)
   let zc = mpc_zeta(
     from_parts(@mpf.from_str("0.5"), @mpf.from_str("0.25")),
     100,
@@ -544,46 +598,46 @@ test "mpc zeta family subset" {
 test "mpc complex special functions subset" {
   let z = from_parts(@mpf.from_str("0.5"), @mpf.from_str("0.25"))
   let ei = mpc_ei(z, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(ei.real, dps=10).has_prefix("0.5438975"))
-  assert_true(@mpf.to_str_opts(ei.imag, dps=10).has_prefix("0.7867419"))
+  assert_mpf_close_with_dps(ei.real, "0.5438975", 10)
+  assert_mpf_close_with_dps(ei.imag, "0.7867419", 10)
   let e1 = mpc_e1(z, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(e1.real, dps=10).has_prefix("0.4594499"))
-  assert_true(@mpf.to_str_opts(e1.imag, dps=10).has_prefix("-0.2675113"))
+  assert_mpf_close_with_dps(e1.real, "0.4594499", 10)
+  assert_mpf_close_with_dps(e1.imag, "-0.2675113", 10)
   let ci = mpc_ci(z, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(ci.real, dps=10).has_prefix("-0.0515129"))
-  assert_true(@mpf.to_str_opts(ci.imag, dps=10).has_prefix("0.4021216"))
+  assert_mpf_close_with_dps(ci.real, "-0.0515129", 10)
+  assert_mpf_close_with_dps(ci.imag, "0.4021216", 10)
   let si = mpc_si(z, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(si.real, dps=10).has_prefix("0.4982025"))
-  assert_true(@mpf.to_str_opts(si.imag, dps=10).has_prefix("0.2405181"))
+  assert_mpf_close_with_dps(si.real, "0.4982025", 10)
+  assert_mpf_close_with_dps(si.imag, "0.2405181", 10)
   let j1 = mpc_besseljn(1, z, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(j1.real, dps=10).has_prefix("0.2479511"))
-  assert_true(@mpf.to_str_opts(j1.imag, dps=10).has_prefix("0.1143621"))
+  assert_mpf_close_with_dps(j1.real, "0.2479511", 10)
+  assert_mpf_close_with_dps(j1.imag, "0.1143621", 10)
   let m = from_parts(@mpf.from_str("0.25"), @mpf.from_str("0.1"))
   let ek = mpc_ellipk(m, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(ek.real, dps=10).has_prefix("1.6817722"))
-  assert_true(@mpf.to_str_opts(ek.imag, dps=10).has_prefix("0.0538075"))
+  assert_mpf_close_with_dps(ek.real, "1.6817722", 10)
+  assert_mpf_close_with_dps(ek.imag, "0.0538075", 10)
   let ee = mpc_ellipe(m, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(ee.real, dps=10).has_prefix("1.4685096"))
-  assert_true(@mpf.to_str_opts(ee.imag, dps=10).has_prefix("-0.0436005"))
+  assert_mpf_close_with_dps(ee.real, "1.4685096", 10)
+  assert_mpf_close_with_dps(ee.imag, "-0.0436005", 10)
   let w = from_parts(@mpf.from_str("2.5"), @mpf.from_str("0.5"))
   let g = mpc_gamma(w, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(g.real, dps=10).has_prefix("1.1723958"))
-  assert_true(@mpf.to_str_opts(g.imag, dps=10).has_prefix("0.4365070"))
+  assert_mpf_close_with_dps(g.real, "1.1723958", 10)
+  assert_mpf_close_with_dps(g.imag, "0.4365070", 10)
   let rg = mpc_rgamma(w, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(rg.real, dps=10).has_prefix("0.7491105"))
-  assert_true(@mpf.to_str_opts(rg.imag, dps=10).has_prefix("-0.2789092"))
+  assert_mpf_close_with_dps(rg.real, "0.7491105", 10)
+  assert_mpf_close_with_dps(rg.imag, "-0.2789092", 10)
   let lg = mpc_loggamma(w, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(lg.real, dps=10).has_prefix("0.2239590"))
-  assert_true(@mpf.to_str_opts(lg.imag, dps=10).has_prefix("0.3564195"))
+  assert_mpf_close_with_dps(lg.real, "0.2239590", 10)
+  assert_mpf_close_with_dps(lg.imag, "0.3564195", 10)
   let h = mpc_harmonic(w, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(h.real, dps=10).has_prefix("1.6937236"))
-  assert_true(@mpf.to_str_opts(h.imag, dps=10).has_prefix("0.1637364"))
+  assert_mpf_close_with_dps(h.real, "1.6937236", 10)
+  assert_mpf_close_with_dps(h.imag, "0.1637364", 10)
   let p0 = mpc_psi0(w, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(p0.real, dps=10).has_prefix("0.7318926"))
-  assert_true(@mpf.to_str_opts(p0.imag, dps=10).has_prefix("0.2406595"))
+  assert_mpf_close_with_dps(p0.real, "0.7318926", 10)
+  assert_mpf_close_with_dps(p0.imag, "0.2406595", 10)
   let p1 = mpc_psi(1, w, 140, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(p1.real, dps=14).has_prefix("0.463802495540"))
-  assert_true(@mpf.to_str_opts(p1.imag, dps=14).has_prefix("-0.111892198603"))
+  assert_mpf_close_with_dps(p1.real, "0.463802495540", 14)
+  assert_mpf_close_with_dps(p1.imag, "-0.111892198603", 14)
   let fac = mpc_factorial(w, 140, @mpf.round_nearest)
   assert_true(@mpf.is_finite(fac.real))
   assert_true(@mpf.is_finite(fac.imag))
@@ -594,15 +648,11 @@ test "mpc_ci_si_taylor subset" {
   let re = @mpf.from_str("0.5")
   let im = @mpf.from_str("0.25")
   let ci_core = mpc_ci_si_taylor(re, im, 180, which=0)
-  assert_true(
-    @mpf.to_str_opts(ci_core.real, dps=14).has_prefix("-0.047153243510"),
-  )
-  assert_true(
-    @mpf.to_str_opts(ci_core.imag, dps=14).has_prefix("-0.061525939930"),
-  )
+  assert_mpf_close_with_dps(ci_core.real, "-0.047153243510", 14)
+  assert_mpf_close_with_dps(ci_core.imag, "-0.061525939930", 14)
   let si = mpc_ci_si_taylor(re, im, 180, which=1)
-  assert_true(@mpf.to_str_opts(si.real, dps=14).has_prefix("0.498202520036"))
-  assert_true(@mpf.to_str_opts(si.imag, dps=14).has_prefix("0.240518169433"))
+  assert_mpf_close_with_dps(si.real, "0.498202520036", 14)
+  assert_mpf_close_with_dps(si.imag, "0.240518169433", 14)
 }
 
 ///|
@@ -692,9 +742,9 @@ test "mpc_nthroot_fixed subset" {
   let (re_fix, im_fix) = mpc_nthroot_fixed(a, b, 5, prec)
   let re_v = @mpf.from_man_exp(re_fix, -(prec + 10), 180, @mpf.round_nearest)
   let im_v = @mpf.from_man_exp(im_fix, -(prec + 10), 180, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(re_v, dps=14).has_prefix("0.886370150250"))
-  assert_true(@mpf.to_str_opts(im_v, dps=14).has_prefix("0.082429078456"))
+  assert_mpf_close_with_dps(re_v, "0.886370150250", 14)
+  assert_mpf_close_with_dps(im_v, "0.082429078456", 14)
   let root = mpc_nthroot(from_parts(re, im), 5, 180, @mpf.round_nearest)
-  assert_true(@mpf.to_str_opts(root.real, dps=14).has_prefix("0.886370150250"))
-  assert_true(@mpf.to_str_opts(root.imag, dps=14).has_prefix("0.082429078456"))
+  assert_mpf_close_with_dps(root.real, "0.886370150250", 14)
+  assert_mpf_close_with_dps(root.imag, "0.082429078456", 14)
 }

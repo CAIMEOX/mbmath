@@ -1,16 +1,26 @@
 ///|
-/// Stage-0 placeholder for complex arbitrary-precision values.
+/// Arbitrary-precision complex value represented by real and imaginary `mpf` parts.
 pub struct RawMpc {
   real : @mpf.RawMpf
   imag : @mpf.RawMpf
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for RawMpc with fn output(self, logger) {
+  logger.write_object(self.to_repr())
+}
 
 ///|
 pub(all) suberror MpcError {
   ValueError(String)
   DomainError(String)
   PoleError(String)
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for MpcError with fn output(self, logger) {
+  logger.write_object(self.to_repr())
+}
 
 ///|
 /// Additive identity `0 + 0j`.

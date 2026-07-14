@@ -226,16 +226,11 @@ fn mpf_round_int_inner(x : RawMpf, mode : RoundMode) -> RawMpf {
   let has_frac = rem != 0N
   let bump = if has_frac { 1N } else { 0N }
   let signed = match mode {
-    RoundMode::Floor => if x.sign == 0 { int_part } else { -(int_part + bump) }
-    RoundMode::Ceiling => if x.sign == 0 { int_part + bump } else { -int_part }
-    RoundMode::Down => if x.sign == 0 { int_part } else { -int_part }
-    RoundMode::Up =>
-      if x.sign == 0 {
-        int_part + bump
-      } else {
-        -(int_part + bump)
-      }
-    RoundMode::Nearest => {
+    Floor => if x.sign == 0 { int_part } else { -(int_part + bump) }
+    Ceiling => if x.sign == 0 { int_part + bump } else { -int_part }
+    Down => if x.sign == 0 { int_part } else { -int_part }
+    Up => if x.sign == 0 { int_part + bump } else { -(int_part + bump) }
+    Nearest => {
       let half = 1N << (shift - 1)
       let nearest = if rem > half || (rem == half && (int_part & 1N) == 1N) {
         int_part + 1N
@@ -255,18 +250,18 @@ fn mpf_round_int_inner(x : RawMpf, mode : RoundMode) -> RawMpf {
 ///|
 pub fn mpf_round_int(x : RawMpf, rnd : RoundMode) -> RawMpf {
   match rnd {
-    RoundMode::Floor => mpf_round_int_inner(x, round_floor)
-    RoundMode::Ceiling => mpf_round_int_inner(x, round_ceiling)
-    RoundMode::Down => mpf_round_int_inner(x, round_down)
-    RoundMode::Up => mpf_round_int_inner(x, round_up)
-    RoundMode::Nearest => mpf_round_int_inner(x, round_nearest)
+    Floor => mpf_round_int_inner(x, round_floor)
+    Ceiling => mpf_round_int_inner(x, round_ceiling)
+    Down => mpf_round_int_inner(x, round_down)
+    Up => mpf_round_int_inner(x, round_up)
+    Nearest => mpf_round_int_inner(x, round_nearest)
   }
 }
 
 ///|
 pub fn mpf_min_max(seq : ArrayView[RawMpf]) -> (RawMpf, RawMpf) raise MpfError {
   if seq.length() == 0 {
-    raise MpfError::ValueError("mpf_min_max: empty input")
+    raise ValueError("mpf_min_max: empty input")
   }
   let mut min_v = seq[0]
   let mut max_v = seq[0]

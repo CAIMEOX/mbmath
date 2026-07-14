@@ -11,7 +11,12 @@ pub enum RoundMode {
   Ceiling
   Up
   Down
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for RoundMode with fn output(self, logger) {
+  logger.write_object(self.to_repr())
+}
 
 ///|
 /// Raw arbitrary-precision floating-point value:
@@ -22,7 +27,12 @@ pub struct RawMpf {
   man : BigInt
   exp : Int
   bc : Int
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for RawMpf with fn output(self, logger) {
+  logger.write_object(self.to_repr())
+}
 
 ///|
 pub(all) suberror MpfError {
@@ -32,7 +42,12 @@ pub(all) suberror MpfError {
   ParseError(String)
   FormatError(String)
   UnsupportedError(String)
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for MpfError with fn output(self, logger) {
+  logger.write_object(self.to_repr())
+}
 
 ///|
 /// Canonical positive zero.
@@ -60,20 +75,20 @@ pub let fninf : RawMpf = { sign: 1, man: 0N, exp: -789, bc: -3 }
 
 ///|
 /// Rounding mode alias: nearest (tie-to-even).
-pub let round_nearest : RoundMode = RoundMode::Nearest
+pub let round_nearest : RoundMode = Nearest
 
 ///|
 /// Rounding mode alias: toward negative infinity.
-pub let round_floor : RoundMode = RoundMode::Floor
+pub let round_floor : RoundMode = Floor
 
 ///|
 /// Rounding mode alias: toward positive infinity.
-pub let round_ceiling : RoundMode = RoundMode::Ceiling
+pub let round_ceiling : RoundMode = Ceiling
 
 ///|
 /// Rounding mode alias: away from zero.
-pub let round_up : RoundMode = RoundMode::Up
+pub let round_up : RoundMode = Up
 
 ///|
 /// Rounding mode alias: toward zero.
-pub let round_down : RoundMode = RoundMode::Down
+pub let round_down : RoundMode = Down

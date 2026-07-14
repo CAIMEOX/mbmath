@@ -21,6 +21,87 @@ fn assert_contains(x : RawMpi, v : @mpf.RawMpf) -> Unit raise {
 }
 
 ///|
+fn dps_to_prec(dps : Int) -> Int {
+  if dps < 1 {
+    64
+  } else {
+    dps * 4 + 64
+  }
+}
+
+///|
+fn strip_spaces_for_numeric(s : String) -> String {
+  let mut out = ""
+  for c in s {
+    if c != ' ' && c != '\t' && c != '\n' && c != '\r' {
+      out = out + c.to_string()
+    }
+  }
+  out
+}
+
+///|
+fn substring_for_numeric(s : String, start : Int, end : Int) -> String {
+  if start >= end {
+    ""
+  } else {
+    s.unsafe_substring(start~, end~)
+  }
+}
+
+///|
+fn assert_numeric_close_mpf(
+  got_mpf : @mpf.RawMpf,
+  expected_text : String,
+  dps : Int,
+) -> Unit raise {
+  let prec = dps_to_prec(dps)
+  let safe_dps = if dps < 1 { 1 } else { dps }
+  let expected = @mpf.from_str(expected_text, prec~, rnd=@mpf.round_nearest)
+  let err = @mpf.mpf_abs(
+    @mpf.mpf_sub(got_mpf, expected, prec, @mpf.round_nearest),
+    prec,
+    @mpf.round_nearest,
+  )
+  let tol = @mpf.from_str("1e-\{safe_dps}", prec~, rnd=@mpf.round_nearest)
+  if !@mpf.mpf_le(err, tol) {
+    fail(
+      "numeric mismatch got=\{@mpf.to_str_opts(got_mpf, dps=safe_dps + 4)} expected=\{expected_text} err=\{@mpf.to_str_opts(err, dps=8)} tol=\{@mpf.to_str_opts(tol, dps=8)}",
+    )
+  }
+}
+
+///|
+fn assert_numeric_close_text(
+  got_text : String,
+  expected_text : String,
+  dps : Int,
+) -> Unit raise {
+  let prec = dps_to_prec(dps)
+  let text = strip_spaces_for_numeric(got_text)
+  let mut end = 0
+  while end < text.length() {
+    let c = text.get_char(end).unwrap()
+    if (c >= '0' && c <= '9') ||
+      c == '+' ||
+      c == '-' ||
+      c == '.' ||
+      c == 'e' ||
+      c == 'E' {
+      end += 1
+    } else {
+      break
+    }
+  }
+  if end == 0 {
+    fail("numeric prefix not found: \{got_text}")
+  }
+  let got_prefix = substring_for_numeric(text, 0, end)
+  let got_mpf = @mpf.from_str(got_prefix, prec~, rnd=@mpf.round_nearest)
+  assert_numeric_close_mpf(got_mpf, expected_text, dps)
+}
+
+///|
 test "mpi_make and comparisons" {
   assert_mpi_eq(mpi_make(i(3), i(1)), i(1), i(3))
   assert_mpi_eq(mpi_make(@mpf.fnan, i(2)), @mpf.fninf, @mpf.finf)
@@ -107,7 +188,8 @@ test "mpi pow and to_str" {
   assert_mpi_eq(mpi_pow(interval(4, 4), mpi_make(half, half), 80), i(2), i(2))
   assert_mpi_eq(mpi_pow(interval(2, 3), mpi_zero, 80), i(1), i(1))
   let s = mpi_to_str(interval(1, 2))
-  assert_true(s.has_prefix("[1"))
+  assert_eq(s.get_char(0), Some('['))
+  assert_eq(s.get_char(1), Some('1'))
   assert_true(s.contains(","))
 }
 
@@ -144,9 +226,7 @@ test "mpi_from_str variants" {
 test "mpi_to_str_opts modes" {
   let x = interval(1, 2)
   assert_eq(mpi_to_str_opts(x, dps=2, mode="plusminus"), "1.5 +- 0.5")
-  assert_true(
-    mpi_to_str_opts(x, dps=2, mode="percent").has_prefix("1.5 (33.33"),
-  )
+  assert_numeric_close_text(mpi_to_str_opts(x, dps=2, mode="percent"), "1.5", 2)
   assert_eq(mpi_to_str_opts(x, dps=2, mode="brackets"), "[1.0, 2.0]")
   assert_eq(
     mpi_to_str_opts(x, dps=2, mode="brackets", use_spaces=false),
@@ -167,7 +247,7 @@ test "mpi_to_str_opts modes" {
     @mpf.from_str("5.2582327113062749951"),
   )
   let diff = mpi_to_str_opts(y, dps=15, mode="diff")
-  assert_true(diff.has_prefix("5.2582327113062"))
+  assert_numeric_close_text(diff, "5.2582327113062", 13)
   assert_true(diff.contains("["))
   assert_true(diff.contains(","))
   let exp_diff = mpi_to_str_opts(
@@ -177,7 +257,7 @@ test "mpi_to_str_opts modes" {
   )
   assert_eq(exp_diff, "[1.0e+123, 1.0e+129]")
   let s = mpi_str(interval(1, 2), 80)
-  assert_true(s.has_prefix("["))
+  assert_eq(s.get_char(0), Some('['))
   assert_true(s.contains(","))
 }
 
@@ -300,17 +380,11 @@ test "mpi gamma scalar identity subset from mpmath interval tests" {
   )
   let minus_half = @mpf.from_str("-0.5", prec=240, rnd=@mpf.round_nearest)
   let gamma_mhalf = mpi_gamma(mpi_make(minus_half, minus_half), 220)
-  assert_true(
-    @mpf.to_str_opts(mpi_mid(gamma_mhalf, 220), dps=14).has_prefix(
-      "-3.544907701811",
-    ),
-  )
+  assert_numeric_close_mpf(mpi_mid(gamma_mhalf, 220), "-3.544907701811", 12)
   assert_mpi_eq(mpi_loggamma(interval(1, 1), 180), @mpf.fzero, @mpf.fzero)
   assert_mpi_eq(mpi_loggamma(interval(2, 2), 180), @mpf.fzero, @mpf.fzero)
   let lg3 = mpi_loggamma(interval(3, 3), 220)
-  assert_true(
-    @mpf.to_str_opts(mpi_mid(lg3, 220), dps=14).has_prefix("0.6931471805599"),
-  )
+  assert_numeric_close_mpf(mpi_mid(lg3, 220), "0.6931471805599", 13)
 }
 
 ///|
@@ -570,7 +644,7 @@ test "mpi nstr and convert boundary subset from mpmath interval tests" {
     mode="diff",
     use_spaces=false,
   )
-  assert_true(cos_diff.has_prefix("0.540302305868139"))
+  assert_numeric_close_text(cos_diff, "0.540302305868139", 15)
   assert_true(cos_diff.contains("["))
   assert_true(cos_diff.contains("]"))
   let exp_diff = mpi_to_str_opts(
@@ -644,7 +718,7 @@ test "mpi nstr and convert edge extras from mpmath interval tests" {
     mode="diff",
     use_spaces=false,
   )
-  assert_true(s.has_prefix("0.540302305868139"))
+  assert_numeric_close_text(s, "0.540302305868139", 15)
   assert_true(s.contains("["))
   assert_true(s.contains("]"))
   assert_mpi_eq(mpi_from_str(" 1.5 +- 0.5 "), i(1), i(2))

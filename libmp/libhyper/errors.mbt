@@ -4,4 +4,9 @@ pub(all) suberror LibHyperError {
   DomainError(String)
   PoleError(String)
   ComplexResult(String)
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for LibHyperError with fn output(self, logger) {
+  logger.write_object(self.to_repr())
+}

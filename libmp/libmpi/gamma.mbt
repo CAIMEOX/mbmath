@@ -66,7 +66,7 @@ fn mpc_gamma_kind_point(
   } else if kind == gamma_kind_factorial {
     @mpc.mpc_factorial(z, p, rnd)
   } else {
-    raise MpiError::UnsupportedError("mpc_gamma_kind_point: unknown kind")
+    raise UnsupportedError("mpc_gamma_kind_point: unknown kind")
   }
 }
 
@@ -132,7 +132,7 @@ fn mpi_gamma_kind(z : RawMpi, prec : Int, kind : Int) -> RawMpi raise MpiError {
       }
       return mpi_make(lo, hi)
     } else {
-      raise MpiError::UnsupportedError("mpi_gamma_kind: unknown kind")
+      raise UnsupportedError("mpi_gamma_kind: unknown kind")
     }
   }
   if @mpf.mpf_gt(z.lo, @mpf.fzero) && @mpf.mpf_lt(z.hi, min_a) {
@@ -161,7 +161,7 @@ fn mpi_gamma_kind(z : RawMpi, prec : Int, kind : Int) -> RawMpi raise MpiError {
       }
       return mpi_make(lo, hi)
     } else {
-      raise MpiError::UnsupportedError("mpi_gamma_kind: unknown kind")
+      raise UnsupportedError("mpi_gamma_kind: unknown kind")
     }
   }
   let znew = mpi_add(z, mpi_one, prec=wp)
@@ -172,7 +172,7 @@ fn mpi_gamma_kind(z : RawMpi, prec : Int, kind : Int) -> RawMpi raise MpiError {
   } else if kind == gamma_kind_loggamma {
     mpi_sub(mpi_gamma_kind(znew, p + 2, kind), mpi_log(z, p + 2), prec=p)
   } else {
-    raise MpiError::UnsupportedError("mpi_gamma_kind: unknown kind")
+    raise UnsupportedError("mpi_gamma_kind: unknown kind")
   }
 }
 
@@ -251,7 +251,7 @@ fn mpci_gamma_kind(
     } else if k == gamma_kind_loggamma {
       return mpci_sub(mpci_gamma_kind(znew, p + 2, k), mpci_log(z0, p + 2), p)
     } else {
-      raise MpiError::UnsupportedError("mpci_gamma_kind: unknown kind")
+      raise UnsupportedError("mpci_gamma_kind: unknown kind")
     }
   }
   let (minre, maxre, minim, maxim) = if @mpf.mpf_ge(z0.imag.lo, @mpf.fzero) {

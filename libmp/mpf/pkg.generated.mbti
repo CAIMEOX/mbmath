@@ -1,0 +1,154 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "CAIMEOX/moon_floating/libmp/mpf"
+
+import {
+  "moonbitlang/core/bigint",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn _internal_keep_parse_format_size() -> Unit
+
+pub let finf : RawMpf
+
+pub let fnan : RawMpf
+
+pub let fninf : RawMpf
+
+pub let fnone : RawMpf
+
+pub let fone : RawMpf
+
+pub fn format_mpf(RawMpf, String, dps? : Int) -> String raise MpfError
+
+pub fn from_int(Int) -> RawMpf
+
+pub fn from_man_exp(@bigint.BigInt, Int, Int, RoundMode) -> RawMpf
+
+pub fn from_str(String, prec? : Int, rnd? : RoundMode) -> RawMpf raise MpfError
+
+pub let fzero : RawMpf
+
+pub fn is_finite(RawMpf) -> Bool
+
+pub fn is_inf(RawMpf) -> Bool
+
+pub fn is_nan(RawMpf) -> Bool
+
+pub fn is_zero(RawMpf) -> Bool
+
+pub fn mpf_abs(RawMpf, Int, RoundMode) -> RawMpf
+
+pub fn mpf_add(RawMpf, RawMpf, Int, RoundMode) -> RawMpf
+
+pub fn mpf_ceil(RawMpf, Int, RoundMode) -> RawMpf
+
+pub fn mpf_cmp(RawMpf, RawMpf) -> Int
+
+pub fn mpf_div(RawMpf, RawMpf, Int, RoundMode) -> RawMpf raise MpfError
+
+pub fn mpf_eq(RawMpf, RawMpf) -> Bool
+
+pub fn mpf_floor(RawMpf, Int, RoundMode) -> RawMpf
+
+pub fn mpf_frac(RawMpf, Int, RoundMode) -> RawMpf
+
+pub fn mpf_frexp(RawMpf) -> (RawMpf, Int) raise MpfError
+
+pub fn mpf_ge(RawMpf, RawMpf) -> Bool
+
+pub fn mpf_gt(RawMpf, RawMpf) -> Bool
+
+pub fn mpf_hash(RawMpf) -> Int
+
+pub fn mpf_hypot(RawMpf, RawMpf, Int, RoundMode) -> RawMpf raise MpfError
+
+pub fn mpf_le(RawMpf, RawMpf) -> Bool
+
+pub fn mpf_lt(RawMpf, RawMpf) -> Bool
+
+pub fn mpf_min_max(ArrayView[RawMpf]) -> (RawMpf, RawMpf) raise MpfError
+
+pub fn mpf_mod(RawMpf, RawMpf, Int, RoundMode) -> RawMpf raise MpfError
+
+pub fn mpf_mul(RawMpf, RawMpf, Int, RoundMode) -> RawMpf
+
+pub fn mpf_mul_int(RawMpf, Int, Int, RoundMode) -> RawMpf
+
+pub fn mpf_neg(RawMpf, Int, RoundMode) -> RawMpf
+
+pub fn mpf_nint(RawMpf, Int, RoundMode) -> RawMpf
+
+pub fn mpf_perturb(RawMpf, Int, Int, RoundMode) -> RawMpf
+
+pub fn mpf_pos(RawMpf, Int, RoundMode) -> RawMpf
+
+pub fn mpf_pow_int(RawMpf, Int, Int, RoundMode) -> RawMpf raise MpfError
+
+pub fn mpf_rand(Int) -> RawMpf
+
+pub fn mpf_rdiv_int(Int, RawMpf, Int, RoundMode) -> RawMpf raise MpfError
+
+pub fn mpf_round_int(RawMpf, RoundMode) -> RawMpf
+
+pub fn mpf_shift(RawMpf, Int) -> RawMpf
+
+pub fn mpf_sign(RawMpf) -> Int
+
+pub fn mpf_sqrt(RawMpf, Int, RoundMode) -> RawMpf raise MpfError
+
+pub fn mpf_sub(RawMpf, RawMpf, Int, RoundMode) -> RawMpf
+
+pub fn mpf_sum(ArrayView[RawMpf], Int, RoundMode, absolute? : Bool) -> RawMpf
+
+pub fn normalize(Int, @bigint.BigInt, Int, Int, Int, RoundMode) -> RawMpf
+
+pub let round_ceiling : RoundMode
+
+pub let round_down : RoundMode
+
+pub let round_floor : RoundMode
+
+pub let round_nearest : RoundMode
+
+pub let round_up : RoundMode
+
+pub fn to_str(RawMpf) -> String raise MpfError
+
+pub fn to_str_opts(RawMpf, dps? : Int, base? : Int, binary_exp? : Bool) -> String raise MpfError
+
+// Errors
+pub(all) suberror MpfError {
+  ValueError(String)
+  DomainError(String)
+  DivisionByZero(String)
+  ParseError(String)
+  FormatError(String)
+  UnsupportedError(String)
+} derive(Eq, @debug.Debug)
+pub impl Show for MpfError
+
+// Types and methods
+type ParseState derive(Eq)
+
+pub struct RawMpf {
+  sign : Int
+  man : @bigint.BigInt
+  exp : Int
+  bc : Int
+} derive(Eq, @debug.Debug)
+pub impl Show for RawMpf
+
+pub enum RoundMode {
+  Nearest
+  Floor
+  Ceiling
+  Up
+  Down
+} derive(Eq, @debug.Debug)
+pub impl Show for RoundMode
+
+// Type aliases
+
+// Traits
+

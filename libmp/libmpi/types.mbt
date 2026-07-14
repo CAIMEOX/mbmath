@@ -2,7 +2,12 @@
 pub struct RawMpi {
   lo : @mpf.RawMpf
   hi : @mpf.RawMpf
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for RawMpi with fn output(self, logger) {
+  logger.write_object(self.to_repr())
+}
 
 ///|
 pub let mpi_zero : RawMpi = { lo: @mpf.fzero, hi: @mpf.fzero }
@@ -17,13 +22,23 @@ pub(all) suberror MpiError {
   ParseError(String)
   UnsupportedError(String)
   UnorderedError(String)
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for MpiError with fn output(self, logger) {
+  logger.write_object(self.to_repr())
+}
 
 ///|
 pub struct RawMpci {
   real : RawMpi
   imag : RawMpi
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for RawMpci with fn output(self, logger) {
+  logger.write_object(self.to_repr())
+}
 
 ///|
 pub let mpci_zero : RawMpci = { real: mpi_zero, imag: mpi_zero }

@@ -8,6 +8,95 @@ fn work_prec(prec : Int) -> Int {
 }
 
 ///|
+fn complex_nan() -> RawMpc {
+  { real: @mpf.fnan, imag: @mpf.fnan }
+}
+
+///|
+// Raw complex operations are total: invalid low-level domains produce NaN.
+// Checked high-level context APIs translate user-domain failures to MPError.
+fn mpf_div_or_nan(
+  x : @mpf.RawMpf,
+  y : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  @mpf.mpf_div(x, y, prec, rnd) catch {
+    _ => @mpf.fnan
+  }
+}
+
+///|
+fn mpf_rdiv_int_or_nan(
+  n : Int,
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  @mpf.mpf_rdiv_int(n, x, prec, rnd) catch {
+    _ => @mpf.fnan
+  }
+}
+
+///|
+fn mpf_sqrt_or_nan(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  @mpf.mpf_sqrt(x, prec, rnd) catch {
+    _ => @mpf.fnan
+  }
+}
+
+///|
+fn mpf_pow_int_or_nan(
+  x : @mpf.RawMpf,
+  n : Int,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  @mpf.mpf_pow_int(x, n, prec, rnd) catch {
+    _ => @mpf.fnan
+  }
+}
+
+///|
+fn mpf_hypot_or_nan(
+  x : @mpf.RawMpf,
+  y : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  @mpf.mpf_hypot(x, y, prec, rnd) catch {
+    _ => @mpf.fnan
+  }
+}
+
+///|
+fn mpf_log_or_nan(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf {
+  @libelefun.mpf_log(x, prec, rnd) catch {
+    _ => @mpf.fnan
+  }
+}
+
+///|
+fn mpc_pow_or_nan(
+  z : RawMpc,
+  w : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc {
+  mpc_pow(z, w, prec, rnd) catch {
+    _ => complex_nan()
+  }
+}
+
+///|
 pub fn one() -> RawMpc {
   { real: @mpf.fone, imag: @mpf.fzero }
 }
@@ -184,8 +273,8 @@ pub fn mpc_div(
   let t = @mpf.mpf_add(ac, bd, wp, @mpf.round_nearest)
   let u = @mpf.mpf_sub(bc, ad, wp, @mpf.round_nearest)
   {
-    real: try! @mpf.mpf_div(t, mag, prec, rnd),
-    imag: try! @mpf.mpf_div(u, mag, prec, rnd),
+    real: mpf_div_or_nan(t, mag, prec, rnd),
+    imag: mpf_div_or_nan(u, mag, prec, rnd),
   }
 }
 
@@ -197,8 +286,8 @@ pub fn mpc_div_mpf(
   rnd : @mpf.RoundMode,
 ) -> RawMpc {
   {
-    real: try! @mpf.mpf_div(z.real, x, prec, rnd),
-    imag: try! @mpf.mpf_div(z.imag, x, prec, rnd),
+    real: mpf_div_or_nan(z.real, x, prec, rnd),
+    imag: mpf_div_or_nan(z.imag, x, prec, rnd),
   }
 }
 
@@ -212,8 +301,8 @@ pub fn mpc_reciprocal(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
   let bb = @mpf.mpf_mul(z.imag, z.imag, 0, @mpf.round_down)
   let mag = @mpf.mpf_add(aa, bb, wp, @mpf.round_nearest)
   {
-    real: try! @mpf.mpf_div(z.real, mag, prec, rnd),
-    imag: @mpf.mpf_neg(try! @mpf.mpf_div(z.imag, mag, prec, rnd), prec, rnd),
+    real: mpf_div_or_nan(z.real, mag, prec, rnd),
+    imag: @mpf.mpf_neg(mpf_div_or_nan(z.imag, mag, prec, rnd), prec, rnd),
   }
 }
 
@@ -234,8 +323,8 @@ pub fn mpc_mpf_div(
   let ax = @mpf.mpf_mul(z.real, x, wp, @mpf.round_nearest)
   let bx = @mpf.mpf_mul(z.imag, x, wp, @mpf.round_nearest)
   {
-    real: try! @mpf.mpf_div(ax, mag, prec, rnd),
-    imag: @mpf.mpf_neg(try! @mpf.mpf_div(bx, mag, prec, rnd), prec, rnd),
+    real: mpf_div_or_nan(ax, mag, prec, rnd),
+    imag: @mpf.mpf_neg(mpf_div_or_nan(bx, mag, prec, rnd), prec, rnd),
   }
 }
 
@@ -247,10 +336,7 @@ pub fn mpc_pow_int(
   rnd : @mpf.RoundMode,
 ) -> RawMpc {
   if z.imag == @mpf.fzero {
-    return {
-      real: try! @mpf.mpf_pow_int(z.real, n, prec, rnd),
-      imag: @mpf.fzero,
-    }
+    return { real: mpf_pow_int_or_nan(z.real, n, prec, rnd), imag: @mpf.fzero }
   }
   if n == 0 {
     return one()
@@ -315,7 +401,7 @@ pub fn mpc_frac(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 
 ///|
 pub fn mpc_abs(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
-  try! @mpf.mpf_hypot(z.real, z.imag, prec, rnd)
+  mpf_hypot_or_nan(z.real, z.imag, prec, rnd)
 }
 
 ///|
@@ -332,14 +418,10 @@ pub fn mpc_sqrt(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
       return z
     }
     if a.sign == 1 {
-      let im = try! @mpf.mpf_sqrt(
-        @mpf.mpf_neg(a, 0, @mpf.round_down),
-        prec,
-        rnd,
-      )
+      let im = mpf_sqrt_or_nan(@mpf.mpf_neg(a, 0, @mpf.round_down), prec, rnd)
       return { real: @mpf.fzero, imag: im }
     } else {
-      let re = try! @mpf.mpf_sqrt(a, prec, rnd)
+      let re = mpf_sqrt_or_nan(a, prec, rnd)
       return { real: re, imag: @mpf.fzero }
     }
   }
@@ -355,10 +437,10 @@ pub fn mpc_sqrt(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
       @mpf.round_nearest,
     )
     let u = @mpf.mpf_shift(t, -1)
-    let re = try! @mpf.mpf_sqrt(u, prec, rnd)
+    let re = mpf_sqrt_or_nan(u, prec, rnd)
     let v = @mpf.mpf_shift(t, 1)
-    let w = try! @mpf.mpf_sqrt(v, wp, @mpf.round_nearest)
-    let im = try! @mpf.mpf_div(b, w, prec, rnd)
+    let w = mpf_sqrt_or_nan(v, wp, @mpf.round_nearest)
+    let im = mpf_div_or_nan(b, w, prec, rnd)
     { real: re, imag: im }
   } else {
     let t = @mpf.mpf_sub(
@@ -368,10 +450,10 @@ pub fn mpc_sqrt(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
       @mpf.round_nearest,
     )
     let u = @mpf.mpf_shift(t, -1)
-    let mut im = try! @mpf.mpf_sqrt(u, prec, rnd)
+    let mut im = mpf_sqrt_or_nan(u, prec, rnd)
     let v = @mpf.mpf_shift(t, 1)
-    let w = try! @mpf.mpf_sqrt(v, wp, @mpf.round_nearest)
-    let mut re = try! @mpf.mpf_div(b, w, prec, rnd)
+    let w = mpf_sqrt_or_nan(v, wp, @mpf.round_nearest)
+    let mut re = mpf_div_or_nan(b, w, prec, rnd)
     if b.sign == 1 {
       re = @mpf.mpf_neg(re, prec, rnd)
       im = @mpf.mpf_neg(im, prec, rnd)
@@ -404,11 +486,11 @@ pub fn mpc_log(
   rnd : @mpf.RoundMode,
 ) -> RawMpc raise MpcError {
   if z == zero() {
-    raise MpcError::PoleError("mpc_log: logarithm singular at zero")
+    raise PoleError("mpc_log: logarithm singular at zero")
   }
   let p = work_prec(prec)
   {
-    real: try! @libelefun.mpf_log(mpc_abs(z, p, @mpf.round_nearest), prec, rnd),
+    real: mpf_log_or_nan(mpc_abs(z, p, @mpf.round_nearest), prec, rnd),
     imag: mpc_arg(z, prec, rnd),
   }
 }
@@ -425,7 +507,7 @@ pub fn mpc_pow(
   }
   if z == zero() {
     if w.imag != @mpf.fzero || @mpf.mpf_sign(w.real) <= 0 {
-      raise MpcError::DomainError(
+      raise DomainError(
         "mpc_pow: undefined for zero base with non-positive/complex exponent",
       )
     }
@@ -444,7 +526,7 @@ pub fn mpc_pow_mpf(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> RawMpc {
-  try! mpc_pow(z, from_parts(x, @mpf.fzero), prec, rnd)
+  mpc_pow_or_nan(z, from_parts(x, @mpf.fzero), prec, rnd)
 }
 
 ///|

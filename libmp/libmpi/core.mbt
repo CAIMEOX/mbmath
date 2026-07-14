@@ -1,30 +1,30 @@
 ///|
 fn from_mpf_error(err : @mpf.MpfError) -> MpiError {
   match err {
-    @mpf.MpfError::ValueError(msg) => MpiError::ValueError(msg)
-    @mpf.MpfError::DomainError(msg) => MpiError::DomainError(msg)
-    @mpf.MpfError::DivisionByZero(msg) => MpiError::DomainError(msg)
-    @mpf.MpfError::ParseError(msg) => MpiError::ParseError(msg)
-    @mpf.MpfError::FormatError(msg) => MpiError::ValueError(msg)
-    @mpf.MpfError::UnsupportedError(msg) => MpiError::UnsupportedError(msg)
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    DivisionByZero(msg) => DomainError(msg)
+    ParseError(msg) => ParseError(msg)
+    FormatError(msg) => ValueError(msg)
+    UnsupportedError(msg) => UnsupportedError(msg)
   }
 }
 
 ///|
 fn from_libelefun_error(err : @libelefun.LibElefunError) -> MpiError {
   match err {
-    @libelefun.LibElefunError::ValueError(msg) => MpiError::ValueError(msg)
-    @libelefun.LibElefunError::DomainError(msg) => MpiError::DomainError(msg)
-    @libelefun.LibElefunError::ComplexResult(msg) => MpiError::DomainError(msg)
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    ComplexResult(msg) => DomainError(msg)
   }
 }
 
 ///|
 fn from_gammazeta_error(err : @gammazeta.GammaZetaError) -> MpiError {
   match err {
-    @gammazeta.GammaZetaError::ValueError(msg) => MpiError::ValueError(msg)
-    @gammazeta.GammaZetaError::DomainError(msg) => MpiError::DomainError(msg)
-    @gammazeta.GammaZetaError::PoleError(msg) => MpiError::DomainError(msg)
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    PoleError(msg) => DomainError(msg)
   }
 }
 
@@ -106,9 +106,7 @@ pub fn mpi_lt(s : RawMpi, t : RawMpi) -> Bool raise MpiError {
   } else if @mpf.mpf_ge(s.lo, t.hi) {
     false
   } else {
-    raise MpiError::UnorderedError(
-      "mpi_lt: overlapping intervals are unordered",
-    )
+    raise UnorderedError("mpi_lt: overlapping intervals are unordered")
   }
 }
 
@@ -119,9 +117,7 @@ pub fn mpi_le(s : RawMpi, t : RawMpi) -> Bool raise MpiError {
   } else if @mpf.mpf_gt(s.lo, t.hi) {
     false
   } else {
-    raise MpiError::UnorderedError(
-      "mpi_le: overlapping intervals are unordered",
-    )
+    raise UnorderedError("mpi_le: overlapping intervals are unordered")
   }
 }
 

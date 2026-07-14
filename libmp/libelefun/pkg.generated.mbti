@@ -1,0 +1,95 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "CAIMEOX/moon_floating/libmp/libelefun"
+
+import {
+  "CAIMEOX/moon_floating/libmp/mpf",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn mpf_acos(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+
+pub fn mpf_acosh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+
+pub fn mpf_asin(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+
+pub fn mpf_asinh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_atan(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_atan2(@mpf.RawMpf, @mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_atanh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+
+pub fn mpf_cbrt(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_cos(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_cos_pi(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_cos_sin(@mpf.RawMpf, Int, @mpf.RoundMode, which? : Int, pi? : Bool) -> (@mpf.RawMpf, @mpf.RawMpf)
+
+pub fn mpf_cos_sin_pi(@mpf.RawMpf, Int, @mpf.RoundMode) -> (@mpf.RawMpf, @mpf.RawMpf)
+
+pub fn mpf_cosh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_cosh_sinh(@mpf.RawMpf, Int, @mpf.RoundMode, tanh? : Bool) -> (@mpf.RawMpf, @mpf.RawMpf)
+
+pub fn mpf_degree(Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_e(Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_exp(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_expj(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+
+pub fn mpf_expjpi(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+
+pub fn mpf_ln(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+
+pub fn mpf_ln10(Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_ln2(Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_ln_sqrt2pi(Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_log(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+
+pub fn mpf_log1p(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+
+pub fn mpf_log_hypot(@mpf.RawMpf, @mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_nthroot(@mpf.RawMpf, Int, Int, @mpf.RoundMode) -> @mpf.RawMpf raise
+
+pub fn mpf_phi(Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_pi(Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_pow(@mpf.RawMpf, @mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise
+
+pub fn mpf_sin(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_sin_pi(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_sinh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_sqrtpi(Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_tan(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+pub fn mpf_tanh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf
+
+// Errors
+pub(all) suberror LibElefunError {
+  ValueError(String)
+  DomainError(String)
+  ComplexResult(String)
+} derive(Eq, @debug.Debug)
+pub impl Show for LibElefunError
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

@@ -35,24 +35,21 @@ fn int_bit_length(n : Int) -> Int {
 ///|
 fn from_mpf_error(err : @mpf.MpfError) -> GammaZetaError {
   match err {
-    @mpf.MpfError::ValueError(msg) => GammaZetaError::ValueError(msg)
-    @mpf.MpfError::DomainError(msg) => GammaZetaError::DomainError(msg)
-    @mpf.MpfError::DivisionByZero(msg) => GammaZetaError::PoleError(msg)
-    @mpf.MpfError::ParseError(msg) => GammaZetaError::ValueError(msg)
-    @mpf.MpfError::FormatError(msg) => GammaZetaError::ValueError(msg)
-    @mpf.MpfError::UnsupportedError(msg) => GammaZetaError::ValueError(msg)
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    DivisionByZero(msg) => PoleError(msg)
+    ParseError(msg) => ValueError(msg)
+    FormatError(msg) => ValueError(msg)
+    UnsupportedError(msg) => ValueError(msg)
   }
 }
 
 ///|
 fn from_libelefun_error(err : @libelefun.LibElefunError) -> GammaZetaError {
   match err {
-    @libelefun.LibElefunError::ValueError(msg) =>
-      GammaZetaError::ValueError(msg)
-    @libelefun.LibElefunError::DomainError(msg) =>
-      GammaZetaError::DomainError(msg)
-    @libelefun.LibElefunError::ComplexResult(msg) =>
-      GammaZetaError::DomainError(msg)
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    ComplexResult(msg) => DomainError(msg)
   }
 }
 
@@ -121,10 +118,7 @@ fn mpf_pow_checked(
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   @libelefun.mpf_pow(x, y, prec, rnd) catch {
-    _ =>
-      raise GammaZetaError::DomainError(
-        "mpf_pow: invalid real-domain continuation",
-      )
+    _ => raise DomainError("mpf_pow: invalid real-domain continuation")
   }
 }
 
@@ -144,9 +138,7 @@ pub fn mpf_bernoulli_huge(
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   if n < 0 {
-    raise GammaZetaError::ValueError(
-      "mpf_bernoulli_huge: n must be non-negative",
-    )
+    raise ValueError("mpf_bernoulli_huge: n must be non-negative")
   }
   if n == 0 {
     return @mpf.fone
@@ -186,7 +178,7 @@ pub fn mpf_factorial(
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   if n < 0 {
-    raise GammaZetaError::ValueError("mpf_factorial: n must be non-negative")
+    raise ValueError("mpf_factorial: n must be non-negative")
   }
   if n <= 1 {
     return @mpf.fone
@@ -205,7 +197,7 @@ pub fn mpf_bernoulli(
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   if n < 0 {
-    raise GammaZetaError::ValueError("mpf_bernoulli: n must be non-negative")
+    raise ValueError("mpf_bernoulli: n must be non-negative")
   }
   if n == 1 {
     return @mpf.from_man_exp(-1N, -1, prec, rnd)
@@ -330,7 +322,7 @@ pub fn mpf_zeta_int(
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   if n <= 1 {
-    raise GammaZetaError::ValueError("mpf_zeta_int: n must be > 1")
+    raise ValueError("mpf_zeta_int: n must be > 1")
   }
   let p = wp(prec) + 16
   let z = if (n & 1) == 0 {
@@ -492,9 +484,7 @@ pub fn mpf_gamma(
   match maybe_integer(x) {
     Some(n) => {
       if n <= 0 {
-        raise GammaZetaError::PoleError(
-          "mpf_gamma: pole at non-positive integer",
-        )
+        raise PoleError("mpf_gamma: pole at non-positive integer")
       }
       return mpf_factorial(n - 1, prec, rnd)
     }
@@ -526,7 +516,7 @@ pub fn mpf_gamma(
       @mpf.round_nearest,
     )
     if @mpf.is_zero(sin_term) {
-      raise GammaZetaError::PoleError("mpf_gamma: pole at non-positive integer")
+      raise PoleError("mpf_gamma: pole at non-positive integer")
     }
     let gamma_term = mpf_gamma(
       @mpf.mpf_sub(@mpf.fone, x, p, @mpf.round_nearest),
@@ -576,7 +566,7 @@ pub fn mpf_gamma_int(
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   if n <= 0 {
-    raise GammaZetaError::ValueError("mpf_gamma_int: n must be positive")
+    raise ValueError("mpf_gamma_int: n must be positive")
   }
   mpf_factorial(n - 1, prec, rnd)
 }
@@ -616,9 +606,7 @@ pub fn mpf_psi0(
   match maybe_integer(x) {
     Some(n) => {
       if n <= 0 {
-        raise GammaZetaError::PoleError(
-          "mpf_psi0: poles at non-positive integers",
-        )
+        raise PoleError("mpf_psi0: poles at non-positive integers")
       }
       let p = wp(prec) + 8
       return @mpf.mpf_pos(
@@ -635,9 +623,7 @@ pub fn mpf_psi0(
     None => ()
   }
   if @mpf.is_zero(x) {
-    raise GammaZetaError::DomainError(
-      "mpf_psi0: non-positive input is unsupported",
-    )
+    raise DomainError("mpf_psi0: non-positive input is unsupported")
   }
   if x.sign == 1 {
     let p = wp(prec) + 24
@@ -712,9 +698,7 @@ pub fn mpf_harmonic(
   match maybe_integer(x) {
     Some(n) => {
       if n < 0 {
-        raise GammaZetaError::PoleError(
-          "mpf_harmonic: poles at negative integers",
-        )
+        raise PoleError("mpf_harmonic: poles at negative integers")
       }
       let p = wp(prec) + 8
       return @mpf.mpf_pos(harmonic_int(n, p), prec, rnd)
@@ -1089,7 +1073,7 @@ pub fn mpf_zeta(
           let ln2 = mpf_log_checked(@mpf.from_int(2), p, @mpf.round_nearest)
           return @mpf.mpf_pos(ln2, prec, rnd)
         }
-        raise GammaZetaError::PoleError("mpf_zeta: pole at s=1")
+        raise PoleError("mpf_zeta: pole at s=1")
       }
       if n > 1 {
         let p = wp(prec) + 16
@@ -1178,7 +1162,7 @@ pub fn mpf_zeta(
   }
   let denom = zeta_alt_factor(s, p)
   if @mpf.is_zero(denom) {
-    raise GammaZetaError::PoleError("mpf_zeta: pole at s=1")
+    raise PoleError("mpf_zeta: pole at s=1")
   }
   @mpf.mpf_pos(mpf_div_checked(eta, denom, p, @mpf.round_nearest), prec, rnd)
 }
@@ -1312,7 +1296,7 @@ pub fn mpf_psi(
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   if m < 0 {
-    raise GammaZetaError::ValueError("mpf_psi: m must be non-negative")
+    raise ValueError("mpf_psi: m must be non-negative")
   }
   if m == 0 {
     return mpf_psi0(x, prec, rnd)
@@ -1327,14 +1311,12 @@ pub fn mpf_psi(
     return @mpf.fzero
   }
   if @mpf.is_zero(x) {
-    raise GammaZetaError::PoleError("mpf_psi: poles at non-positive integers")
+    raise PoleError("mpf_psi: poles at non-positive integers")
   }
   match maybe_integer(x) {
     Some(n) =>
       if n <= 0 {
-        raise GammaZetaError::PoleError(
-          "mpf_psi: poles at non-positive integers",
-        )
+        raise PoleError("mpf_psi: poles at non-positive integers")
       }
     None => ()
   }

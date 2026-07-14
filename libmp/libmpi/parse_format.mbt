@@ -49,7 +49,7 @@ fn strip_spaces(s : String) -> String {
 fn split_exact_two(s : String, sep : String) -> (String, String)? {
   let parts : Array[String] = []
   for part in s.split(sep) {
-    parts.push(part.to_string())
+    parts.push(part.to_owned())
   }
   if parts.length() == 2 {
     Some((parts[0], parts[1]))
@@ -108,9 +108,7 @@ fn mpi_from_str_a_b(
     err => raise from_mpf_error(err)
   }
   if @mpf.mpf_sign(width) < 0 {
-    raise MpiError::ValueError(
-      "mpi_from_str: interval width must be nonnegative",
-    )
+    raise ValueError("mpi_from_str: interval width must be nonnegative")
   }
   if percent {
     let xa_abs = @mpf.mpf_abs(xa, wp, @mpf.round_ceiling)
@@ -138,12 +136,12 @@ pub fn mpi_from_str(s : String, prec? : Int = 0) -> RawMpi raise MpiError {
   }
   if text.contains("(") {
     if text.has_prefix("(") || !text.contains(")") {
-      raise MpiError::ParseError("mpi_from_str: malformed interval string")
+      raise ParseError("mpi_from_str: malformed interval string")
     }
     match split_exact_two(text, "(") {
       Some((x, tail)) => {
         if !tail.has_suffix(")") {
-          raise MpiError::ParseError("mpi_from_str: malformed interval string")
+          raise ParseError("mpi_from_str: malformed interval string")
         }
         let mut y = substring(tail, 0, tail.length() - 1)
         let percent = y.has_suffix("%")
@@ -152,17 +150,16 @@ pub fn mpi_from_str(s : String, prec? : Int = 0) -> RawMpi raise MpiError {
         }
         return mpi_from_str_a_b(x, y, percent, wp)
       }
-      None =>
-        raise MpiError::ParseError("mpi_from_str: malformed interval string")
+      None => raise ParseError("mpi_from_str: malformed interval string")
     }
   }
   if text.contains(",") {
     if !text.contains("[") || !text.contains("]") {
-      raise MpiError::ParseError("mpi_from_str: malformed interval string")
+      raise ParseError("mpi_from_str: malformed interval string")
     }
     if text.has_prefix("[") {
       if !text.has_suffix("]") {
-        raise MpiError::ParseError("mpi_from_str: malformed interval string")
+        raise ParseError("mpi_from_str: malformed interval string")
       }
       let inner = substring(text, 1, text.length() - 1)
       match split_exact_two(inner, ",") {
@@ -175,8 +172,7 @@ pub fn mpi_from_str(s : String, prec? : Int = 0) -> RawMpi raise MpiError {
           }
           return mpi_make(lo, hi)
         }
-        None =>
-          raise MpiError::ParseError("mpi_from_str: malformed interval string")
+        None => raise ParseError("mpi_from_str: malformed interval string")
       }
     }
     match split_exact_two(text, "[") {
@@ -202,17 +198,11 @@ pub fn mpi_from_str(s : String, prec? : Int = 0) -> RawMpi raise MpiError {
                 return mpi_make(lo, hi)
               }
               None =>
-                raise MpiError::ParseError(
-                  "mpi_from_str: malformed interval string",
-                )
+                raise ParseError("mpi_from_str: malformed interval string")
             }
-          None =>
-            raise MpiError::ParseError(
-              "mpi_from_str: malformed interval string",
-            )
+          None => raise ParseError("mpi_from_str: malformed interval string")
         }
-      None =>
-        raise MpiError::ParseError("mpi_from_str: malformed interval string")
+      None => raise ParseError("mpi_from_str: malformed interval string")
     }
   }
   let lo = @mpf.from_str(text, prec=wp, rnd=@mpf.round_floor) catch {
@@ -314,7 +304,7 @@ pub fn mpi_to_str_opts(
         left_bracket + left + "," + sp + right + right_bracket
       }
     }
-    _ => raise MpiError::UnsupportedError("mpi_to_str_opts: unknown mode")
+    _ => raise UnsupportedError("mpi_to_str_opts: unknown mode")
   }
 }
 

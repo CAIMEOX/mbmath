@@ -112,12 +112,12 @@ pub fn mpf_div(
   }
   if is_zero(x) {
     if is_zero(y) {
-      raise MpfError::DivisionByZero("mpf_div: division by zero")
+      raise DivisionByZero("mpf_div: division by zero")
     }
     return fzero
   }
   if is_zero(y) {
-    raise MpfError::DivisionByZero("mpf_div: division by zero")
+    raise DivisionByZero("mpf_div: division by zero")
   }
   if is_inf(x) && is_inf(y) {
     return fnan

@@ -65,7 +65,7 @@ fn trim_trailing_zeros_decimal_digits(s : String) -> String {
 ///|
 fn parse_signed_decimal_int(s : String) -> Int raise MpfError {
   if s.is_empty() {
-    raise MpfError::ParseError("from_str: empty exponent")
+    raise ParseError("from_str: empty exponent")
   }
   let mut sign = 1
   let mut start = 0
@@ -87,14 +87,14 @@ fn parse_signed_decimal_int(s : String) -> Int raise MpfError {
       continue
     }
     if !c.is_ascii_digit() {
-      raise MpfError::ParseError("from_str: invalid exponent")
+      raise ParseError("from_str: invalid exponent")
     }
     has_digit = true
     let d = c.to_int() - '0'.to_int()
     value = value * 10 + d
   }
   if !has_digit {
-    raise MpfError::ParseError("from_str: missing exponent digits")
+    raise ParseError("from_str: missing exponent digits")
   }
   sign * value
 }
@@ -117,7 +117,7 @@ fn parse_decimal_finite(
   let mut exp_has_digit = false
   for c in text {
     match state {
-      ParseState::Mantissa =>
+      Mantissa =>
         if (c == '+' || c == '-') && idx == 0 {
           sign = if c == '-' { 1 } else { 0 }
         } else if c == '_' {
@@ -130,34 +130,34 @@ fn parse_decimal_finite(
           }
         } else if c == '.' {
           if seen_dot {
-            raise MpfError::ParseError("from_str: multiple decimal points")
+            raise ParseError("from_str: multiple decimal points")
           }
           seen_dot = true
         } else if c == 'e' || c == 'E' {
           if !has_digit {
-            raise MpfError::ParseError("from_str: invalid mantissa")
+            raise ParseError("from_str: invalid mantissa")
           }
-          state = ParseState::ExpSignOrDigit
+          state = ExpSignOrDigit
         } else {
-          raise MpfError::ParseError("from_str: invalid character")
+          raise ParseError("from_str: invalid character")
         }
-      ParseState::ExpSignOrDigit =>
+      ExpSignOrDigit =>
         if c == '+' {
           exp_sign = 1
-          state = ParseState::ExpDigits
+          state = ExpDigits
         } else if c == '-' {
           exp_sign = -1
-          state = ParseState::ExpDigits
+          state = ExpDigits
         } else if c == '_' {
           ignore(c)
         } else if c.is_ascii_digit() {
           exp_has_digit = true
           exp_value = c.to_int() - '0'.to_int()
-          state = ParseState::ExpDigits
+          state = ExpDigits
         } else {
-          raise MpfError::ParseError("from_str: invalid exponent")
+          raise ParseError("from_str: invalid exponent")
         }
-      ParseState::ExpDigits =>
+      ExpDigits =>
         if c == '_' {
           ignore(c)
         } else if c.is_ascii_digit() {
@@ -165,17 +165,16 @@ fn parse_decimal_finite(
           let d = c.to_int() - '0'.to_int()
           exp_value = exp_value * 10 + d
         } else {
-          raise MpfError::ParseError("from_str: invalid exponent")
+          raise ParseError("from_str: invalid exponent")
         }
     }
     idx += 1
   }
   if !has_digit {
-    raise MpfError::ParseError("from_str: no digits")
+    raise ParseError("from_str: no digits")
   }
-  if state == ParseState::ExpSignOrDigit ||
-    (state == ParseState::ExpDigits && !exp_has_digit) {
-    raise MpfError::ParseError("from_str: missing exponent digits")
+  if state == ExpSignOrDigit || (state == ExpDigits && !exp_has_digit) {
+    raise ParseError("from_str: missing exponent digits")
   }
   let digits = trim_leading_zeros_digits(digits_builder.to_string())
   if digits == "0" {
@@ -211,7 +210,7 @@ fn parse_hex_finite(
   }
   let body_lower = body.to_lower()
   if !body_lower.has_prefix("0x") {
-    raise MpfError::ParseError("from_str: invalid hex literal")
+    raise ParseError("from_str: invalid hex literal")
   }
   let hex_body = body_lower.unsafe_substring(start=2, end=body_lower.length())
   let mut marker_index = -1
@@ -248,13 +247,13 @@ fn parse_hex_finite(
     }
     if c == '.' {
       if seen_dot {
-        raise MpfError::ParseError("from_str: multiple decimal points")
+        raise ParseError("from_str: multiple decimal points")
       }
       seen_dot = true
       continue
     }
     if !c.is_ascii_hexdigit() {
-      raise MpfError::ParseError("from_str: invalid hex digit")
+      raise ParseError("from_str: invalid hex digit")
     }
     digits_builder.write_char(c)
     has_digit = true
@@ -263,7 +262,7 @@ fn parse_hex_finite(
     }
   }
   if !has_digit {
-    raise MpfError::ParseError("from_str: invalid hex literal")
+    raise ParseError("from_str: invalid hex literal")
   }
   let digits = trim_leading_zeros_digits(digits_builder.to_string())
   if digits == "0" {
@@ -296,7 +295,7 @@ fn parse_pow2_finite(
   }
   let lower = body.to_lower()
   if !lower.has_prefix(prefix) {
-    raise MpfError::ParseError("from_str: invalid literal")
+    raise ParseError("from_str: invalid literal")
   }
   let mant_part = lower.unsafe_substring(
     start=prefix.length(),
@@ -312,7 +311,7 @@ fn parse_pow2_finite(
     }
     if c == '.' {
       if seen_dot {
-        raise MpfError::ParseError("from_str: multiple decimal points")
+        raise ParseError("from_str: multiple decimal points")
       }
       seen_dot = true
       continue
@@ -323,7 +322,7 @@ fn parse_pow2_finite(
       c >= '0' && c <= '7'
     }
     if !valid {
-      raise MpfError::ParseError("from_str: invalid digit")
+      raise ParseError("from_str: invalid digit")
     }
     digits_builder.write_char(c)
     has_digit = true
@@ -332,7 +331,7 @@ fn parse_pow2_finite(
     }
   }
   if !has_digit {
-    raise MpfError::ParseError("from_str: invalid literal")
+    raise ParseError("from_str: invalid literal")
   }
   let digits = trim_leading_zeros_digits(digits_builder.to_string())
   if digits == "0" {
@@ -352,9 +351,9 @@ pub fn from_str(
   prec? : Int = 0,
   rnd? : RoundMode = round_nearest,
 ) -> RawMpf raise MpfError {
-  let text = s.trim().to_string()
+  let text = s.trim().to_owned()
   if text.is_empty() {
-    raise MpfError::ParseError("from_str: empty input")
+    raise ParseError("from_str: empty input")
   }
   let lower = text.to_lower()
   if lower == "inf" ||
@@ -467,8 +466,8 @@ fn rounding_for_abs(rnd : RoundMode, sign : Int) -> RoundMode {
     rnd
   } else {
     match rnd {
-      RoundMode::Floor => round_ceiling
-      RoundMode::Ceiling => round_floor
+      Floor => round_ceiling
+      Ceiling => round_floor
       _ => rnd
     }
   }
@@ -482,11 +481,11 @@ fn round_div_nonnegative(num : BigInt, den : BigInt, rnd : RoundMode) -> BigInt 
     return q
   }
   match rnd {
-    RoundMode::Down => q
-    RoundMode::Floor => q
-    RoundMode::Up => q + 1N
-    RoundMode::Ceiling => q + 1N
-    RoundMode::Nearest => {
+    Down => q
+    Floor => q
+    Up => q + 1N
+    Ceiling => q + 1N
+    Nearest => {
       let twice = r * 2N
       if twice > den || (twice == den && (q & 1N) == 1N) {
         q + 1N
@@ -512,11 +511,11 @@ fn round_significant_with_mode(
     let rest_has_nonzero = first_non_zero_index(rest) is Some(_)
     let next = digits.get_char(dps).unwrap()
     let round_up = match rnd {
-      RoundMode::Down => false
-      RoundMode::Floor => false
-      RoundMode::Up => rest_has_nonzero
-      RoundMode::Ceiling => rest_has_nonzero
-      RoundMode::Nearest => {
+      Down => false
+      Floor => false
+      Up => rest_has_nonzero
+      Ceiling => rest_has_nonzero
+      Nearest => {
         let rest_tail_has_nonzero = if dps + 1 >= digits.length() {
           false
         } else {
@@ -628,7 +627,7 @@ fn fixed_from_digits_with_frac(
   force_point? : Bool = false,
 ) -> String raise MpfError {
   if frac_digits < 0 {
-    raise MpfError::FormatError("format_mpf: invalid fraction digits")
+    raise FormatError("format_mpf: invalid fraction digits")
   }
   let (int_part, raw_frac) = if exp10 >= 0 {
     let int_len = exp10 + 1
@@ -702,7 +701,7 @@ fn fixed_with_precision_abs(
   rnd : RoundMode,
 ) -> String raise MpfError {
   if precision < 0 {
-    raise MpfError::FormatError("format_mpf: precision must be non-negative")
+    raise FormatError("format_mpf: precision must be non-negative")
   }
   if is_zero(x) {
     if precision == 0 {
@@ -748,7 +747,7 @@ fn scientific_with_precision_abs(
   rnd : RoundMode,
 ) -> String raise MpfError {
   if precision < 0 {
-    raise MpfError::FormatError("format_mpf: precision must be non-negative")
+    raise FormatError("format_mpf: precision must be non-negative")
   }
   if is_zero(x) {
     let frac = if precision == 0 {
@@ -887,7 +886,7 @@ pub fn to_str_opts(
     return if x.sign == 1 { "-inf" } else { "inf" }
   }
   if !is_finite(x) {
-    raise MpfError::UnsupportedError("to_str_opts: unsupported raw value")
+    raise UnsupportedError("to_str_opts: unsupported raw value")
   }
   let sign_prefix = if x.sign == 1 { "-" } else { "" }
   let absx = if x.sign == 1 {
@@ -900,7 +899,7 @@ pub fn to_str_opts(
       return "0.0"
     }
     if dps <= 0 {
-      raise MpfError::ValueError("to_str_opts: dps must be positive")
+      raise ValueError("to_str_opts: dps must be positive")
     }
     let (exact_digits, exact_exp10) = exact_digits_exp(absx)
     let (digits, exp10) = round_significant(exact_digits, exact_exp10, dps)
@@ -919,22 +918,16 @@ pub fn to_str_opts(
     sign_prefix + body
   } else if base == 2 {
     if binary_exp {
-      raise MpfError::ValueError(
-        "to_str_opts: binary_exp is only supported with base=16",
-      )
+      raise ValueError("to_str_opts: binary_exp is only supported with base=16")
     }
     sign_prefix + to_pow2_fixed_abs(absx, 2, 1, "0b")
   } else if base == 8 {
     if binary_exp {
-      raise MpfError::ValueError(
-        "to_str_opts: binary_exp is only supported with base=16",
-      )
+      raise ValueError("to_str_opts: binary_exp is only supported with base=16")
     }
     sign_prefix + to_pow2_fixed_abs(absx, 8, 3, "0o")
   } else {
-    raise MpfError::ValueError(
-      "to_str_opts: supported bases are 2, 8, 10 and 16",
-    )
+    raise ValueError("to_str_opts: supported bases are 2, 8, 10 and 16")
   }
 }
 
@@ -1019,9 +1012,7 @@ fn format_pow2_scientific_abs(
     let frac = match precision {
       Some(p) =>
         if p < 0 {
-          raise MpfError::FormatError(
-            "format_mpf: precision must be non-negative",
-          )
+          raise FormatError("format_mpf: precision must be non-negative")
         } else if p == 0 {
           if alternate {
             "."
@@ -1040,9 +1031,7 @@ fn format_pow2_scientific_abs(
   let frac = match precision {
     Some(p) =>
       if p < 0 {
-        raise MpfError::FormatError(
-          "format_mpf: precision must be non-negative",
-        )
+        raise FormatError("format_mpf: precision must be non-negative")
       } else {
         pad_or_truncate(exact_frac, p)
       }
@@ -1248,7 +1237,7 @@ fn parse_format_spec(format_spec : String) -> ParsedFormatSpec raise MpfError {
       }
     }
     if !has_digit {
-      raise MpfError::FormatError("format_mpf: invalid precision")
+      raise FormatError("format_mpf: invalid precision")
     }
     precision = Some(p)
     if i < len {
@@ -1284,7 +1273,7 @@ fn parse_format_spec(format_spec : String) -> ParsedFormatSpec raise MpfError {
     i += 1
   }
   if i != len {
-    raise MpfError::FormatError("format_mpf: unsupported format spec")
+    raise FormatError("format_mpf: unsupported format spec")
   }
   {
     fill,
@@ -1440,9 +1429,7 @@ pub fn format_mpf(
           "",
         )
       _ =>
-        raise MpfError::FormatError(
-          "format_mpf: supported types are f, e, g, %, a and b",
-        )
+        raise FormatError("format_mpf: supported types are f, e, g, %, a and b")
     }
     let sign_prefix = if x.sign == 1 &&
       spec.no_neg_0 &&

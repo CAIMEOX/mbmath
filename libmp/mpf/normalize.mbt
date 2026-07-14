@@ -10,11 +10,11 @@ fn ceil_rshift(man : BigInt, n : Int) -> BigInt {
 ///|
 fn should_shift_down(rnd : RoundMode, sign : Int) -> Bool {
   match rnd {
-    RoundMode::Floor => sign == 0
-    RoundMode::Ceiling => sign == 1
-    RoundMode::Down => true
-    RoundMode::Up => false
-    RoundMode::Nearest => true
+    Floor => sign == 0
+    Ceiling => sign == 1
+    Down => true
+    Up => false
+    Nearest => true
   }
 }
 
@@ -24,7 +24,7 @@ fn round_mantissa(sign : Int, man : BigInt, n : Int, rnd : RoundMode) -> BigInt 
     man
   } else {
     match rnd {
-      RoundMode::Nearest => {
+      Nearest => {
         let t = man >> (n - 1)
         let sticky_mask = (1N << (n - 1)) - 1N
         let tie_break = (t & 2N) == 2N

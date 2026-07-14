@@ -3,14 +3,24 @@ pub struct RawMpiMatrix {
   rows : Int
   cols : Int
   data : Array[RawMpi]
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for RawMpiMatrix with fn output(self, logger) {
+  logger.write_object(self.to_repr())
+}
 
 ///|
 pub struct RawMpciMatrix {
   rows : Int
   cols : Int
   data : Array[RawMpci]
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for RawMpciMatrix with fn output(self, logger) {
+  logger.write_object(self.to_repr())
+}
 
 ///|
 fn mpi_matrix_idx(cols : Int, r : Int, c : Int) -> Int {
@@ -24,7 +34,7 @@ fn mpi_matrix_check_dims(
   name : String,
 ) -> Unit raise MpiError {
   if rows < 0 || cols < 0 {
-    raise MpiError::ValueError("\{name}: dimensions must be non-negative")
+    raise ValueError("\{name}: dimensions must be non-negative")
   }
 }
 
@@ -71,7 +81,7 @@ fn mpi_matrix_norm_index(
   name : String,
 ) -> Int raise MpiError {
   if idx < 0 || idx >= n {
-    raise MpiError::ValueError("\{name}: index out of range")
+    raise ValueError("\{name}: index out of range")
   }
   idx
 }
@@ -131,7 +141,7 @@ pub fn mpi_matrix_from_rows(
   for i in 0..<rows {
     let row = rows_data[i]
     if row.length() != cols {
-      raise MpiError::ValueError("mpi_matrix_from_rows: ragged rows")
+      raise ValueError("mpi_matrix_from_rows: ragged rows")
     }
     for x in row {
       data.push(x)
@@ -153,7 +163,7 @@ pub fn mpi_matrix_from_mpf_rows(
   for i in 0..<rows {
     let row = rows_data[i]
     if row.length() != cols {
-      raise MpiError::ValueError("mpi_matrix_from_mpf_rows: ragged rows")
+      raise ValueError("mpi_matrix_from_mpf_rows: ragged rows")
     }
     for x in row {
       data.push(mpi_from_mpf(x))
@@ -215,7 +225,7 @@ pub fn mpi_matrix_add(
   prec? : Int = 0,
 ) -> RawMpiMatrix raise MpiError {
   if a.rows != b.rows || a.cols != b.cols {
-    raise MpiError::ValueError("mpi_matrix_add: incompatible dimensions")
+    raise ValueError("mpi_matrix_add: incompatible dimensions")
   }
   let out = mpi_matrix(a.rows, cols=a.cols)
   for i in 0..<(a.rows * a.cols) {
@@ -267,7 +277,7 @@ pub fn mpi_matrix_mul(
   prec? : Int = 0,
 ) -> RawMpiMatrix raise MpiError {
   if a.cols != b.rows {
-    raise MpiError::ValueError("mpi_matrix_mul: incompatible dimensions")
+    raise ValueError("mpi_matrix_mul: incompatible dimensions")
   }
   let wp = if prec > 0 { prec + 20 } else { 80 }
   let out_p = if prec > 0 { prec } else { wp }

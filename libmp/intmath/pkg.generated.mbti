@@ -1,0 +1,39 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "CAIMEOX/moon_floating/libmp/intmath"
+
+import {
+  "moonbitlang/core/bigint",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn bin_to_radix(@bigint.BigInt, Int, Int, Int) -> @bigint.BigInt raise IntMathError
+
+pub fn bit_length(@bigint.BigInt) -> Int
+
+pub fn bitcount(@bigint.BigInt) -> Int
+
+pub fn gcd(@bigint.BigInt, @bigint.BigInt) -> @bigint.BigInt
+
+pub fn isqrt(@bigint.BigInt) -> @bigint.BigInt raise IntMathError
+
+pub fn numeral(@bigint.BigInt, base? : Int) -> String raise IntMathError
+
+pub fn sqrtrem(@bigint.BigInt) -> (@bigint.BigInt, @bigint.BigInt) raise IntMathError
+
+pub fn trailing(@bigint.BigInt) -> Int
+
+pub fn trailing_zero_bits(@bigint.BigInt) -> Int
+
+// Errors
+pub(all) suberror IntMathError {
+  ValueError(String)
+} derive(Eq, @debug.Debug)
+pub impl Show for IntMathError
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+
