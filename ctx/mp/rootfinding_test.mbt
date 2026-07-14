@@ -51,11 +51,11 @@ test "rootfinding findroot subset from mpmath test_rootfinding" {
     ),
   )
 
-  assert_eq(
+  @debug.assert_eq(
     ctx.findroot((_ : @mpf.RawMpf) => @mpf.fzero, ctx.make_int(1)),
     ctx.make_int(1),
   )
-  assert_eq(ctx.findroot((x : @mpf.RawMpf) => x, @mpf.fzero), @mpf.fzero)
+  @debug.assert_eq(ctx.findroot((x : @mpf.RawMpf) => x, @mpf.fzero), @mpf.fzero)
 
   try
     ctx.findroot(
@@ -66,7 +66,7 @@ test "rootfinding findroot subset from mpmath test_rootfinding" {
       @mpf.fzero,
     )
   catch {
-    ConvergenceError(_) => ()
+    MPError::ConvergenceError(_) => ()
     _ => fail("unexpected error type")
   } noraise {
     _ => fail("expected convergence error")
@@ -110,14 +110,14 @@ test "rootfinding findroot subset from mpmath test_rootfinding" {
       ctx.make_int(2),
     )
   catch {
-    ValueError(_) => ()
+    MPError::ValueError(_) => ()
     _ => fail("unexpected error type")
   } noraise {
     _ => fail("expected bracketing ValueError")
   }
 
   try ctx.findroot((x : @mpf.RawMpf) => x, @mpf.fzero, solver="bad") catch {
-    ValueError(_) => ()
+    MPError::ValueError(_) => ()
     _ => fail("unexpected error type")
   } noraise {
     _ => fail("expected ValueError for unknown solver")

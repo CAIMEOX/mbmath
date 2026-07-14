@@ -6,17 +6,12 @@ pub struct MpfMatrix {
 } derive(Debug, Eq)
 
 ///|
-pub impl Show for MpfMatrix with fn output(self, logger) {
-  logger.write_object(self.to_repr())
-}
-
-///|
-fn p3_idx(cols : Int, r : Int, c : Int) -> Int {
+fn matrix_offset(cols : Int, r : Int, c : Int) -> Int {
   r * cols + c
 }
 
 ///|
-fn p3_copy_vec(xs : ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] {
+fn copy_mpf_vector(xs : ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] {
   let out : Array[@mpf.RawMpf] = []
   for x in xs {
     out.push(x)
@@ -25,14 +20,18 @@ fn p3_copy_vec(xs : ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] {
 }
 
 ///|
-fn p3_check_dims(rows : Int, cols : Int, name : String) -> Unit raise MPError {
+fn validate_matrix_dimensions(
+  rows : Int,
+  cols : Int,
+  name : String,
+) -> Unit raise MPError {
   if rows < 0 || cols < 0 {
     raise ValueError("\{name}: dimensions must be non-negative")
   }
 }
 
 ///|
-fn p3_matrix_data_with_fill(
+fn make_filled_matrix_data(
   rows : Int,
   cols : Int,
   fill : @mpf.RawMpf,
@@ -45,7 +44,7 @@ fn p3_matrix_data_with_fill(
 }
 
 ///|
-fn p3_swap_rows(
+fn swap_matrix_rows(
   data : Array[@mpf.RawMpf],
   cols : Int,
   r0 : Int,
@@ -55,8 +54,8 @@ fn p3_swap_rows(
     return
   }
   for j in 0..<cols {
-    let i0 = p3_idx(cols, r0, j)
-    let i1 = p3_idx(cols, r1, j)
+    let i0 = matrix_offset(cols, r0, j)
+    let i1 = matrix_offset(cols, r1, j)
     let tmp = data[i0]
     data[i0] = data[i1]
     data[i1] = tmp
@@ -64,7 +63,7 @@ fn p3_swap_rows(
 }
 
 ///|
-fn p3_swap_cols(
+fn swap_matrix_columns(
   data : Array[@mpf.RawMpf],
   rows : Int,
   cols : Int,
@@ -75,8 +74,8 @@ fn p3_swap_cols(
     return
   }
   for i in 0..<rows {
-    let i0 = p3_idx(cols, i, c0)
-    let i1 = p3_idx(cols, i, c1)
+    let i0 = matrix_offset(cols, i, c0)
+    let i1 = matrix_offset(cols, i, c1)
     let tmp = data[i0]
     data[i0] = data[i1]
     data[i1] = tmp
@@ -84,7 +83,7 @@ fn p3_swap_cols(
 }
 
 ///|
-fn p3_check_index(
+fn validate_matrix_index(
   mat : MpfMatrix,
   r : Int,
   c : Int,
@@ -93,7 +92,7 @@ fn p3_check_index(
   if r < 0 || r >= mat.rows || c < 0 || c >= mat.cols {
     raise ValueError("\{name}: index out of range")
   }
-  p3_idx(mat.cols, r, c)
+  matrix_offset(mat.cols, r, c)
 }
 
 ///|
@@ -103,9 +102,9 @@ pub fn MPContext::matrix(
   cols : Int,
   fill? : @mpf.RawMpf = @mpf.fzero,
 ) -> MpfMatrix raise MPError {
-  p3_check_dims(rows, cols, "matrix")
+  validate_matrix_dimensions(rows, cols, "matrix")
   let v = @mpf.mpf_pos(fill, self.precision(), self.round_mode())
-  { rows, cols, data: p3_matrix_data_with_fill(rows, cols, v) }
+  { rows, cols, data: make_filled_matrix_data(rows, cols, v) }
 }
 
 ///|
@@ -134,10 +133,10 @@ pub fn MPContext::matrix_from_rows(
 
 ///|
 pub fn MPContext::eye(self : MPContext, n : Int) -> MpfMatrix raise MPError {
-  p3_check_dims(n, n, "eye")
+  validate_matrix_dimensions(n, n, "eye")
   let out = self.matrix(n, n)
   for i in 0..<n {
-    out.data[p3_idx(n, i, i)] = @mpf.fone
+    out.data[matrix_offset(n, i, i)] = @mpf.fone
   }
   out
 }
@@ -148,7 +147,7 @@ pub fn MpfMatrix::get(
   r : Int,
   c : Int,
 ) -> @mpf.RawMpf raise MPError {
-  self.data[p3_check_index(self, r, c, "matrix.get")]
+  self.data[validate_matrix_index(self, r, c, "matrix.get")]
 }
 
 ///|
@@ -158,7 +157,7 @@ pub fn MpfMatrix::set(
   c : Int,
   v : @mpf.RawMpf,
 ) -> Unit raise MPError {
-  self.data[p3_check_index(self, r, c, "matrix.set")] = v
+  self.data[validate_matrix_index(self, r, c, "matrix.set")] = v
 }
 
 ///|
@@ -169,7 +168,11 @@ pub fn MPContext::matrix_transpose(
   let out = self.matrix(a.cols, a.rows)
   for i in 0..<a.rows {
     for j in 0..<a.cols {
-      out.data[p3_idx(out.cols, j, i)] = a.data[p3_idx(a.cols, i, j)]
+      out.data[matrix_offset(out.cols, j, i)] = a.data[matrix_offset(
+          a.cols,
+          i,
+          j,
+        )]
     }
   }
   out
@@ -184,7 +187,7 @@ pub fn MPContext::matrix_add(
   if a.rows != b.rows || a.cols != b.cols {
     raise ValueError("matrix_add: incompatible dimensions")
   }
-  let p = self.p2_work_prec()
+  let p = self.working_precision()
   let out = self.matrix(a.rows, a.cols)
   for i in 0..<(a.rows * a.cols) {
     out.data[i] = @mpf.mpf_add(a.data[i], b.data[i], p, @mpf.round_nearest)
@@ -201,7 +204,7 @@ pub fn MPContext::matrix_sub(
   if a.rows != b.rows || a.cols != b.cols {
     raise ValueError("matrix_sub: incompatible dimensions")
   }
-  let p = self.p2_work_prec()
+  let p = self.working_precision()
   let out = self.matrix(a.rows, a.cols)
   for i in 0..<(a.rows * a.cols) {
     out.data[i] = @mpf.mpf_sub(a.data[i], b.data[i], p, @mpf.round_nearest)
@@ -218,7 +221,7 @@ pub fn MPContext::matrix_mul(
   if a.cols != b.rows {
     raise ValueError("matrix_mul: incompatible dimensions")
   }
-  let p = self.p2_work_prec()
+  let p = self.working_precision()
   let out = self.matrix(a.rows, b.cols)
   for i in 0..<a.rows {
     for j in 0..<b.cols {
@@ -227,8 +230,8 @@ pub fn MPContext::matrix_mul(
         s = @mpf.mpf_add(
           s,
           @mpf.mpf_mul(
-            a.data[p3_idx(a.cols, i, k)],
-            b.data[p3_idx(b.cols, k, j)],
+            a.data[matrix_offset(a.cols, i, k)],
+            b.data[matrix_offset(b.cols, k, j)],
             p,
             @mpf.round_nearest,
           ),
@@ -236,7 +239,7 @@ pub fn MPContext::matrix_mul(
           @mpf.round_nearest,
         )
       }
-      out.data[p3_idx(out.cols, i, j)] = @mpf.mpf_pos(
+      out.data[matrix_offset(out.cols, i, j)] = @mpf.mpf_pos(
         s,
         self.precision(),
         self.round_mode(),
@@ -255,14 +258,19 @@ pub fn MPContext::matrix_vec_mul(
   if x.length() != a.cols {
     raise ValueError("matrix_vec_mul: incompatible dimensions")
   }
-  let p = self.p2_work_prec()
+  let p = self.working_precision()
   let out : Array[@mpf.RawMpf] = []
   for i in 0..<a.rows {
     let mut s = @mpf.fzero
     for j in 0..<a.cols {
       s = @mpf.mpf_add(
         s,
-        @mpf.mpf_mul(a.data[p3_idx(a.cols, i, j)], x[j], p, @mpf.round_nearest),
+        @mpf.mpf_mul(
+          a.data[matrix_offset(a.cols, i, j)],
+          x[j],
+          p,
+          @mpf.round_nearest,
+        ),
         p,
         @mpf.round_nearest,
       )
@@ -277,14 +285,14 @@ pub fn MPContext::matrix_norm_inf(
   self : MPContext,
   a : MpfMatrix,
 ) -> @mpf.RawMpf {
-  let p = self.p2_work_prec()
+  let p = self.working_precision()
   let mut best = @mpf.fzero
   for i in 0..<a.rows {
     let mut row_sum = @mpf.fzero
     for j in 0..<a.cols {
       row_sum = @mpf.mpf_add(
         row_sum,
-        @mpf.mpf_abs(a.data[p3_idx(a.cols, i, j)], p, @mpf.round_nearest),
+        @mpf.mpf_abs(a.data[matrix_offset(a.cols, i, j)], p, @mpf.round_nearest),
         p,
         @mpf.round_nearest,
       )
@@ -312,43 +320,52 @@ pub fn MPContext::lu_solve(
   if n == 0 {
     return []
   }
-  let p = self.p2_work_prec()
-  let data = p3_copy_vec(a.data)
-  let rhs = p3_copy_vec(b)
+  let p = self.working_precision()
+  let data = copy_mpf_vector(a.data)
+  let rhs = copy_mpf_vector(b)
   for k in 0..<n {
     let mut pivot = k
     let mut pivot_abs = @mpf.mpf_abs(
-      data[p3_idx(n, k, k)],
+      data[matrix_offset(n, k, k)],
       p,
       @mpf.round_nearest,
     )
     for i in (k + 1)..<n {
-      let cur = @mpf.mpf_abs(data[p3_idx(n, i, k)], p, @mpf.round_nearest)
+      let cur = @mpf.mpf_abs(
+        data[matrix_offset(n, i, k)],
+        p,
+        @mpf.round_nearest,
+      )
       if @mpf.mpf_gt(cur, pivot_abs) {
         pivot = i
         pivot_abs = cur
       }
     }
-    if @mpf.is_zero(data[p3_idx(n, pivot, k)]) {
+    if @mpf.is_zero(data[matrix_offset(n, pivot, k)]) {
       raise DomainError("lu_solve: singular matrix")
     }
     if pivot != k {
-      p3_swap_rows(data, n, pivot, k)
+      swap_matrix_rows(data, n, pivot, k)
       let t = rhs[pivot]
       rhs[pivot] = rhs[k]
       rhs[k] = t
     }
-    let akk = data[p3_idx(n, k, k)]
+    let akk = data[matrix_offset(n, k, k)]
     for i in (k + 1)..<n {
-      let aik = data[p3_idx(n, i, k)]
+      let aik = data[matrix_offset(n, i, k)]
       if @mpf.is_zero(aik) {
         continue
       }
-      let factor = p2_mpf_div(aik, akk, p, @mpf.round_nearest)
+      let factor = checked_mpf_div(aik, akk, p, @mpf.round_nearest)
       for j in k..<n {
-        data[p3_idx(n, i, j)] = @mpf.mpf_sub(
-          data[p3_idx(n, i, j)],
-          @mpf.mpf_mul(factor, data[p3_idx(n, k, j)], p, @mpf.round_nearest),
+        data[matrix_offset(n, i, j)] = @mpf.mpf_sub(
+          data[matrix_offset(n, i, j)],
+          @mpf.mpf_mul(
+            factor,
+            data[matrix_offset(n, k, j)],
+            p,
+            @mpf.round_nearest,
+          ),
           p,
           @mpf.round_nearest,
         )
@@ -361,24 +378,24 @@ pub fn MPContext::lu_solve(
       )
     }
   }
-  let x = p3_matrix_data_with_fill(1, n, @mpf.fzero)
+  let x = make_filled_matrix_data(1, n, @mpf.fzero)
   for t in 0..<n {
     let i = n - 1 - t
     let mut s = rhs[i]
     for j in (i + 1)..<n {
       s = @mpf.mpf_sub(
         s,
-        @mpf.mpf_mul(data[p3_idx(n, i, j)], x[j], p, @mpf.round_nearest),
+        @mpf.mpf_mul(data[matrix_offset(n, i, j)], x[j], p, @mpf.round_nearest),
         p,
         @mpf.round_nearest,
       )
     }
-    let aii = data[p3_idx(n, i, i)]
+    let aii = data[matrix_offset(n, i, i)]
     if @mpf.is_zero(aii) {
       raise DomainError("lu_solve: singular matrix")
     }
     x[i] = @mpf.mpf_pos(
-      p2_mpf_div(s, aii, p, @mpf.round_nearest),
+      checked_mpf_div(s, aii, p, @mpf.round_nearest),
       self.precision(),
       self.round_mode(),
     )
@@ -398,51 +415,60 @@ pub fn MPContext::det(
   if n == 0 {
     return @mpf.fone
   }
-  let p = self.p2_work_prec()
-  let data = p3_copy_vec(a.data)
+  let p = self.working_precision()
+  let data = copy_mpf_vector(a.data)
   let mut sign = 1
   for k in 0..<n {
     let mut pivot = k
     let mut pivot_abs = @mpf.mpf_abs(
-      data[p3_idx(n, k, k)],
+      data[matrix_offset(n, k, k)],
       p,
       @mpf.round_nearest,
     )
     for i in (k + 1)..<n {
-      let cur = @mpf.mpf_abs(data[p3_idx(n, i, k)], p, @mpf.round_nearest)
+      let cur = @mpf.mpf_abs(
+        data[matrix_offset(n, i, k)],
+        p,
+        @mpf.round_nearest,
+      )
       if @mpf.mpf_gt(cur, pivot_abs) {
         pivot = i
         pivot_abs = cur
       }
     }
-    if @mpf.is_zero(data[p3_idx(n, pivot, k)]) {
+    if @mpf.is_zero(data[matrix_offset(n, pivot, k)]) {
       return @mpf.fzero
     }
     if pivot != k {
-      p3_swap_rows(data, n, pivot, k)
+      swap_matrix_rows(data, n, pivot, k)
       sign = -sign
     }
-    let akk = data[p3_idx(n, k, k)]
+    let akk = data[matrix_offset(n, k, k)]
     for i in (k + 1)..<n {
-      let aik = data[p3_idx(n, i, k)]
+      let aik = data[matrix_offset(n, i, k)]
       if @mpf.is_zero(aik) {
         continue
       }
-      let factor = p2_mpf_div(aik, akk, p, @mpf.round_nearest)
+      let factor = checked_mpf_div(aik, akk, p, @mpf.round_nearest)
       for j in (k + 1)..<n {
-        data[p3_idx(n, i, j)] = @mpf.mpf_sub(
-          data[p3_idx(n, i, j)],
-          @mpf.mpf_mul(factor, data[p3_idx(n, k, j)], p, @mpf.round_nearest),
+        data[matrix_offset(n, i, j)] = @mpf.mpf_sub(
+          data[matrix_offset(n, i, j)],
+          @mpf.mpf_mul(
+            factor,
+            data[matrix_offset(n, k, j)],
+            p,
+            @mpf.round_nearest,
+          ),
           p,
           @mpf.round_nearest,
         )
       }
-      data[p3_idx(n, i, k)] = @mpf.fzero
+      data[matrix_offset(n, i, k)] = @mpf.fzero
     }
   }
   let mut d = @mpf.fone
   for i in 0..<n {
-    d = @mpf.mpf_mul(d, data[p3_idx(n, i, i)], p, @mpf.round_nearest)
+    d = @mpf.mpf_mul(d, data[matrix_offset(n, i, i)], p, @mpf.round_nearest)
   }
   if sign < 0 {
     d = @mpf.mpf_neg(d, p, @mpf.round_nearest)
@@ -461,11 +487,11 @@ pub fn MPContext::inverse(
   let n = a.rows
   let inv = self.matrix(n, n)
   for j in 0..<n {
-    let e = p3_matrix_data_with_fill(1, n, @mpf.fzero)
+    let e = make_filled_matrix_data(1, n, @mpf.fzero)
     e[j] = @mpf.fone
     let col = self.lu_solve(a, e)
     for i in 0..<n {
-      inv.data[p3_idx(n, i, j)] = col[i]
+      inv.data[matrix_offset(n, i, j)] = col[i]
     }
   }
   inv
@@ -482,7 +508,7 @@ pub fn MPContext::rank(
   if m == 0 || n == 0 {
     return 0
   }
-  let p = self.p2_work_prec()
+  let p = self.working_precision()
   let tol_abs = match tol {
     Some(v) => @mpf.mpf_abs(v, p, @mpf.round_nearest)
     None => {
@@ -490,7 +516,7 @@ pub fn MPContext::rank(
       @mpf.from_man_exp(1N, s, 0, @mpf.round_down)
     }
   }
-  let data = p3_copy_vec(a.data)
+  let data = copy_mpf_vector(a.data)
   let mut row = 0
   for col in 0..<n {
     if row >= m {
@@ -499,7 +525,11 @@ pub fn MPContext::rank(
     let mut pivot = row
     let mut pivot_abs = @mpf.fzero
     for i in row..<m {
-      let cur = @mpf.mpf_abs(data[p3_idx(n, i, col)], p, @mpf.round_nearest)
+      let cur = @mpf.mpf_abs(
+        data[matrix_offset(n, i, col)],
+        p,
+        @mpf.round_nearest,
+      )
       if @mpf.mpf_gt(cur, pivot_abs) {
         pivot = i
         pivot_abs = cur
@@ -509,19 +539,24 @@ pub fn MPContext::rank(
       continue
     }
     if pivot != row {
-      p3_swap_rows(data, n, pivot, row)
+      swap_matrix_rows(data, n, pivot, row)
     }
-    let pivot_val = data[p3_idx(n, row, col)]
+    let pivot_val = data[matrix_offset(n, row, col)]
     for i in (row + 1)..<m {
-      let aic = data[p3_idx(n, i, col)]
+      let aic = data[matrix_offset(n, i, col)]
       if @mpf.mpf_le(@mpf.mpf_abs(aic, p, @mpf.round_nearest), tol_abs) {
         continue
       }
-      let factor = p2_mpf_div(aic, pivot_val, p, @mpf.round_nearest)
+      let factor = checked_mpf_div(aic, pivot_val, p, @mpf.round_nearest)
       for j in col..<n {
-        data[p3_idx(n, i, j)] = @mpf.mpf_sub(
-          data[p3_idx(n, i, j)],
-          @mpf.mpf_mul(factor, data[p3_idx(n, row, j)], p, @mpf.round_nearest),
+        data[matrix_offset(n, i, j)] = @mpf.mpf_sub(
+          data[matrix_offset(n, i, j)],
+          @mpf.mpf_mul(
+            factor,
+            data[matrix_offset(n, row, j)],
+            p,
+            @mpf.round_nearest,
+          ),
           p,
           @mpf.round_nearest,
         )

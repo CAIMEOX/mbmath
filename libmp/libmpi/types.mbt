@@ -5,11 +5,6 @@ pub struct RawMpi {
 } derive(Debug, Eq)
 
 ///|
-pub impl Show for RawMpi with fn output(self, logger) {
-  logger.write_object(self.to_repr())
-}
-
-///|
 pub let mpi_zero : RawMpi = { lo: @mpf.fzero, hi: @mpf.fzero }
 
 ///|
@@ -25,20 +20,10 @@ pub(all) suberror MpiError {
 } derive(Debug, Eq)
 
 ///|
-pub impl Show for MpiError with fn output(self, logger) {
-  logger.write_object(self.to_repr())
-}
-
-///|
 pub struct RawMpci {
   real : RawMpi
   imag : RawMpi
 } derive(Debug, Eq)
-
-///|
-pub impl Show for RawMpci with fn output(self, logger) {
-  logger.write_object(self.to_repr())
-}
 
 ///|
 pub let mpci_zero : RawMpci = { real: mpi_zero, imag: mpi_zero }

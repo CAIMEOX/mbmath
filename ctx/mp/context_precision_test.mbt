@@ -35,10 +35,10 @@ fn assert_close_to_str(
 test "module context metadata and isolation subset" {
   let low = new(80, @mpf.round_down)
   let high = new(260, @mpf.round_nearest)
-  assert_eq(low.precision(), 80)
-  assert_eq(high.precision(), 260)
-  assert_eq(low.round_mode(), @mpf.round_down)
-  assert_eq(high.round_mode(), @mpf.round_nearest)
+  @debug.assert_eq(low.precision(), 80)
+  @debug.assert_eq(high.precision(), 260)
+  @debug.assert_eq(low.round_mode(), @mpf.round_down)
+  @debug.assert_eq(high.round_mode(), @mpf.round_nearest)
   let sqrt2_low = low.sqrt(low.make_int(2))
   let sqrt2_high = high.sqrt(high.make_int(2))
   assert_context_text_close(
@@ -153,7 +153,7 @@ test "mpmath-style wrapper consistency subset" {
   let y = ctx.make_float("3.5")
   let sum = ctx.add(x, y)
   let manual = @mpf.mpf_add(x, y, 260, @mpf.round_nearest)
-  assert_eq(sum, manual)
+  @debug.assert_eq(sum, manual)
   let cg = ctx.complex_gamma(
     ctx.make_complex(ctx.make_float("0.5"), @mpf.fzero),
   )

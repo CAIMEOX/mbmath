@@ -14,11 +14,6 @@ pub enum RoundMode {
 } derive(Debug, Eq)
 
 ///|
-pub impl Show for RoundMode with fn output(self, logger) {
-  logger.write_object(self.to_repr())
-}
-
-///|
 /// Raw arbitrary-precision floating-point value:
 /// value = (-1)^sign * man * 2^exp
 /// Canonical invariant: `man` is non-negative and odd unless it is zero.
@@ -30,11 +25,6 @@ pub struct RawMpf {
 } derive(Debug, Eq)
 
 ///|
-pub impl Show for RawMpf with fn output(self, logger) {
-  logger.write_object(self.to_repr())
-}
-
-///|
 pub(all) suberror MpfError {
   ValueError(String)
   DomainError(String)
@@ -43,11 +33,6 @@ pub(all) suberror MpfError {
   FormatError(String)
   UnsupportedError(String)
 } derive(Debug, Eq)
-
-///|
-pub impl Show for MpfError with fn output(self, logger) {
-  logger.write_object(self.to_repr())
-}
 
 ///|
 /// Canonical positive zero.

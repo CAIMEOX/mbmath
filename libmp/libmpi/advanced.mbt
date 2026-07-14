@@ -33,7 +33,7 @@ pub fn mpi_cosh_sinh(s : RawMpi, prec : Int) -> (RawMpi, RawMpi) raise MpiError 
 }
 
 ///|
-pub fn mpi_atan2(y : RawMpi, x : RawMpi, prec : Int) -> RawMpi {
+pub fn mpi_atan2(y : RawMpi, x : RawMpi, prec : Int) -> RawMpi raise MpiError {
   let p = default_prec(prec)
   let ya = y.lo
   let yb = y.hi
@@ -47,36 +47,36 @@ pub fn mpi_atan2(y : RawMpi, x : RawMpi, prec : Int) -> RawMpi {
   }
   if @mpf.mpf_ge(xa, @mpf.fzero) {
     let a = if @mpf.mpf_ge(ya, @mpf.fzero) {
-      @libelefun.mpf_atan2(ya, xb, p, @mpf.round_floor)
+      elefun_atan2_checked(ya, xb, p, @mpf.round_floor)
     } else {
-      @libelefun.mpf_atan2(ya, xa, p, @mpf.round_floor)
+      elefun_atan2_checked(ya, xa, p, @mpf.round_floor)
     }
     let b = if @mpf.mpf_ge(yb, @mpf.fzero) {
-      @libelefun.mpf_atan2(yb, xa, p, @mpf.round_ceiling)
+      elefun_atan2_checked(yb, xa, p, @mpf.round_ceiling)
     } else {
-      @libelefun.mpf_atan2(yb, xb, p, @mpf.round_ceiling)
+      elefun_atan2_checked(yb, xb, p, @mpf.round_ceiling)
     }
     return mpi_make(a, b)
   }
   if @mpf.mpf_ge(ya, @mpf.fzero) {
-    let b = @libelefun.mpf_atan2(ya, xa, p, @mpf.round_ceiling)
+    let b = elefun_atan2_checked(ya, xa, p, @mpf.round_ceiling)
     let a = if @mpf.mpf_le(xb, @mpf.fzero) {
-      @libelefun.mpf_atan2(yb, xb, p, @mpf.round_floor)
+      elefun_atan2_checked(yb, xb, p, @mpf.round_floor)
     } else {
-      @libelefun.mpf_atan2(ya, xb, p, @mpf.round_floor)
+      elefun_atan2_checked(ya, xb, p, @mpf.round_floor)
     }
     return mpi_make(a, b)
   }
   if @mpf.mpf_le(yb, @mpf.fzero) {
-    let a = @libelefun.mpf_atan2(yb, xa, p, @mpf.round_floor)
+    let a = elefun_atan2_checked(yb, xa, p, @mpf.round_floor)
     let b = if @mpf.mpf_le(xb, @mpf.fzero) {
-      @libelefun.mpf_atan2(ya, xb, p, @mpf.round_ceiling)
+      elefun_atan2_checked(ya, xb, p, @mpf.round_ceiling)
     } else {
-      @libelefun.mpf_atan2(yb, xb, p, @mpf.round_ceiling)
+      elefun_atan2_checked(yb, xb, p, @mpf.round_ceiling)
     }
     return mpi_make(a, b)
   }
-  let b = @libelefun.mpf_pi(p, @mpf.round_ceiling)
+  let b = elefun_pi_checked(p, @mpf.round_ceiling)
   let a = @mpf.mpf_neg(b, 0, @mpf.round_down)
   mpi_make(a, b)
 }
@@ -127,7 +127,7 @@ pub fn mpci_abs(z : RawMpci, prec : Int) -> RawMpi raise MpiError {
 }
 
 ///|
-pub fn mpci_arg(z : RawMpci, prec : Int) -> RawMpi {
+pub fn mpci_arg(z : RawMpci, prec : Int) -> RawMpi raise MpiError {
   mpi_atan2(z.imag, z.real, prec)
 }
 

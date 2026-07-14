@@ -40,18 +40,10 @@ pub struct PlotAxes {
 } derive(Debug, Eq)
 
 ///|
-pub impl Show for PlotAxes with fn output(self, logger) {
-  logger.write_object(self.to_repr())
-}
-
-///|
 /// Create an empty plot axes object.
 pub fn plot_axes() -> PlotAxes {
   { xlabel: "", ylabel: "" }
 }
-
-///|
-type UnaryMpcFn = (@mpc.RawMpc) -> @mpc.RawMpc
 
 ///|
 fn plot_linspace(
@@ -90,11 +82,11 @@ fn plot_linspace(
 /// Sample `f` on a real interval and attach mpmath-style axes labels.
 pub fn MPContext::plot(
   self : MPContext,
-  f : UnaryMpfFn,
+  f : (@mpf.RawMpf) -> @mpf.RawMpf raise?,
   interval : (@mpf.RawMpf, @mpf.RawMpf),
   axes : PlotAxes,
   samples? : Int = 65,
-) -> Array[(@mpf.RawMpf, @mpf.RawMpf)] raise MPError {
+) -> Array[(@mpf.RawMpf, @mpf.RawMpf)] raise {
   let (a, b) = interval
   let wp = if self.precision() > 0 { self.precision() + 24 } else { 80 }
   let xs = plot_linspace(a, b, samples, wp)
@@ -117,12 +109,12 @@ pub fn MPContext::plot(
 /// Sample `f` on a rectangular complex grid and attach mpmath-style labels.
 pub fn MPContext::cplot(
   self : MPContext,
-  f : UnaryMpcFn,
+  f : (@mpc.RawMpc) -> @mpc.RawMpc raise?,
   re_interval : (@mpf.RawMpf, @mpf.RawMpf),
   im_interval : (@mpf.RawMpf, @mpf.RawMpf),
   axes : PlotAxes,
   samples? : Int = 17,
-) -> Array[(@mpc.RawMpc, @mpc.RawMpc)] raise MPError {
+) -> Array[(@mpc.RawMpc, @mpc.RawMpc)] raise {
   let (rx0, rx1) = re_interval
   let (iy0, iy1) = im_interval
   let wp = if self.precision() > 0 { self.precision() + 24 } else { 80 }

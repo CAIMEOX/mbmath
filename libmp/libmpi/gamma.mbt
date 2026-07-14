@@ -46,8 +46,10 @@ fn mpc_loggamma_point(
   im : @mpf.RawMpf,
   p : Int,
   rnd : @mpf.RoundMode,
-) -> @mpc.RawMpc {
-  @mpc.mpc_loggamma(@mpc.from_parts(re, im), p, rnd)
+) -> @mpc.RawMpc raise MpiError {
+  @mpc.mpc_loggamma(@mpc.from_parts(re, im), p, rnd) catch {
+    err => raise from_mpc_error(err)
+  }
 }
 
 ///|
@@ -58,13 +60,21 @@ fn mpc_gamma_kind_point(
   rnd : @mpf.RoundMode,
 ) -> @mpc.RawMpc raise MpiError {
   if kind == gamma_kind_gamma {
-    @mpc.mpc_gamma(z, p, rnd)
+    @mpc.mpc_gamma(z, p, rnd) catch {
+      err => raise from_mpc_error(err)
+    }
   } else if kind == gamma_kind_rgamma {
-    @mpc.mpc_rgamma(z, p, rnd)
+    @mpc.mpc_rgamma(z, p, rnd) catch {
+      err => raise from_mpc_error(err)
+    }
   } else if kind == gamma_kind_loggamma {
-    @mpc.mpc_loggamma(z, p, rnd)
+    @mpc.mpc_loggamma(z, p, rnd) catch {
+      err => raise from_mpc_error(err)
+    }
   } else if kind == gamma_kind_factorial {
-    @mpc.mpc_factorial(z, p, rnd)
+    @mpc.mpc_factorial(z, p, rnd) catch {
+      err => raise from_mpc_error(err)
+    }
   } else {
     raise UnsupportedError("mpc_gamma_kind_point: unknown kind")
   }
@@ -297,58 +307,34 @@ fn mpci_gamma_kind(
   if k == gamma_kind_loggamma {
     w = widen_mpci_with_point(
       w,
-      @mpc.mpc_loggamma(
-        @mpc.from_parts(z0.real.lo, z0.imag.lo),
-        wp,
-        @mpf.round_nearest,
-      ),
+      mpc_loggamma_point(z0.real.lo, z0.imag.lo, wp, @mpf.round_nearest),
       wp,
     )
     w = widen_mpci_with_point(
       w,
-      @mpc.mpc_loggamma(
-        @mpc.from_parts(z0.real.hi, z0.imag.lo),
-        wp,
-        @mpf.round_nearest,
-      ),
+      mpc_loggamma_point(z0.real.hi, z0.imag.lo, wp, @mpf.round_nearest),
       wp,
     )
     w = widen_mpci_with_point(
       w,
-      @mpc.mpc_loggamma(
-        @mpc.from_parts(z0.real.lo, z0.imag.hi),
-        wp,
-        @mpf.round_nearest,
-      ),
+      mpc_loggamma_point(z0.real.lo, z0.imag.hi, wp, @mpf.round_nearest),
       wp,
     )
     w = widen_mpci_with_point(
       w,
-      @mpc.mpc_loggamma(
-        @mpc.from_parts(z0.real.hi, z0.imag.hi),
-        wp,
-        @mpf.round_nearest,
-      ),
+      mpc_loggamma_point(z0.real.hi, z0.imag.hi, wp, @mpf.round_nearest),
       wp,
     )
     if @mpf.mpf_le(z0.imag.lo, @mpf.fzero) &&
       @mpf.mpf_ge(z0.imag.hi, @mpf.fzero) {
       w = widen_mpci_with_point(
         w,
-        @mpc.mpc_loggamma(
-          @mpc.from_parts(z0.real.lo, @mpf.fzero),
-          wp,
-          @mpf.round_nearest,
-        ),
+        mpc_loggamma_point(z0.real.lo, @mpf.fzero, wp, @mpf.round_nearest),
         wp,
       )
       w = widen_mpci_with_point(
         w,
-        @mpc.mpc_loggamma(
-          @mpc.from_parts(z0.real.hi, @mpf.fzero),
-          wp,
-          @mpf.round_nearest,
-        ),
+        mpc_loggamma_point(z0.real.hi, @mpf.fzero, wp, @mpf.round_nearest),
         wp,
       )
     }

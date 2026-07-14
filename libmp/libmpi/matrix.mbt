@@ -6,21 +6,11 @@ pub struct RawMpiMatrix {
 } derive(Debug, Eq)
 
 ///|
-pub impl Show for RawMpiMatrix with fn output(self, logger) {
-  logger.write_object(self.to_repr())
-}
-
-///|
 pub struct RawMpciMatrix {
   rows : Int
   cols : Int
   data : Array[RawMpci]
 } derive(Debug, Eq)
-
-///|
-pub impl Show for RawMpciMatrix with fn output(self, logger) {
-  logger.write_object(self.to_repr())
-}
 
 ///|
 fn mpi_matrix_idx(cols : Int, r : Int, c : Int) -> Int {

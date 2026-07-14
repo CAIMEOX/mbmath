@@ -5,3 +5,7 @@ import {
   "CAIMEOX/moon_floating/libmp/libhyper",
   "CAIMEOX/moon_floating/libmp/gammazeta",
 }
+
+import {
+  "moonbitlang/core/debug",
+} for "test"

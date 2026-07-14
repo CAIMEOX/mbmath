@@ -30,7 +30,7 @@ test "linalg lu_solve/inverse/det/rank subset from mpmath test_linalg" {
     [ctx.make_int(2), ctx.make_int(0), ctx.make_int(-4)],
     [ctx.make_int(2), ctx.make_int(0), ctx.make_float("5.5")],
   ])
-  assert_eq(ctx.rank(a11), 2)
+  @debug.assert_eq(ctx.rank(a11), 2)
 }
 
 ///|
@@ -41,7 +41,7 @@ test "matrix ops and linalg error subset" {
     [ctx.make_int(3), ctx.make_int(4)],
   ])
   let v = ctx.matrix_vec_mul(m, [ctx.make_int(1), ctx.make_int(-1)])
-  assert_eq(v.length(), 2)
+  @debug.assert_eq(v.length(), 2)
   assert_close_mpf_str(v[0], "-1", "1e-14")
   assert_close_mpf_str(v[1], "-1", "1e-14")
 

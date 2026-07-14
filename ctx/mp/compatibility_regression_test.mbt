@@ -1,5 +1,5 @@
 ///|
-fn p4_mpf_from_double_exact(x : Double) -> @mpf.RawMpf {
+fn mpf_from_double_exact(x : Double) -> @mpf.RawMpf {
   let bits = Double::reinterpret_as_uint64(x)
   let zero_u = UInt64::default()
   let one_u = UInt64::extend_uint(1)
@@ -35,7 +35,11 @@ fn p4_mpf_from_double_exact(x : Double) -> @mpf.RawMpf {
 }
 
 ///|
-fn p4_mpf_abs_diff(x : @mpf.RawMpf, y : @mpf.RawMpf, prec : Int) -> @mpf.RawMpf {
+fn mpf_absolute_difference(
+  x : @mpf.RawMpf,
+  y : @mpf.RawMpf,
+  prec : Int,
+) -> @mpf.RawMpf {
   @mpf.mpf_abs(
     @mpf.mpf_sub(x, y, prec, @mpf.round_nearest),
     prec,
@@ -44,21 +48,23 @@ fn p4_mpf_abs_diff(x : @mpf.RawMpf, y : @mpf.RawMpf, prec : Int) -> @mpf.RawMpf 
 }
 
 ///|
-fn p4_mpf_rel_err(x : @mpf.RawMpf, y : @mpf.RawMpf, prec : Int) -> @mpf.RawMpf {
-  let num = p4_mpf_abs_diff(x, y, prec)
+fn mpf_relative_error(
+  x : @mpf.RawMpf,
+  y : @mpf.RawMpf,
+  prec : Int,
+) -> @mpf.RawMpf raise @mpf.MpfError {
+  let num = mpf_absolute_difference(x, y, prec)
   let den0 = @mpf.mpf_abs(y, prec, @mpf.round_nearest)
   let den = if @mpf.is_zero(den0) {
     @mpf.from_man_exp(1N, -prec / 2, 0, @mpf.round_down)
   } else {
     den0
   }
-  @mpf.mpf_div(num, den, prec, @mpf.round_nearest) catch {
-    _ => @mpf.fnan
-  }
+  @mpf.mpf_div(num, den, prec, @mpf.round_nearest)
 }
 
 ///|
-fn p4_roundtrip_mpf(x : @mpf.RawMpf) -> @mpf.RawMpf {
+fn roundtrip_mpf(x : @mpf.RawMpf) -> @mpf.RawMpf {
   if @mpf.is_nan(x) {
     @mpf.fnan
   } else if @mpf.is_inf(x) {
@@ -76,19 +82,16 @@ fn p4_roundtrip_mpf(x : @mpf.RawMpf) -> @mpf.RawMpf {
 }
 
 ///|
-fn p4_roundtrip_mpc(z : @mpc.RawMpc) -> @mpc.RawMpc {
-  @mpc.from_parts(p4_roundtrip_mpf(z.real), p4_roundtrip_mpf(z.imag))
+fn roundtrip_mpc(z : @mpc.RawMpc) -> @mpc.RawMpc {
+  @mpc.from_parts(roundtrip_mpf(z.real), roundtrip_mpf(z.imag))
 }
 
 ///|
-fn p4_roundtrip_matrix(
-  ctx : MPContext,
-  m : MpfMatrix,
-) -> MpfMatrix raise MPError {
+fn roundtrip_matrix(ctx : MPContext, m : MpfMatrix) -> MpfMatrix raise MPError {
   let out = ctx.matrix(m.rows, m.cols)
   for i in 0..<m.rows {
     for j in 0..<m.cols {
-      out.set(i, j, p4_roundtrip_mpf(m.get(i, j)))
+      out.set(i, j, roundtrip_mpf(m.get(i, j)))
     }
   }
   out
@@ -106,50 +109,50 @@ test "compatibility subset from mpmath test_compatibility" {
   for i in 0..<xs.length() {
     let x = xs[i]
     let y = ys[i]
-    let mpx = p4_mpf_from_double_exact(x)
-    let mpy = p4_mpf_from_double_exact(y)
+    let mpx = mpf_from_double_exact(x)
+    let mpy = mpf_from_double_exact(y)
 
-    assert_eq(@mpf.mpf_lt(mpx, mpy), x < y)
-    assert_eq(@mpf.mpf_gt(mpx, mpy), x > y)
-    assert_eq(@mpf.mpf_eq(mpx, mpy), x == y)
-    assert_eq(!@mpf.mpf_eq(mpx, mpy), x != y)
-    assert_eq(@mpf.mpf_le(mpx, mpy), x <= y)
-    assert_eq(@mpf.mpf_ge(mpx, mpy), x >= y)
+    @debug.assert_eq(@mpf.mpf_lt(mpx, mpy), x < y)
+    @debug.assert_eq(@mpf.mpf_gt(mpx, mpy), x > y)
+    @debug.assert_eq(@mpf.mpf_eq(mpx, mpy), x == y)
+    @debug.assert_eq(!@mpf.mpf_eq(mpx, mpy), x != y)
+    @debug.assert_eq(@mpf.mpf_le(mpx, mpy), x <= y)
+    @debug.assert_eq(@mpf.mpf_ge(mpx, mpy), x >= y)
 
     assert_true(
       @mpf.mpf_eq(
         @mpf.mpf_add(mpx, mpy, 53, @mpf.round_nearest),
-        p4_mpf_from_double_exact(x + y),
+        mpf_from_double_exact(x + y),
       ),
     )
     assert_true(
       @mpf.mpf_eq(
         @mpf.mpf_mul(mpx, mpy, 53, @mpf.round_nearest),
-        p4_mpf_from_double_exact(x * y),
+        mpf_from_double_exact(x * y),
       ),
     )
     assert_true(
       @mpf.mpf_eq(
         @mpf.mpf_div(mpx, mpy, 53, @mpf.round_nearest),
-        p4_mpf_from_double_exact(x / y),
+        mpf_from_double_exact(x / y),
       ),
     )
     assert_true(
       @mpf.mpf_eq(
         @mpf.mpf_abs(mpx, 53, @mpf.round_nearest),
-        p4_mpf_from_double_exact(Double::abs(x)),
+        mpf_from_double_exact(Double::abs(x)),
       ),
     )
     assert_true(
       @mpf.mpf_eq(
         @mpf.mpf_ceil(mpx, 0, @mpf.round_nearest),
-        p4_mpf_from_double_exact(Double::ceil(x)),
+        mpf_from_double_exact(Double::ceil(x)),
       ),
     )
     assert_true(
       @mpf.mpf_eq(
         @mpf.mpf_floor(mpx, 0, @mpf.round_nearest),
-        p4_mpf_from_double_exact(Double::floor(x)),
+        mpf_from_double_exact(Double::floor(x)),
       ),
     )
 
@@ -186,12 +189,12 @@ test "compatibility sqrt subset from mpmath test_compatibility" {
   let mut fail = 0
   for x in xs {
     let xd = Double::abs(x)
-    let mpx = p4_mpf_from_double_exact(xd)
+    let mpx = mpf_from_double_exact(xd)
     let mp_high = @mpf.mpf_sqrt(mpx, 220, @mpf.round_nearest)
     let mp_low = @mpf.mpf_sqrt(mpx, 53, @mpf.round_nearest)
-    let fp = p4_mpf_from_double_exact(Double::sqrt(xd))
-    let err_low = p4_mpf_abs_diff(mp_low, mp_high, 240)
-    let err_fp = p4_mpf_abs_diff(fp, mp_high, 240)
+    let fp = mpf_from_double_exact(Double::sqrt(xd))
+    let err_low = mpf_absolute_difference(mp_low, mp_high, 240)
+    let err_fp = mpf_absolute_difference(fp, mp_high, 240)
     assert_true(@mpf.mpf_le(err_low, err_fp))
     if !@mpf.mpf_eq(mp_low, fp) {
       fail += 1
@@ -205,19 +208,22 @@ test "pickle-roundtrip subset from mpmath test_pickle" {
   let ctx = new(200, @mpf.round_nearest)
 
   let f = @mpf.from_str("0.5")
-  assert_true(@mpf.mpf_eq(f, p4_roundtrip_mpf(f)))
+  assert_true(@mpf.mpf_eq(f, roundtrip_mpf(f)))
 
   let z = @mpc.from_parts(@mpf.from_str("0.5"), @mpf.from_str("0.2"))
-  assert_eq(z, p4_roundtrip_mpc(z))
+  @debug.assert_eq(z, roundtrip_mpc(z))
 
-  let row = ctx.matrix_from_vector([p3_i(ctx, 1), ctx.sin(p3_i(ctx, 1))])
-  assert_eq(row, p4_roundtrip_matrix(ctx, row))
+  let row = ctx.matrix_from_vector([
+    matrix_integer(ctx, 1),
+    ctx.sin(matrix_integer(ctx, 1)),
+  ])
+  @debug.assert_eq(row, roundtrip_matrix(ctx, row))
 
   let mat = ctx.matrix_from_rows([
-    [p3_i(ctx, 1), p3_i(ctx, 2)],
-    [p3_i(ctx, 3), p3_i(ctx, 4)],
+    [matrix_integer(ctx, 1), matrix_integer(ctx, 2)],
+    [matrix_integer(ctx, 3), matrix_integer(ctx, 4)],
   ])
-  assert_eq(mat, p4_roundtrip_matrix(ctx, mat))
+  @debug.assert_eq(mat, roundtrip_matrix(ctx, mat))
 }
 
 ///|
@@ -230,13 +236,13 @@ test "torture asymptotic consistency subset from mpmath test_torture" {
     let xlo = lo.make_float(s)
     let xhi = hi.make_float(s)
 
-    let rel_exp = p4_mpf_rel_err(lo.exp(xlo), hi.exp(xhi), 260)
+    let rel_exp = mpf_relative_error(lo.exp(xlo), hi.exp(xhi), 260)
     assert_true(@mpf.mpf_lt(rel_exp, @mpf.from_str("1e-18")))
 
-    let rel_ln = p4_mpf_rel_err(lo.ln(xlo), hi.ln(xhi), 260)
+    let rel_ln = mpf_relative_error(lo.ln(xlo), hi.ln(xhi), 260)
     assert_true(@mpf.mpf_lt(rel_ln, @mpf.from_str("1e-18")))
 
-    let rel_sin = p4_mpf_rel_err(lo.sin(xlo), hi.sin(xhi), 260)
+    let rel_sin = mpf_relative_error(lo.sin(xlo), hi.sin(xhi), 260)
     assert_true(@mpf.mpf_lt(rel_sin, @mpf.from_str("1e-17")))
   }
 
@@ -244,7 +250,7 @@ test "torture asymptotic consistency subset from mpmath test_torture" {
   for s in gs {
     let glo = lo.make_float(s)
     let ghi = hi.make_float(s)
-    let rel_gamma = p4_mpf_rel_err(lo.gamma(glo), hi.gamma(ghi), 260)
+    let rel_gamma = mpf_relative_error(lo.gamma(glo), hi.gamma(ghi), 260)
     assert_true(@mpf.mpf_lt(rel_gamma, @mpf.from_str("1e-18")))
   }
 }

@@ -62,7 +62,7 @@ fn assert_mpf_close_to_text(
 
 ///|
 test "mpf_agm basic properties" {
-  assert_eq(
+  @debug.assert_eq(
     mpf_agm(@mpf.from_int(1), @mpf.from_int(1), 80, @mpf.round_nearest),
     @mpf.from_int(1),
   )

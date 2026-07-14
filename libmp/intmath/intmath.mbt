@@ -13,11 +13,6 @@ pub(all) suberror IntMathError {
 } derive(Debug, Eq)
 
 ///|
-pub impl Show for IntMathError with fn output(self, logger) {
-  logger.write_object(self.to_repr())
-}
-
-///|
 pub fn bit_length(x : BigInt) -> Int {
   x.bit_length()
 }

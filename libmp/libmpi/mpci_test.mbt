@@ -98,7 +98,7 @@ test "mpci constructors and unary" {
   let z = mpci_make(interval(1, 2), interval(-3, -2))
   assert_true(mpci_contains_mpf(z, @mpf.from_str("1.5"), @mpf.from_str("-2.5")))
   let p = mpci_pos(z, 80)
-  assert_eq(p, z)
+  @debug.assert_eq(p, z)
   let n = mpci_neg(z, 80)
   assert_true(mpci_contains_mpf(n, @mpf.from_str("-1.5"), @mpf.from_str("2.5")))
 }
@@ -129,8 +129,11 @@ test "mpci advanced functions enclose mpc results" {
   assert_mpci_contains(c_iv, @mpc.mpc_cos(z, 140, @mpf.round_nearest))
   let sq_iv = mpci_square(zi, 140)
   assert_mpci_contains(sq_iv, @mpc.mpc_square(z, 140, @mpf.round_nearest))
-  let p3_iv = mpci_pow_int(zi, 3, 140)
-  assert_mpci_contains(p3_iv, @mpc.mpc_pow_int(z, 3, 140, @mpf.round_nearest))
+  let cube_interval = mpci_pow_int(zi, 3, 140)
+  assert_mpci_contains(
+    cube_interval,
+    @mpc.mpc_pow_int(z, 3, 140, @mpf.round_nearest),
+  )
   let w = @mpc.from_parts(@mpf.from_str("0.5"), @mpf.from_str("1.0"))
   let wi = point_ci(w.real, w.imag)
   let p_iv = mpci_pow(zi, wi, 140)
@@ -368,7 +371,10 @@ test "mpci arg extended quadrant subset from mpmath interval tests" {
 
 ///|
 test "mpci abs and pow_int extended subset from mpmath interval tests" {
-  assert_eq(mpci_abs(mpci_make(mpi_zero, interval(2, 3)), 160), interval(2, 3))
+  @debug.assert_eq(
+    mpci_abs(mpci_make(mpi_zero, interval(2, 3)), 160),
+    interval(2, 3),
+  )
   let a1 = mpci_abs(mpci_make(mpi_zero, interval(-3, 2)), 160)
   assert_mpi_contains(a1, @mpf.fzero)
   assert_mpi_contains(a1, @mpf.from_int(3))

@@ -87,6 +87,6 @@ test "basic_ops hash and equality subset from mpmath" {
   let z1 = from_parts(@mpf.from_int(2), @mpf.from_int(3))
   let z2 = from_parts(@mpf.from_int(2), @mpf.from_int(3))
   let z3 = from_parts(@mpf.from_int(3), @mpf.from_int(2))
-  assert_eq(mpc_hash(z1), mpc_hash(z2))
+  @debug.assert_eq(mpc_hash(z1), mpc_hash(z2))
   assert_not_eq(mpc_hash(z1), mpc_hash(z3))
 }

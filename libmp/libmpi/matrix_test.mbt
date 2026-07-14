@@ -10,8 +10,8 @@ fn m_interval(a : Int, b : Int) -> RawMpi {
 
 ///|
 fn m_assert_mpi_matrix_eq(a : RawMpiMatrix, b : RawMpiMatrix) -> Unit raise {
-  assert_eq(a.rows, b.rows)
-  assert_eq(a.cols, b.cols)
+  @debug.assert_eq(a.rows, b.rows)
+  @debug.assert_eq(a.cols, b.cols)
   for i in 0..<a.rows {
     for j in 0..<a.cols {
       assert_true(mpi_eq(a.get(i, j), b.get(i, j)))
@@ -37,55 +37,55 @@ test "mpi_matrix scalar multiplication subset from mpmath test_matrices" {
   let m = mpi_ones(1)
 
   let a = m_interval(-1, 1)
-  assert_eq(mpi_scalar_mul_matrix(a, m), mpi_matrix_from_scalar(a))
-  assert_eq(mpi_matrix_mul_scalar(m, a), mpi_matrix_from_scalar(a))
+  @debug.assert_eq(mpi_scalar_mul_matrix(a, m), mpi_matrix_from_scalar(a))
+  @debug.assert_eq(mpi_matrix_mul_scalar(m, a), mpi_matrix_from_scalar(a))
 
   let c = @mpf.from_int(42)
-  assert_eq(
+  @debug.assert_eq(
     mpf_scalar_mul_mpi_matrix(c, m),
     mpi_matrix_from_scalar(mpi_from_mpf(c)),
   )
-  assert_eq(
+  @debug.assert_eq(
     mpi_matrix_mul_mpf_scalar(m, c),
     mpi_matrix_from_scalar(mpi_from_mpf(c)),
   )
 
   let x = @mpf.from_str("1.234")
-  assert_eq(
+  @debug.assert_eq(
     mpf_scalar_mul_mpi_matrix(x, m),
     mpi_matrix_from_scalar(mpi_from_mpf(x)),
   )
-  assert_eq(
+  @debug.assert_eq(
     mpi_matrix_mul_mpf_scalar(m, x),
     mpi_matrix_from_scalar(mpi_from_mpf(x)),
   )
 
   let b = mpci_make(m_interval(-1, 1), m_interval(-2, 2))
-  assert_eq(
+  @debug.assert_eq(
     mpci_scalar_mul_mpi_matrix(b, m, prec=140),
     mpci_matrix_from_scalar(b),
   )
-  assert_eq(
+  @debug.assert_eq(
     mpi_matrix_mul_mpci_scalar(m, b, prec=140),
     mpci_matrix_from_scalar(b),
   )
 
   let d = @mpc.from_parts(@mpf.from_int(42), @mpf.from_int(84))
-  assert_eq(
+  @debug.assert_eq(
     mpc_scalar_mul_mpi_matrix(d, m, prec=140),
     mpci_matrix_from_mpc_scalar(d),
   )
-  assert_eq(
+  @debug.assert_eq(
     mpi_matrix_mul_mpc_scalar(m, d, prec=140),
     mpci_matrix_from_mpc_scalar(d),
   )
 
   let g = @mpc.from_parts(@mpf.from_str("1.234"), @mpf.from_str("3.702"))
-  assert_eq(
+  @debug.assert_eq(
     mpc_scalar_mul_mpi_matrix(g, m, prec=160),
     mpci_matrix_from_mpc_scalar(g),
   )
-  assert_eq(
+  @debug.assert_eq(
     mpi_matrix_mul_mpc_scalar(m, g, prec=160),
     mpci_matrix_from_mpc_scalar(g),
   )
@@ -110,11 +110,11 @@ test "mpi_matrix multiplication bug regression subset from mpmath test_matrices"
   let a = mpi_matrix_from_mpf_rows([[x]])
   let b = mpi_matrix_copy(a)
   let c = mpi_matrix_from_rows([[mpi_from_mpf(x)]])
-  assert_eq(b, c)
+  @debug.assert_eq(b, c)
 
   let b2 = mpi_matrix_mul(b, b, prec=53)
   let c2 = mpi_matrix_mul(c, c, prec=53)
-  assert_eq(b2, c2)
+  @debug.assert_eq(b2, c2)
 
   let b00 = b2.get(0, 0)
   let c00 = c2.get(0, 0)

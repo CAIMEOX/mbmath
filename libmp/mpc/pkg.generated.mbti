@@ -10,83 +10,83 @@ import {
 // Values
 pub fn from_parts(@mpf.RawMpf, @mpf.RawMpf) -> RawMpc
 
-pub fn mpc_abs(RawMpc, Int, @mpf.RoundMode) -> @mpf.RawMpf
+pub fn mpc_abs(RawMpc, Int, @mpf.RoundMode) -> @mpf.RawMpf raise MpcError
 
-pub fn mpc_acos(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_acos(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_acosh(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_acosh(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
 pub fn mpc_add(RawMpc, RawMpc, Int, @mpf.RoundMode) -> RawMpc
 
 pub fn mpc_add_mpf(RawMpc, @mpf.RawMpf, Int, @mpf.RoundMode) -> RawMpc
 
-pub fn mpc_agm(RawMpc, RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_agm(RawMpc, RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_agm1(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_agm1(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_altzeta(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_altzeta(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_arg(RawMpc, Int, @mpf.RoundMode) -> @mpf.RawMpf
+pub fn mpc_arg(RawMpc, Int, @mpf.RoundMode) -> @mpf.RawMpf raise MpcError
 
-pub fn mpc_asin(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_asin(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_asinh(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_asinh(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_atan(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_atan(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_atanh(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_atanh(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_besseljn(Int, RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_besseljn(Int, RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_cbrt(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_cbrt(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
 pub fn mpc_ceil(RawMpc, Int, @mpf.RoundMode) -> RawMpc
 
-pub fn mpc_ci(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_ci(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_ci_si_taylor(@mpf.RawMpf, @mpf.RawMpf, Int, which? : Int) -> RawMpc
+pub fn mpc_ci_si_taylor(@mpf.RawMpf, @mpf.RawMpf, Int, which? : Int) -> RawMpc raise MpcError
 
 pub fn mpc_conjugate(RawMpc, Int, @mpf.RoundMode) -> RawMpc
 
-pub fn mpc_cos(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_cos(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_cos_pi(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_cos_pi(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_cos_sin(RawMpc, Int, @mpf.RoundMode) -> (RawMpc, RawMpc)
+pub fn mpc_cos_sin(RawMpc, Int, @mpf.RoundMode) -> (RawMpc, RawMpc) raise MpcError
 
-pub fn mpc_cos_sin_pi(RawMpc, Int, @mpf.RoundMode) -> (RawMpc, RawMpc)
+pub fn mpc_cos_sin_pi(RawMpc, Int, @mpf.RoundMode) -> (RawMpc, RawMpc) raise MpcError
 
-pub fn mpc_cosh(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_cosh(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_div(RawMpc, RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_div(RawMpc, RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_div_mpf(RawMpc, @mpf.RawMpf, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_div_mpf(RawMpc, @mpf.RawMpf, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_e1(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_e1(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
 pub fn mpc_ei(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_ellipe(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_ellipe(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_ellipk(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_ellipk(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_exp(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_exp(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_expj(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_expj(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_expjpi(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_expjpi(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_factorial(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_factorial(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_fibonacci(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_fibonacci(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
 pub fn mpc_floor(RawMpc, Int, @mpf.RoundMode) -> RawMpc
 
 pub fn mpc_frac(RawMpc, Int, @mpf.RoundMode) -> RawMpc
 
-pub fn mpc_gamma(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_gamma(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_harmonic(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_harmonic(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
 pub fn mpc_hash(RawMpc) -> Int
 
@@ -96,13 +96,13 @@ pub fn mpc_is_infnan(RawMpc) -> Bool
 
 pub fn mpc_is_nonzero(RawMpc) -> Bool
 
-pub fn mpc_ln(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_ln(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
 pub fn mpc_log(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_loggamma(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_loggamma(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_mpf_div(@mpf.RawMpf, RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_mpf_div(@mpf.RawMpf, RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
 pub fn mpc_mpf_sub(@mpf.RawMpf, RawMpc, Int, @mpf.RoundMode) -> RawMpc
 
@@ -116,37 +116,37 @@ pub fn mpc_neg(RawMpc, Int, @mpf.RoundMode) -> RawMpc
 
 pub fn mpc_nint(RawMpc, Int, @mpf.RoundMode) -> RawMpc
 
-pub fn mpc_nthroot(RawMpc, Int, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_nthroot(RawMpc, Int, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_nthroot_fixed(@bigint.BigInt, @bigint.BigInt, Int, Int) -> (@bigint.BigInt, @bigint.BigInt)
+pub fn mpc_nthroot_fixed(@bigint.BigInt, @bigint.BigInt, Int, Int) -> (@bigint.BigInt, @bigint.BigInt) raise MpcError
 
 pub fn mpc_pos(RawMpc, Int, @mpf.RoundMode) -> RawMpc
 
 pub fn mpc_pow(RawMpc, RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_pow_int(RawMpc, Int, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_pow_int(RawMpc, Int, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_pow_mpf(RawMpc, @mpf.RawMpf, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_pow_mpf(RawMpc, @mpf.RawMpf, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
 pub fn mpc_psi(Int, RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_psi0(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_psi0(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_reciprocal(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_reciprocal(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_rgamma(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_rgamma(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
 pub fn mpc_shift(RawMpc, Int) -> RawMpc
 
-pub fn mpc_si(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_si(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_sin(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_sin(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_sin_pi(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_sin_pi(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_sinh(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_sinh(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_sqrt(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_sqrt(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
 pub fn mpc_square(RawMpc, Int, @mpf.RoundMode) -> RawMpc
 
@@ -154,17 +154,17 @@ pub fn mpc_sub(RawMpc, RawMpc, Int, @mpf.RoundMode) -> RawMpc
 
 pub fn mpc_sub_mpf(RawMpc, @mpf.RawMpf, Int, @mpf.RoundMode) -> RawMpc
 
-pub fn mpc_tan(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_tan(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_tanh(RawMpc, Int, @mpf.RoundMode) -> RawMpc
+pub fn mpc_tanh(RawMpc, Int, @mpf.RoundMode) -> RawMpc raise MpcError
 
-pub fn mpc_to_complex(RawMpc, dps? : Int) -> (String, String)
+pub fn mpc_to_complex(RawMpc, dps? : Int) -> (String, String) raise MpcError
 
-pub fn mpc_to_str(RawMpc, dps? : Int) -> String
+pub fn mpc_to_str(RawMpc, dps? : Int) -> String raise MpcError
 
-pub fn mpc_zeta(RawMpc, Int, @mpf.RoundMode, alt? : Bool) -> RawMpc
+pub fn mpc_zeta(RawMpc, Int, @mpf.RoundMode, alt? : Bool) -> RawMpc raise MpcError
 
-pub fn mpc_zetasum(RawMpc, Int, @mpf.RoundMode, start? : Int, terms? : Int) -> RawMpc
+pub fn mpc_zetasum(RawMpc, Int, @mpf.RoundMode, start? : Int, terms? : Int) -> RawMpc raise MpcError
 
 pub fn one() -> RawMpc
 
@@ -176,14 +176,12 @@ pub(all) suberror MpcError {
   DomainError(String)
   PoleError(String)
 } derive(Eq, @debug.Debug)
-pub impl Show for MpcError
 
 // Types and methods
 pub struct RawMpc {
   real : @mpf.RawMpf
   imag : @mpf.RawMpf
 } derive(Eq, @debug.Debug)
-pub impl Show for RawMpc
 
 // Type aliases
 

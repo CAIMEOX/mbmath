@@ -80,7 +80,7 @@ test "ctx e1 real/complex semantics" {
     "0.048900510",
     "1e-9",
   )
-  assert_eq(pos.imag, @mpf.fzero)
+  @debug.assert_eq(pos.imag, @mpf.fzero)
   let neg = ctx.e1(ctx.make_float("-2"))
   assert_text_close_to_str_mp(
     @mpf.to_str_opts(neg.real, dps=8),
@@ -218,7 +218,7 @@ test "ctx complex api and structured errors" {
     "0.693147180",
     "1e-9",
   )
-  assert_eq(zeta_alt_one.imag, @mpf.fzero)
+  @debug.assert_eq(zeta_alt_one.imag, @mpf.fzero)
 }
 
 ///|

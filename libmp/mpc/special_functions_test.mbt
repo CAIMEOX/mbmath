@@ -97,13 +97,13 @@ fn assert_mpc_close_to_str(
 ///|
 fn assert_pos_inf(x : @mpf.RawMpf) -> Unit raise {
   assert_true(@mpf.is_inf(x))
-  assert_eq(x.sign, 0)
+  @debug.assert_eq(x.sign, 0)
 }
 
 ///|
 fn assert_neg_inf(x : @mpf.RawMpf) -> Unit raise {
   assert_true(@mpf.is_inf(x))
-  assert_eq(x.sign, 1)
+  @debug.assert_eq(x.sign, 1)
 }
 
 ///|
@@ -335,14 +335,14 @@ test "fp tanh special inf/nan subset from mpmath test_fp" {
   let pn = mpc_tanh(from_parts(@mpf.finf, @mpf.fninf), 120, @mpf.round_nearest)
   let np = mpc_tanh(from_parts(@mpf.fninf, @mpf.finf), 120, @mpf.round_nearest)
   let nn = mpc_tanh(from_parts(@mpf.fninf, @mpf.fninf), 120, @mpf.round_nearest)
-  assert_eq(pp.real, @mpf.fone)
-  assert_eq(pn.real, @mpf.fone)
-  assert_eq(np.real, @mpf.from_int(-1))
-  assert_eq(nn.real, @mpf.from_int(-1))
-  assert_eq(pp.imag, @mpf.fzero)
-  assert_eq(pn.imag, @mpf.fzero)
-  assert_eq(np.imag, @mpf.fzero)
-  assert_eq(nn.imag, @mpf.fzero)
+  @debug.assert_eq(pp.real, @mpf.fone)
+  @debug.assert_eq(pn.real, @mpf.fone)
+  @debug.assert_eq(np.real, @mpf.from_int(-1))
+  @debug.assert_eq(nn.real, @mpf.from_int(-1))
+  @debug.assert_eq(pp.imag, @mpf.fzero)
+  @debug.assert_eq(pn.imag, @mpf.fzero)
+  @debug.assert_eq(np.imag, @mpf.fzero)
+  @debug.assert_eq(nn.imag, @mpf.fzero)
   let p2 = mpc_tanh(
     from_parts(@mpf.finf, @mpf.from_int(2)),
     120,
@@ -353,16 +353,16 @@ test "fp tanh special inf/nan subset from mpmath test_fp" {
     120,
     @mpf.round_nearest,
   )
-  assert_eq(p2.real, @mpf.fone)
-  assert_eq(n2.real, @mpf.from_int(-1))
-  assert_eq(p2.imag, @mpf.fzero)
-  assert_eq(n2.imag, @mpf.fzero)
+  @debug.assert_eq(p2.real, @mpf.fone)
+  @debug.assert_eq(n2.real, @mpf.from_int(-1))
+  @debug.assert_eq(p2.imag, @mpf.fzero)
+  @debug.assert_eq(n2.imag, @mpf.fzero)
   let zminf = mpc_tanh(
     from_parts(@mpf.fzero, @mpf.fninf),
     120,
     @mpf.round_nearest,
   )
-  assert_eq(zminf.real, @mpf.fzero)
+  @debug.assert_eq(zminf.real, @mpf.fzero)
   assert_true(@mpf.is_nan(zminf.imag))
   let fminf = mpc_tanh(
     from_parts(@mpf.from_int(2), @mpf.fninf),
@@ -377,10 +377,10 @@ test "fp tanh special inf/nan subset from mpmath test_fp" {
     120,
     @mpf.round_nearest,
   )
-  assert_eq(pnan.real, @mpf.fone)
-  assert_eq(nnan.real, @mpf.from_int(-1))
-  assert_eq(pnan.imag, @mpf.fzero)
-  assert_eq(nnan.imag, @mpf.fzero)
+  @debug.assert_eq(pnan.real, @mpf.fone)
+  @debug.assert_eq(nnan.real, @mpf.from_int(-1))
+  @debug.assert_eq(pnan.imag, @mpf.fzero)
+  @debug.assert_eq(nnan.imag, @mpf.fzero)
 }
 
 ///|
@@ -389,14 +389,14 @@ test "fp tan special inf/nan subset from mpmath test_fp" {
   let pn = mpc_tan(from_parts(@mpf.finf, @mpf.fninf), 120, @mpf.round_nearest)
   let np = mpc_tan(from_parts(@mpf.fninf, @mpf.finf), 120, @mpf.round_nearest)
   let nn = mpc_tan(from_parts(@mpf.fninf, @mpf.fninf), 120, @mpf.round_nearest)
-  assert_eq(pp.real, @mpf.fzero)
-  assert_eq(pn.real, @mpf.fzero)
-  assert_eq(np.real, @mpf.fzero)
-  assert_eq(nn.real, @mpf.fzero)
-  assert_eq(pp.imag, @mpf.fone)
-  assert_eq(np.imag, @mpf.fone)
-  assert_eq(pn.imag, @mpf.from_int(-1))
-  assert_eq(nn.imag, @mpf.from_int(-1))
+  @debug.assert_eq(pp.real, @mpf.fzero)
+  @debug.assert_eq(pn.real, @mpf.fzero)
+  @debug.assert_eq(np.real, @mpf.fzero)
+  @debug.assert_eq(nn.real, @mpf.fzero)
+  @debug.assert_eq(pp.imag, @mpf.fone)
+  @debug.assert_eq(np.imag, @mpf.fone)
+  @debug.assert_eq(pn.imag, @mpf.from_int(-1))
+  @debug.assert_eq(nn.imag, @mpf.from_int(-1))
   let p = mpc_tan(
     from_parts(@mpf.from_int(2), @mpf.finf),
     120,
@@ -407,17 +407,17 @@ test "fp tan special inf/nan subset from mpmath test_fp" {
     120,
     @mpf.round_nearest,
   )
-  assert_eq(p.real, @mpf.fzero)
-  assert_eq(n.real, @mpf.fzero)
-  assert_eq(p.imag, @mpf.fone)
-  assert_eq(n.imag, @mpf.from_int(-1))
+  @debug.assert_eq(p.real, @mpf.fzero)
+  @debug.assert_eq(n.real, @mpf.fzero)
+  @debug.assert_eq(p.imag, @mpf.fone)
+  @debug.assert_eq(n.imag, @mpf.from_int(-1))
   let inf0 = mpc_tan(
     from_parts(@mpf.fninf, @mpf.fzero),
     120,
     @mpf.round_nearest,
   )
   assert_true(@mpf.is_nan(inf0.real))
-  assert_eq(inf0.imag, @mpf.fzero)
+  @debug.assert_eq(inf0.imag, @mpf.fzero)
   let inf2 = mpc_tan(
     from_parts(@mpf.fninf, @mpf.from_int(2)),
     120,
@@ -427,10 +427,10 @@ test "fp tan special inf/nan subset from mpmath test_fp" {
   assert_true(@mpf.is_nan(inf2.imag))
   let nanp = mpc_tan(from_parts(@mpf.fnan, @mpf.finf), 120, @mpf.round_nearest)
   let nann = mpc_tan(from_parts(@mpf.fnan, @mpf.fninf), 120, @mpf.round_nearest)
-  assert_eq(nanp.real, @mpf.fzero)
-  assert_eq(nann.real, @mpf.fzero)
-  assert_eq(nanp.imag, @mpf.fone)
-  assert_eq(nann.imag, @mpf.from_int(-1))
+  @debug.assert_eq(nanp.real, @mpf.fzero)
+  @debug.assert_eq(nann.real, @mpf.fzero)
+  @debug.assert_eq(nanp.imag, @mpf.fone)
+  @debug.assert_eq(nann.imag, @mpf.from_int(-1))
 }
 
 ///|

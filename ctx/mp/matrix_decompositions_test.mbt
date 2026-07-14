@@ -157,7 +157,7 @@ test "eig/eighe/svd subset from mpmath test_eigen and test_linalg" {
     [ctx.make_int(3), ctx.make_int(4)],
   ])
   let (vals, vecs) = ctx.eig(a2, max_steps=1800)
-  assert_eq(vals.length(), 2)
+  @debug.assert_eq(vals.length(), 2)
   let lam_a = vals[0]
   let lam_b = vals[1]
   let v0 = column_matrix_for_test(ctx, extract_test_column(vecs, 0))
@@ -191,7 +191,7 @@ test "eig/eighe/svd subset from mpmath test_eigen and test_linalg" {
     [ctx.make_int(-2), ctx.make_int(6)],
   ])
   let (u, s, v) = ctx.svd(a)
-  assert_eq(s.length(), 2)
+  @debug.assert_eq(s.length(), 2)
   assert_true(@mpf.mpf_ge(s[0], s[1]))
   assert_true(@mpf.mpf_ge(s[1], @mpf.fzero))
   let smat = diagonal_matrix_for_test(ctx, s)

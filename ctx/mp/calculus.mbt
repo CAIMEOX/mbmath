@@ -1,5 +1,5 @@
 ///|
-fn p2_copy_mpf_array(xs : ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] {
+fn copy_mpf_array(xs : ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] {
   let out : Array[@mpf.RawMpf] = []
   for x in xs {
     out.push(x)
@@ -8,7 +8,7 @@ fn p2_copy_mpf_array(xs : ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] {
 }
 
 ///|
-fn p2_reverse_mpf(xs : ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] {
+fn reverse_mpf_array(xs : ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] {
   let out : Array[@mpf.RawMpf] = []
   let mut i = xs.length() - 1
   while i >= 0 {
@@ -19,19 +19,21 @@ fn p2_reverse_mpf(xs : ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] {
 }
 
 ///|
-fn p2_to_asc_coeffs(
+fn ascending_coefficients(
   coeffs : ArrayView[@mpf.RawMpf],
   asc : Bool,
 ) -> Array[@mpf.RawMpf] {
   if asc {
-    p2_copy_mpf_array(coeffs)
+    copy_mpf_array(coeffs)
   } else {
-    p2_reverse_mpf(coeffs)
+    reverse_mpf_array(coeffs)
   }
 }
 
 ///|
-fn p2_trim_poly_asc(coeffs : ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] {
+fn trim_ascending_polynomial(
+  coeffs : ArrayView[@mpf.RawMpf],
+) -> Array[@mpf.RawMpf] {
   if coeffs.length() == 0 {
     return []
   }
@@ -47,7 +49,7 @@ fn p2_trim_poly_asc(coeffs : ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] {
 }
 
 ///|
-fn p2_poly_eval_horner_asc(
+fn evaluate_polynomial_ascending(
   coeffs : ArrayView[@mpf.RawMpf],
   x : @mpf.RawMpf,
   prec : Int,
@@ -70,7 +72,7 @@ fn p2_poly_eval_horner_asc(
 }
 
 ///|
-fn p2_poly_eval_horner_with_deriv_asc(
+fn evaluate_polynomial_and_derivative_ascending(
   coeffs : ArrayView[@mpf.RawMpf],
   x : @mpf.RawMpf,
   prec : Int,
@@ -110,10 +112,10 @@ pub fn MPContext::polyval(
   x : @mpf.RawMpf,
   asc? : Bool = true,
 ) -> @mpf.RawMpf {
-  let p = self.p2_work_prec()
-  let c = p2_to_asc_coeffs(coeffs, asc)
+  let p = self.working_precision()
+  let c = ascending_coefficients(coeffs, asc)
   @mpf.mpf_pos(
-    p2_poly_eval_horner_asc(c, x, p),
+    evaluate_polynomial_ascending(c, x, p),
     self.precision(),
     self.round_mode(),
   )
@@ -127,9 +129,9 @@ pub fn MPContext::polyval_with_derivative(
   x : @mpf.RawMpf,
   asc? : Bool = true,
 ) -> (@mpf.RawMpf, @mpf.RawMpf) {
-  let p = self.p2_work_prec()
-  let c = p2_to_asc_coeffs(coeffs, asc)
-  let (y, dy) = p2_poly_eval_horner_with_deriv_asc(c, x, p)
+  let p = self.working_precision()
+  let c = ascending_coefficients(coeffs, asc)
+  let (y, dy) = evaluate_polynomial_and_derivative_ascending(c, x, p)
   (
     @mpf.mpf_pos(y, self.precision(), self.round_mode()),
     @mpf.mpf_pos(dy, self.precision(), self.round_mode()),
@@ -137,12 +139,12 @@ pub fn MPContext::polyval_with_derivative(
 }
 
 ///|
-fn p2_aitken(
+fn aitken_delta_squared(
   x0 : @mpf.RawMpf,
   x1 : @mpf.RawMpf,
   x2 : @mpf.RawMpf,
   prec : Int,
-) -> (@mpf.RawMpf, Bool) {
+) -> (@mpf.RawMpf, Bool) raise MPError {
   let d1 = @mpf.mpf_sub(x1, x0, prec, @mpf.round_nearest)
   let d2 = @mpf.mpf_sub(x2, x1, prec, @mpf.round_nearest)
   let den = @mpf.mpf_sub(d2, d1, prec, @mpf.round_nearest)
@@ -151,29 +153,29 @@ fn p2_aitken(
   }
   let num = @mpf.mpf_mul(d2, d2, prec, @mpf.round_nearest)
   let corr = @mpf.mpf_div(num, den, prec, @mpf.round_nearest) catch {
-    _ => return (x2, false)
+    err => raise from_mpf_error(err)
   }
   (@mpf.mpf_sub(x2, corr, prec, @mpf.round_nearest), true)
 }
 
 ///|
-fn MPContext::p2_limit_tol(self : MPContext, prec : Int) -> @mpf.RawMpf {
+fn MPContext::limit_tolerance(self : MPContext, prec : Int) -> @mpf.RawMpf {
   ignore(self)
   let shift = if prec > 200 { -56 } else if prec > 120 { -44 } else { -36 }
   @mpf.from_man_exp(1N, shift, 0, @mpf.round_down)
 }
 
 ///|
-fn MPContext::p2_limit_at_finite(
+fn MPContext::evaluate_finite_limit(
   self : MPContext,
-  f : UnaryMpfFn,
+  f : (@mpf.RawMpf) -> @mpf.RawMpf raise?,
   x : @mpf.RawMpf,
   direction : Int,
   max_steps : Int,
   prec : Int,
-) -> @mpf.RawMpf raise MPError {
-  let tol = self.p2_limit_tol(prec)
-  let mut h = self.p2_diff_step(x, 1, prec)
+) -> @mpf.RawMpf raise {
+  let tol = self.limit_tolerance(prec)
+  let mut h = self.differentiation_step(x, 1, prec)
   if @mpf.is_zero(h) {
     h = @mpf.from_man_exp(1N, -12, 0, @mpf.round_down)
   }
@@ -193,11 +195,16 @@ fn MPContext::p2_limit_at_finite(
         @mpf.round_nearest,
       )
     }
-    p2_assert_finite("limit", y)
+    require_finite_value("limit", y)
     seq.push(y)
     if seq.length() >= 3 {
       let n = seq.length()
-      let (acc, ok) = p2_aitken(seq[n - 3], seq[n - 2], seq[n - 1], prec)
+      let (acc, ok) = aitken_delta_squared(
+        seq[n - 3],
+        seq[n - 2],
+        seq[n - 1],
+        prec,
+      )
       if ok {
         let err = @mpf.mpf_abs(
           @mpf.mpf_sub(acc, seq[n - 1], prec, @mpf.round_nearest),
@@ -241,19 +248,19 @@ fn MPContext::p2_limit_at_finite(
 /// Supports finite points and `x = +/-inf`.
 pub fn MPContext::limit(
   self : MPContext,
-  f : UnaryMpfFn,
+  f : (@mpf.RawMpf) -> @mpf.RawMpf raise?,
   x : @mpf.RawMpf,
   direction? : Int = 0,
   max_steps? : Int = 32,
-) -> @mpf.RawMpf raise MPError {
-  let p = self.p2_work_prec()
+) -> @mpf.RawMpf raise {
+  let p = self.working_precision()
   if !@mpf.is_inf(x) {
-    return self.p2_limit_at_finite(f, x, direction, max_steps, p)
+    return self.evaluate_finite_limit(f, x, direction, max_steps, p)
   }
   let dir = if x.sign == 0 { 1 } else { -1 }
   let g = (u : @mpf.RawMpf) => {
     let inv = @mpf.mpf_div(@mpf.fone, u, p, @mpf.round_nearest) catch {
-      _ => @mpf.fnan
+      err => raise from_mpf_error(err)
     }
     let arg = if dir > 0 {
       inv
@@ -262,7 +269,7 @@ pub fn MPContext::limit(
     }
     f(arg)
   }
-  self.p2_limit_at_finite(g, @mpf.fzero, 1, max_steps, p)
+  self.evaluate_finite_limit(g, @mpf.fzero, 1, max_steps, p)
 }
 
 ///|
@@ -272,15 +279,15 @@ pub fn MPContext::limit(
 /// `asc`.
 pub fn MPContext::chebyfit(
   self : MPContext,
-  f : UnaryMpfFn,
+  f : (@mpf.RawMpf) -> @mpf.RawMpf raise?,
   interval : (@mpf.RawMpf, @mpf.RawMpf),
   n : Int,
   asc? : Bool = true,
-) -> (Array[@mpf.RawMpf], @mpf.RawMpf) raise MPError {
+) -> (Array[@mpf.RawMpf], @mpf.RawMpf) raise {
   if n < 1 {
     raise ValueError("chebyfit: n must be positive")
   }
-  let p = self.p2_work_prec() + 32
+  let p = self.working_precision() + 32
   let (a, b) = interval
   let mid = @mpf.mpf_mul(
     @mpf.mpf_add(a, b, p, @mpf.round_nearest),
@@ -294,7 +301,7 @@ pub fn MPContext::chebyfit(
     p,
     @mpf.round_nearest,
   )
-  let pi = @libelefun.mpf_pi(p, @mpf.round_nearest)
+  let pi = checked_mpf_pi(p, @mpf.round_nearest)
   let xs : Array[@mpf.RawMpf] = []
   let ys : Array[@mpf.RawMpf] = []
   for k in 0..<n {
@@ -306,7 +313,7 @@ pub fn MPContext::chebyfit(
     ) catch {
       err => raise from_mpf_error(err)
     }
-    let t = @libelefun.mpf_cos(theta, p, @mpf.round_nearest)
+    let t = checked_mpf_cos(theta, p, @mpf.round_nearest)
     let xk = @mpf.mpf_add(
       mid,
       @mpf.mpf_mul(half, t, p, @mpf.round_nearest),
@@ -346,7 +353,7 @@ pub fn MPContext::chebyfit(
       p,
       @mpf.round_nearest,
     )
-    let py = p2_poly_eval_horner_asc(coeffs_asc, xi, p)
+    let py = evaluate_polynomial_ascending(coeffs_asc, xi, p)
     let fy = f(xi)
     let d = @mpf.mpf_abs(
       @mpf.mpf_sub(py, fy, p, @mpf.round_nearest),
@@ -357,12 +364,12 @@ pub fn MPContext::chebyfit(
       err = d
     }
   }
-  let coeffs = if asc { coeffs_asc } else { p2_reverse_mpf(coeffs_asc) }
+  let coeffs = if asc { coeffs_asc } else { reverse_mpf_array(coeffs_asc) }
   (coeffs, @mpf.mpf_pos(err, self.precision(), self.round_mode()))
 }
 
 ///|
-fn p2_poly_eval_mpc_asc(
+fn evaluate_complex_polynomial_ascending(
   coeffs : ArrayView[@mpf.RawMpf],
   z : @mpc.RawMpc,
   prec : Int,
@@ -385,7 +392,7 @@ fn p2_poly_eval_mpc_asc(
 }
 
 ///|
-fn p2_polyroot_sort(roots : Array[@mpc.RawMpc], prec : Int) -> Unit {
+fn sort_polynomial_roots(roots : Array[@mpc.RawMpc], prec : Int) -> Unit {
   let n = roots.length()
   if n < 2 {
     return
@@ -412,13 +419,13 @@ fn p2_polyroot_sort(roots : Array[@mpc.RawMpc], prec : Int) -> Unit {
 }
 
 ///|
-fn p2_polyroots_tol(prec : Int) -> @mpf.RawMpf {
+fn polynomial_root_tolerance(prec : Int) -> @mpf.RawMpf {
   let shift = if prec > 200 { -56 } else if prec > 120 { -44 } else { -34 }
   @mpf.from_man_exp(1N, shift, 0, @mpf.round_down)
 }
 
 ///|
-fn p2_poly_legendre_like(c : ArrayView[@mpf.RawMpf]) -> Bool {
+fn is_legendre_polynomial(c : ArrayView[@mpf.RawMpf]) -> Bool {
   let n = c.length() - 1
   if n < 8 || (n & 1) == 1 {
     return false
@@ -434,7 +441,7 @@ fn p2_poly_legendre_like(c : ArrayView[@mpf.RawMpf]) -> Bool {
 }
 
 ///|
-fn MPContext::p2_polyroots_legendre_like(
+fn MPContext::solve_legendre_polynomial_roots(
   self : MPContext,
   c : ArrayView[@mpf.RawMpf],
   p : Int,
@@ -445,8 +452,8 @@ fn MPContext::p2_polyroots_legendre_like(
   for i in 1..<=n {
     d.push(@mpf.mpf_mul_int(c[i], i, p, @mpf.round_nearest))
   }
-  let pi = @libelefun.mpf_pi(p, @mpf.round_nearest)
-  let tol = p2_polyroots_tol(p)
+  let pi = checked_mpf_pi(p, @mpf.round_nearest)
+  let tol = polynomial_root_tolerance(p)
   let roots : Array[@mpf.RawMpf] = []
   for k in 1..<=n {
     let theta = @mpf.mpf_div(
@@ -457,10 +464,10 @@ fn MPContext::p2_polyroots_legendre_like(
     ) catch {
       err => raise from_mpf_error(err)
     }
-    let mut x = @libelefun.mpf_cos(theta, p, @mpf.round_nearest)
+    let mut x = checked_mpf_cos(theta, p, @mpf.round_nearest)
     for _ in 0..<48 {
-      let px = p2_poly_eval_horner_asc(c, x, p)
-      let dpx = p2_poly_eval_horner_asc(d, x, p)
+      let px = evaluate_polynomial_ascending(c, x, p)
+      let dpx = evaluate_polynomial_ascending(d, x, p)
       if @mpf.is_zero(dpx) {
         break
       }
@@ -507,7 +514,7 @@ fn MPContext::p2_polyroots_legendre_like(
 }
 
 ///|
-fn MPContext::p2_polyroots_companion_real(
+fn MPContext::solve_companion_matrix_roots(
   self : MPContext,
   c : ArrayView[@mpf.RawMpf],
   lead : @mpf.RawMpf,
@@ -547,7 +554,7 @@ fn MPContext::p2_polyroots_companion_real(
 }
 
 ///|
-fn MPContext::p2_polyroots_core(
+fn MPContext::solve_polynomial_roots(
   self : MPContext,
   coeffs : ArrayView[@mpf.RawMpf],
   asc : Bool,
@@ -557,8 +564,8 @@ fn MPContext::p2_polyroots_core(
   roots_init : ArrayView[@mpf.RawMpf],
   use_init : Bool,
 ) -> (Array[@mpc.RawMpc], @mpf.RawMpf) raise MPError {
-  let c0 = p2_to_asc_coeffs(coeffs, asc)
-  let c = p2_trim_poly_asc(c0)
+  let c0 = ascending_coefficients(coeffs, asc)
+  let c = trim_ascending_polynomial(c0)
   if c.length() == 0 {
     raise ValueError("polyroots: empty coefficient list")
   }
@@ -569,7 +576,7 @@ fn MPContext::p2_polyroots_core(
     return ([], @mpf.fzero)
   }
   let n = c.length() - 1
-  let p0 = self.p2_work_prec() + extraprec
+  let p0 = self.working_precision() + extraprec
   let p = if p0 > 512 { 512 } else { p0 }
   let lead = c[n]
   if @mpf.is_zero(lead) {
@@ -697,7 +704,7 @@ fn MPContext::p2_polyroots_core(
       }
     }
     radius = @mpf.mpf_add(radius, @mpf.fone, p, @mpf.round_nearest)
-    let pi = @libelefun.mpf_pi(p, @mpf.round_nearest)
+    let pi = checked_mpf_pi(p, @mpf.round_nearest)
     for i in roots.length()..<n {
       let theta = @mpf.mpf_div(
         @mpf.mpf_mul_int(pi, 2 * i, p, @mpf.round_nearest),
@@ -709,13 +716,13 @@ fn MPContext::p2_polyroots_core(
       }
       let re = @mpf.mpf_mul(
         radius,
-        @libelefun.mpf_cos(theta, p, @mpf.round_nearest),
+        checked_mpf_cos(theta, p, @mpf.round_nearest),
         p,
         @mpf.round_nearest,
       )
       let im = @mpf.mpf_mul(
         radius,
-        @libelefun.mpf_sin(theta, p, @mpf.round_nearest),
+        checked_mpf_sin(theta, p, @mpf.round_nearest),
         p,
         @mpf.round_nearest,
       )
@@ -723,14 +730,14 @@ fn MPContext::p2_polyroots_core(
     }
   }
 
-  let tol = p2_polyroots_tol(p)
+  let tol = polynomial_root_tolerance(p)
   let sep_tol = @mpf.from_man_exp(1N, -20, 0, @mpf.round_down)
   let mut max_update = @mpf.finf
   for _ in 0..<max_steps {
     max_update = @mpf.fzero
     for i in 0..<n {
       let zi = roots[i]
-      let pz = p2_poly_eval_mpc_asc(c, zi, p)
+      let pz = evaluate_complex_polynomial_ascending(c, zi, p)
       let mut den = @mpc.one()
       for j in 0..<n {
         if i == j {
@@ -743,13 +750,13 @@ fn MPContext::p2_polyroots_core(
           @mpf.round_nearest,
         )
       }
-      let den_abs = @mpc.mpc_abs(den, p, @mpf.round_nearest)
+      let den_abs = checked_mpc_abs(den, p, @mpf.round_nearest)
       if @mpf.mpf_le(den_abs, sep_tol) {
         continue
       }
-      let delta = @mpc.mpc_div(pz, den, p, @mpf.round_nearest)
+      let delta = checked_mpc_div(pz, den, p, @mpf.round_nearest)
       roots[i] = @mpc.mpc_sub(zi, delta, p, @mpf.round_nearest)
-      let du = @mpc.mpc_abs(delta, p, @mpf.round_nearest)
+      let du = checked_mpc_abs(delta, p, @mpf.round_nearest)
       if @mpf.mpf_gt(du, max_update) {
         max_update = du
       }
@@ -760,15 +767,15 @@ fn MPContext::p2_polyroots_core(
   }
   if @mpf.mpf_gt(max_update, tol) {
     if max_steps >= 10 {
-      let fallback = if p2_poly_legendre_like(c) {
-        self.p2_polyroots_legendre_like(c, p)
+      let fallback = if is_legendre_polynomial(c) {
+        self.solve_legendre_polynomial_roots(c, p)
       } else {
-        self.p2_polyroots_companion_real(c, lead, p)
+        self.solve_companion_matrix_roots(c, lead, p)
       }
       let mut err_fb = @mpf.fzero
       for r in fallback {
-        let rz = p2_poly_eval_mpc_asc(c, r, p)
-        let re = @mpc.mpc_abs(rz, p, @mpf.round_nearest)
+        let rz = evaluate_complex_polynomial_ascending(c, r, p)
+        let re = checked_mpc_abs(rz, p, @mpf.round_nearest)
         if @mpf.mpf_gt(re, err_fb) {
           err_fb = re
         }
@@ -793,12 +800,12 @@ fn MPContext::p2_polyroots_core(
       }
     }
   }
-  p2_polyroot_sort(roots, p)
+  sort_polynomial_roots(roots, p)
 
   let mut err = @mpf.fzero
   for r in roots {
-    let rz = p2_poly_eval_mpc_asc(c, r, p)
-    let re = @mpc.mpc_abs(rz, p, @mpf.round_nearest)
+    let rz = evaluate_complex_polynomial_ascending(c, r, p)
+    let re = checked_mpc_abs(rz, p, @mpf.round_nearest)
     if @mpf.mpf_gt(re, err) {
       err = re
     }
@@ -821,7 +828,7 @@ pub fn MPContext::polyroots(
   cleanup? : Bool = true,
   extraprec? : Int = 0,
 ) -> Array[@mpc.RawMpc] raise MPError {
-  let (r, _) = self.p2_polyroots_core(
+  let (r, _) = self.solve_polynomial_roots(
     coeffs,
     asc,
     max_steps,
@@ -844,7 +851,7 @@ pub fn MPContext::polyroots_with_init_error(
   cleanup? : Bool = true,
   extraprec? : Int = 0,
 ) -> (Array[@mpc.RawMpc], @mpf.RawMpf) raise MPError {
-  self.p2_polyroots_core(
+  self.solve_polynomial_roots(
     coeffs, asc, max_steps, cleanup, extraprec, roots_init, true,
   )
 }
@@ -858,7 +865,15 @@ pub fn MPContext::polyroots_error(
   cleanup? : Bool = true,
   extraprec? : Int = 0,
 ) -> (Array[@mpc.RawMpc], @mpf.RawMpf) raise MPError {
-  self.p2_polyroots_core(coeffs, asc, max_steps, cleanup, extraprec, [], false)
+  self.solve_polynomial_roots(
+    coeffs,
+    asc,
+    max_steps,
+    cleanup,
+    extraprec,
+    [],
+    false,
+  )
 }
 
 ///|
@@ -878,7 +893,7 @@ pub fn MPContext::pade(
   if a.length() < m + n + 1 {
     raise ValueError("pade: insufficient series coefficients")
   }
-  let p = self.p2_work_prec() + 16
+  let p = self.working_precision() + 16
   let q : Array[@mpf.RawMpf] = []
   q.push(@mpf.fone)
   if n > 0 {
@@ -924,20 +939,20 @@ pub fn MPContext::pade(
 /// `f(x) ~ c0 + sum_{k>=1}(c[k] cos(k*w*(x-a)) + s[k] sin(k*w*(x-a)))`.
 pub fn MPContext::fourier(
   self : MPContext,
-  f : UnaryMpfFn,
+  f : (@mpf.RawMpf) -> @mpf.RawMpf raise?,
   interval : (@mpf.RawMpf, @mpf.RawMpf),
   n : Int,
-) -> (Array[@mpf.RawMpf], Array[@mpf.RawMpf]) raise MPError {
+) -> (Array[@mpf.RawMpf], Array[@mpf.RawMpf]) raise {
   if n < 0 {
     raise ValueError("fourier: n must be non-negative")
   }
-  let p = self.p2_work_prec()
+  let p = self.working_precision()
   let (a, b) = interval
   let l = @mpf.mpf_sub(b, a, p, @mpf.round_nearest)
   if @mpf.is_zero(l) {
     raise ValueError("fourier: interval length must be non-zero")
   }
-  let pi = @libelefun.mpf_pi(p, @mpf.round_nearest)
+  let pi = checked_mpf_pi(p, @mpf.round_nearest)
   let w = @mpf.mpf_div(
     @mpf.mpf_mul_int(pi, 2, p, @mpf.round_nearest),
     l,
@@ -966,7 +981,7 @@ pub fn MPContext::fourier(
       )
       @mpf.mpf_mul(
         f(x),
-        @libelefun.mpf_cos(arg, p, @mpf.round_nearest),
+        checked_mpf_cos(arg, p, @mpf.round_nearest),
         p,
         @mpf.round_nearest,
       )
@@ -980,7 +995,7 @@ pub fn MPContext::fourier(
       )
       @mpf.mpf_mul(
         f(x),
-        @libelefun.mpf_sin(arg, p, @mpf.round_nearest),
+        checked_mpf_sin(arg, p, @mpf.round_nearest),
         p,
         @mpf.round_nearest,
       )
@@ -1004,7 +1019,7 @@ pub fn MPContext::fourierval(
   interval : (@mpf.RawMpf, @mpf.RawMpf),
   x : @mpf.RawMpf,
 ) -> @mpf.RawMpf raise MPError {
-  let p = self.p2_work_prec()
+  let p = self.working_precision()
   let (c, s) = coeffs
   if c.length() == 0 {
     return @mpf.fzero
@@ -1015,7 +1030,7 @@ pub fn MPContext::fourierval(
     raise ValueError("fourierval: interval length must be non-zero")
   }
   let n = if c.length() < s.length() { c.length() - 1 } else { s.length() - 1 }
-  let pi = @libelefun.mpf_pi(p, @mpf.round_nearest)
+  let pi = checked_mpf_pi(p, @mpf.round_nearest)
   let w = @mpf.mpf_div(
     @mpf.mpf_mul_int(pi, 2, p, @mpf.round_nearest),
     l,
@@ -1037,13 +1052,13 @@ pub fn MPContext::fourierval(
       @mpf.mpf_add(
         @mpf.mpf_mul(
           c[k],
-          @libelefun.mpf_cos(arg, p, @mpf.round_nearest),
+          checked_mpf_cos(arg, p, @mpf.round_nearest),
           p,
           @mpf.round_nearest,
         ),
         @mpf.mpf_mul(
           s[k],
-          @libelefun.mpf_sin(arg, p, @mpf.round_nearest),
+          checked_mpf_sin(arg, p, @mpf.round_nearest),
           p,
           @mpf.round_nearest,
         ),
@@ -1058,7 +1073,7 @@ pub fn MPContext::fourierval(
 }
 
 ///|
-fn p2_maybe_integer(x : @mpf.RawMpf) -> Int? {
+fn exact_integer_value(x : @mpf.RawMpf) -> Int? {
   if !@mpf.is_finite(x) {
     return None
   }
@@ -1087,11 +1102,11 @@ fn p2_maybe_integer(x : @mpf.RawMpf) -> Int? {
 /// Currently supports `a <= 0` (fractional integrals) for finite positive `x`.
 pub fn MPContext::differint(
   self : MPContext,
-  f : UnaryMpfFn,
+  f : (@mpf.RawMpf) -> @mpf.RawMpf raise?,
   x : @mpf.RawMpf,
   a : @mpf.RawMpf,
-) -> @mpf.RawMpf raise MPError {
-  let p = self.p2_work_prec() + 24
+) -> @mpf.RawMpf raise {
+  let p = self.working_precision() + 24
   if @mpf.is_nan(a) || @mpf.is_nan(x) {
     raise ValueError("differint: nan input")
   }
@@ -1099,7 +1114,7 @@ pub fn MPContext::differint(
     return f(x)
   }
   if @mpf.mpf_gt(a, @mpf.fzero) {
-    match p2_maybe_integer(a) {
+    match exact_integer_value(a) {
       Some(n) =>
         if n < 0 {
           raise ValueError("differint: order must be finite real")
@@ -1131,7 +1146,7 @@ pub fn MPContext::differint(
       p,
       @mpf.round_nearest,
     ) catch {
-      _ => @mpf.fnan
+      err => raise from_libelefun_error(err)
     }
     let jac = @mpf.mpf_mul_int(
       @mpf.mpf_mul(x, u, p, @mpf.round_nearest),
@@ -1153,7 +1168,11 @@ pub fn MPContext::differint(
 }
 
 ///|
-fn p2_stehfest_coeff(n : Int, k : Int, prec : Int) -> @mpf.RawMpf raise MPError {
+fn stehfest_coefficient(
+  n : Int,
+  k : Int,
+  prec : Int,
+) -> @mpf.RawMpf raise MPError {
   let nh = n / 2
   let jmin = (k + 1) / 2
   let jmax = if k < nh { k } else { nh }
@@ -1166,7 +1185,7 @@ fn p2_stehfest_coeff(n : Int, k : Int, prec : Int) -> @mpf.RawMpf raise MPError 
       prec,
       @mpf.round_nearest,
     ) catch {
-      _ => raise ValueError("invertlaplace: invalid Stehfest coefficient")
+      err => raise from_libelefun_error(err)
     }
     let f2j = @gammazeta.mpf_factorial(2 * j, prec, @mpf.round_nearest) catch {
       err => raise from_gammazeta_error(err)
@@ -1217,10 +1236,10 @@ fn p2_stehfest_coeff(n : Int, k : Int, prec : Int) -> @mpf.RawMpf raise MPError 
 /// `talbot`, `stehfest`, `dehoog`, `cohen`.
 pub fn MPContext::invertlaplace(
   self : MPContext,
-  fp : UnaryMpfFn,
+  fp : (@mpf.RawMpf) -> @mpf.RawMpf raise?,
   t : @mpf.RawMpf,
   algo? : String = "talbot",
-) -> @mpf.RawMpf raise MPError {
+) -> @mpf.RawMpf raise {
   if !@mpf.is_finite(t) || @mpf.mpf_le(t, @mpf.fzero) {
     raise DomainError("invertlaplace: require finite positive t")
   }
@@ -1232,15 +1251,15 @@ pub fn MPContext::invertlaplace(
     "cohen" => ()
     _ => raise ValueError("invertlaplace: unknown method '\{algo}'")
   }
-  let p = self.p2_work_prec() + 32
+  let p = self.working_precision() + 32
   let n = 14
-  let ln2 = @libelefun.mpf_ln2(p, @mpf.round_nearest)
+  let ln2 = checked_mpf_ln2(p, @mpf.round_nearest)
   let scale = @mpf.mpf_div(ln2, t, p, @mpf.round_nearest) catch {
     err => raise from_mpf_error(err)
   }
   let mut s = @mpf.fzero
   for k in 1..<=n {
-    let vk = p2_stehfest_coeff(n, k, p)
+    let vk = stehfest_coefficient(n, k, p)
     let arg = @mpf.mpf_mul_int(scale, k, p, @mpf.round_nearest)
     s = @mpf.mpf_add(
       s,
@@ -1253,14 +1272,17 @@ pub fn MPContext::invertlaplace(
 }
 
 ///|
-fn p2_matrix_is_square(a : MpfMatrix, name : String) -> Unit raise MPError {
+fn require_square_matrix(a : MpfMatrix, name : String) -> Unit raise MPError {
   if a.rows != a.cols {
     raise ValueError("\{name}: matrix must be square")
   }
 }
 
 ///|
-fn MPContext::p2_matrix_series_tol(self : MPContext, prec : Int) -> @mpf.RawMpf {
+fn MPContext::matrix_series_tolerance(
+  self : MPContext,
+  prec : Int,
+) -> @mpf.RawMpf {
   ignore(self)
   let shift = if prec > 200 { -64 } else if prec > 120 { -52 } else { -40 }
   @mpf.from_man_exp(1N, shift, 0, @mpf.round_down)
@@ -1273,9 +1295,9 @@ pub fn MPContext::expm(
   a : MpfMatrix,
   max_terms? : Int = 180,
 ) -> MpfMatrix raise MPError {
-  p2_matrix_is_square(a, "expm")
-  let p = self.p2_work_prec() + 24
-  let tol = self.p2_matrix_series_tol(p)
+  require_square_matrix(a, "expm")
+  let p = self.working_precision() + 24
+  let tol = self.matrix_series_tolerance(p)
   let mut sum = self.eye(a.rows)
   let mut term = self.eye(a.rows)
   for k in 1..<=max_terms {
@@ -1296,9 +1318,9 @@ pub fn MPContext::cosm(
   a : MpfMatrix,
   max_terms? : Int = 180,
 ) -> MpfMatrix raise MPError {
-  p2_matrix_is_square(a, "cosm")
-  let p = self.p2_work_prec() + 24
-  let tol = self.p2_matrix_series_tol(p)
+  require_square_matrix(a, "cosm")
+  let p = self.working_precision() + 24
+  let tol = self.matrix_series_tolerance(p)
   let a2 = self.matrix_mul(a, a)
   let mut sum = self.eye(a.rows)
   let mut term = self.eye(a.rows)
@@ -1321,9 +1343,9 @@ pub fn MPContext::sinm(
   a : MpfMatrix,
   max_terms? : Int = 180,
 ) -> MpfMatrix raise MPError {
-  p2_matrix_is_square(a, "sinm")
-  let p = self.p2_work_prec() + 24
-  let tol = self.p2_matrix_series_tol(p)
+  require_square_matrix(a, "sinm")
+  let p = self.working_precision() + 24
+  let tol = self.matrix_series_tolerance(p)
   let a2 = self.matrix_mul(a, a)
   let mut sum = self.matrix_copy(a)
   let mut term = self.matrix_copy(a)

@@ -8,92 +8,268 @@ fn work_prec(prec : Int) -> Int {
 }
 
 ///|
-fn complex_nan() -> RawMpc {
-  { real: @mpf.fnan, imag: @mpf.fnan }
+fn from_mpf_error(err : @mpf.MpfError) -> MpcError {
+  match err {
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    DivisionByZero(msg) => PoleError(msg)
+    ParseError(msg) => ValueError(msg)
+    FormatError(msg) => ValueError(msg)
+    UnsupportedError(msg) => ValueError(msg)
+  }
 }
 
 ///|
-// Raw complex operations are total: invalid low-level domains produce NaN.
-// Checked high-level context APIs translate user-domain failures to MPError.
-fn mpf_div_or_nan(
+fn from_libelefun_error(err : @libelefun.LibElefunError) -> MpcError {
+  match err {
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    ComplexResult(msg) => DomainError(msg)
+  }
+}
+
+///|
+fn from_libhyper_error(err : @libhyper.LibHyperError) -> MpcError {
+  match err {
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    PoleError(msg) => PoleError(msg)
+    ComplexResult(msg) => DomainError(msg)
+  }
+}
+
+///|
+fn from_gammazeta_error(err : @gammazeta.GammaZetaError) -> MpcError {
+  match err {
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    PoleError(msg) => PoleError(msg)
+  }
+}
+
+///|
+fn mpf_div_checked(
   x : @mpf.RawMpf,
   y : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise MpcError {
   @mpf.mpf_div(x, y, prec, rnd) catch {
-    _ => @mpf.fnan
+    err => raise from_mpf_error(err)
   }
 }
 
 ///|
-fn mpf_rdiv_int_or_nan(
+fn mpf_rdiv_int_checked(
   n : Int,
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise MpcError {
   @mpf.mpf_rdiv_int(n, x, prec, rnd) catch {
-    _ => @mpf.fnan
+    err => raise from_mpf_error(err)
   }
 }
 
 ///|
-fn mpf_sqrt_or_nan(
+fn mpf_sqrt_checked(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise MpcError {
   @mpf.mpf_sqrt(x, prec, rnd) catch {
-    _ => @mpf.fnan
+    err => raise from_mpf_error(err)
   }
 }
 
 ///|
-fn mpf_pow_int_or_nan(
+fn mpf_pow_int_checked(
   x : @mpf.RawMpf,
   n : Int,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise MpcError {
   @mpf.mpf_pow_int(x, n, prec, rnd) catch {
-    _ => @mpf.fnan
+    err => raise from_mpf_error(err)
   }
 }
 
 ///|
-fn mpf_hypot_or_nan(
+fn mpf_hypot_checked(
   x : @mpf.RawMpf,
   y : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise MpcError {
   @mpf.mpf_hypot(x, y, prec, rnd) catch {
-    _ => @mpf.fnan
+    err => raise from_mpf_error(err)
   }
 }
 
 ///|
-fn mpf_log_or_nan(
+fn mpf_log_checked(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise MpcError {
   @libelefun.mpf_log(x, prec, rnd) catch {
-    _ => @mpf.fnan
+    err => raise from_libelefun_error(err)
   }
 }
 
 ///|
-fn mpc_pow_or_nan(
+fn elefun_atan2_checked(
+  y : @mpf.RawMpf,
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpcError {
+  @libelefun.mpf_atan2(y, x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn elefun_exp_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpcError {
+  @libelefun.mpf_exp(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn elefun_sin_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpcError {
+  @libelefun.mpf_sin(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn elefun_cos_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpcError {
+  @libelefun.mpf_cos(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn elefun_sinh_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpcError {
+  @libelefun.mpf_sinh(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn elefun_cosh_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpcError {
+  @libelefun.mpf_cosh(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn elefun_pi_checked(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpcError {
+  @libelefun.mpf_pi(prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn elefun_cos_pi_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpcError {
+  @libelefun.mpf_cos_pi(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn elefun_sin_pi_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpcError {
+  @libelefun.mpf_sin_pi(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn elefun_cos_sin_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+  which? : Int = 0,
+  pi? : Bool = false,
+) -> (@mpf.RawMpf, @mpf.RawMpf) raise MpcError {
+  @libelefun.mpf_cos_sin(x, prec, rnd, which~, pi~) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn elefun_cos_sin_pi_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> (@mpf.RawMpf, @mpf.RawMpf) raise MpcError {
+  @libelefun.mpf_cos_sin_pi(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn elefun_cosh_sinh_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+  tanh? : Bool = false,
+) -> (@mpf.RawMpf, @mpf.RawMpf) raise MpcError {
+  @libelefun.mpf_cosh_sinh(x, prec, rnd, tanh~) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn elefun_phi_checked(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpcError {
+  @libelefun.mpf_phi(prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn mpc_pow_checked(
   z : RawMpc,
   w : RawMpc,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> RawMpc {
-  mpc_pow(z, w, prec, rnd) catch {
-    _ => complex_nan()
-  }
+) -> RawMpc raise MpcError {
+  mpc_pow(z, w, prec, rnd)
 }
 
 ///|
@@ -258,7 +434,7 @@ pub fn mpc_div(
   w : RawMpc,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> RawMpc {
+) -> RawMpc raise MpcError {
   if mpc_is_inf(w) && !mpc_is_infnan(z) {
     return zero()
   }
@@ -273,8 +449,8 @@ pub fn mpc_div(
   let t = @mpf.mpf_add(ac, bd, wp, @mpf.round_nearest)
   let u = @mpf.mpf_sub(bc, ad, wp, @mpf.round_nearest)
   {
-    real: mpf_div_or_nan(t, mag, prec, rnd),
-    imag: mpf_div_or_nan(u, mag, prec, rnd),
+    real: mpf_div_checked(t, mag, prec, rnd),
+    imag: mpf_div_checked(u, mag, prec, rnd),
   }
 }
 
@@ -284,15 +460,19 @@ pub fn mpc_div_mpf(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> RawMpc {
+) -> RawMpc raise MpcError {
   {
-    real: mpf_div_or_nan(z.real, x, prec, rnd),
-    imag: mpf_div_or_nan(z.imag, x, prec, rnd),
+    real: mpf_div_checked(z.real, x, prec, rnd),
+    imag: mpf_div_checked(z.imag, x, prec, rnd),
   }
 }
 
 ///|
-pub fn mpc_reciprocal(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+pub fn mpc_reciprocal(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
   if mpc_is_inf(z) {
     return zero()
   }
@@ -301,8 +481,8 @@ pub fn mpc_reciprocal(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
   let bb = @mpf.mpf_mul(z.imag, z.imag, 0, @mpf.round_down)
   let mag = @mpf.mpf_add(aa, bb, wp, @mpf.round_nearest)
   {
-    real: mpf_div_or_nan(z.real, mag, prec, rnd),
-    imag: @mpf.mpf_neg(mpf_div_or_nan(z.imag, mag, prec, rnd), prec, rnd),
+    real: mpf_div_checked(z.real, mag, prec, rnd),
+    imag: @mpf.mpf_neg(mpf_div_checked(z.imag, mag, prec, rnd), prec, rnd),
   }
 }
 
@@ -312,7 +492,7 @@ pub fn mpc_mpf_div(
   z : RawMpc,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> RawMpc {
+) -> RawMpc raise MpcError {
   if mpc_is_inf(z) && !@mpf.is_inf(x) && !@mpf.is_nan(x) {
     return zero()
   }
@@ -323,8 +503,8 @@ pub fn mpc_mpf_div(
   let ax = @mpf.mpf_mul(z.real, x, wp, @mpf.round_nearest)
   let bx = @mpf.mpf_mul(z.imag, x, wp, @mpf.round_nearest)
   {
-    real: mpf_div_or_nan(ax, mag, prec, rnd),
-    imag: @mpf.mpf_neg(mpf_div_or_nan(bx, mag, prec, rnd), prec, rnd),
+    real: mpf_div_checked(ax, mag, prec, rnd),
+    imag: @mpf.mpf_neg(mpf_div_checked(bx, mag, prec, rnd), prec, rnd),
   }
 }
 
@@ -334,9 +514,9 @@ pub fn mpc_pow_int(
   n : Int,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> RawMpc {
+) -> RawMpc raise MpcError {
   if z.imag == @mpf.fzero {
-    return { real: mpf_pow_int_or_nan(z.real, n, prec, rnd), imag: @mpf.fzero }
+    return { real: mpf_pow_int_checked(z.real, n, prec, rnd), imag: @mpf.fzero }
   }
   if n == 0 {
     return one()
@@ -400,17 +580,29 @@ pub fn mpc_frac(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 }
 
 ///|
-pub fn mpc_abs(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
-  mpf_hypot_or_nan(z.real, z.imag, prec, rnd)
+pub fn mpc_abs(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpcError {
+  mpf_hypot_checked(z.real, z.imag, prec, rnd)
 }
 
 ///|
-pub fn mpc_arg(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
-  @libelefun.mpf_atan2(z.imag, z.real, prec, rnd)
+pub fn mpc_arg(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpcError {
+  elefun_atan2_checked(z.imag, z.real, prec, rnd)
 }
 
 ///|
-pub fn mpc_sqrt(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+pub fn mpc_sqrt(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
   let a = z.real
   let b = z.imag
   if b == @mpf.fzero {
@@ -418,10 +610,10 @@ pub fn mpc_sqrt(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
       return z
     }
     if a.sign == 1 {
-      let im = mpf_sqrt_or_nan(@mpf.mpf_neg(a, 0, @mpf.round_down), prec, rnd)
+      let im = mpf_sqrt_checked(@mpf.mpf_neg(a, 0, @mpf.round_down), prec, rnd)
       return { real: @mpf.fzero, imag: im }
     } else {
-      let re = mpf_sqrt_or_nan(a, prec, rnd)
+      let re = mpf_sqrt_checked(a, prec, rnd)
       return { real: re, imag: @mpf.fzero }
     }
   }
@@ -437,10 +629,10 @@ pub fn mpc_sqrt(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
       @mpf.round_nearest,
     )
     let u = @mpf.mpf_shift(t, -1)
-    let re = mpf_sqrt_or_nan(u, prec, rnd)
+    let re = mpf_sqrt_checked(u, prec, rnd)
     let v = @mpf.mpf_shift(t, 1)
-    let w = mpf_sqrt_or_nan(v, wp, @mpf.round_nearest)
-    let im = mpf_div_or_nan(b, w, prec, rnd)
+    let w = mpf_sqrt_checked(v, wp, @mpf.round_nearest)
+    let im = mpf_div_checked(b, w, prec, rnd)
     { real: re, imag: im }
   } else {
     let t = @mpf.mpf_sub(
@@ -450,10 +642,10 @@ pub fn mpc_sqrt(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
       @mpf.round_nearest,
     )
     let u = @mpf.mpf_shift(t, -1)
-    let mut im = mpf_sqrt_or_nan(u, prec, rnd)
+    let mut im = mpf_sqrt_checked(u, prec, rnd)
     let v = @mpf.mpf_shift(t, 1)
-    let w = mpf_sqrt_or_nan(v, wp, @mpf.round_nearest)
-    let mut re = mpf_div_or_nan(b, w, prec, rnd)
+    let w = mpf_sqrt_checked(v, wp, @mpf.round_nearest)
+    let mut re = mpf_div_checked(b, w, prec, rnd)
     if b.sign == 1 {
       re = @mpf.mpf_neg(re, prec, rnd)
       im = @mpf.mpf_neg(im, prec, rnd)
@@ -468,11 +660,15 @@ pub fn mpc_square(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 }
 
 ///|
-pub fn mpc_exp(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+pub fn mpc_exp(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
   let p = work_prec(prec)
-  let ea = @libelefun.mpf_exp(z.real, p, @mpf.round_nearest)
-  let cb = @libelefun.mpf_cos(z.imag, p, @mpf.round_nearest)
-  let sb = @libelefun.mpf_sin(z.imag, p, @mpf.round_nearest)
+  let ea = elefun_exp_checked(z.real, p, @mpf.round_nearest)
+  let cb = elefun_cos_checked(z.imag, p, @mpf.round_nearest)
+  let sb = elefun_sin_checked(z.imag, p, @mpf.round_nearest)
   {
     real: @mpf.mpf_mul(ea, cb, prec, rnd),
     imag: @mpf.mpf_mul(ea, sb, prec, rnd),
@@ -490,7 +686,7 @@ pub fn mpc_log(
   }
   let p = work_prec(prec)
   {
-    real: mpf_log_or_nan(mpc_abs(z, p, @mpf.round_nearest), prec, rnd),
+    real: mpf_log_checked(mpc_abs(z, p, @mpf.round_nearest), prec, rnd),
     imag: mpc_arg(z, prec, rnd),
   }
 }
@@ -525,17 +721,21 @@ pub fn mpc_pow_mpf(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> RawMpc {
-  mpc_pow_or_nan(z, from_parts(x, @mpf.fzero), prec, rnd)
+) -> RawMpc raise MpcError {
+  mpc_pow_checked(z, from_parts(x, @mpf.fzero), prec, rnd)
 }
 
 ///|
-pub fn mpc_sin(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+pub fn mpc_sin(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
   let p = work_prec(prec)
-  let sa = @libelefun.mpf_sin(z.real, p, @mpf.round_nearest)
-  let ca = @libelefun.mpf_cos(z.real, p, @mpf.round_nearest)
-  let shb = @libelefun.mpf_sinh(z.imag, p, @mpf.round_nearest)
-  let chb = @libelefun.mpf_cosh(z.imag, p, @mpf.round_nearest)
+  let sa = elefun_sin_checked(z.real, p, @mpf.round_nearest)
+  let ca = elefun_cos_checked(z.real, p, @mpf.round_nearest)
+  let shb = elefun_sinh_checked(z.imag, p, @mpf.round_nearest)
+  let chb = elefun_cosh_checked(z.imag, p, @mpf.round_nearest)
   {
     real: @mpf.mpf_mul(sa, chb, prec, rnd),
     imag: @mpf.mpf_mul(ca, shb, prec, rnd),
@@ -543,12 +743,16 @@ pub fn mpc_sin(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 }
 
 ///|
-pub fn mpc_cos(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+pub fn mpc_cos(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
   let p = work_prec(prec)
-  let sa = @libelefun.mpf_sin(z.real, p, @mpf.round_nearest)
-  let ca = @libelefun.mpf_cos(z.real, p, @mpf.round_nearest)
-  let shb = @libelefun.mpf_sinh(z.imag, p, @mpf.round_nearest)
-  let chb = @libelefun.mpf_cosh(z.imag, p, @mpf.round_nearest)
+  let sa = elefun_sin_checked(z.real, p, @mpf.round_nearest)
+  let ca = elefun_cos_checked(z.real, p, @mpf.round_nearest)
+  let shb = elefun_sinh_checked(z.imag, p, @mpf.round_nearest)
+  let chb = elefun_cosh_checked(z.imag, p, @mpf.round_nearest)
   {
     real: @mpf.mpf_mul(ca, chb, prec, rnd),
     imag: @mpf.mpf_neg(@mpf.mpf_mul(sa, shb, p, @mpf.round_nearest), prec, rnd),
@@ -556,7 +760,11 @@ pub fn mpc_cos(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 }
 
 ///|
-pub fn mpc_tan(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+pub fn mpc_tan(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
   if @mpf.is_inf(z.imag) {
     return from_parts(
       @mpf.fzero,
@@ -585,12 +793,16 @@ pub fn mpc_tan(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 }
 
 ///|
-pub fn mpc_sinh(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+pub fn mpc_sinh(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
   let p = work_prec(prec)
-  let sha = @libelefun.mpf_sinh(z.real, p, @mpf.round_nearest)
-  let cha = @libelefun.mpf_cosh(z.real, p, @mpf.round_nearest)
-  let sb = @libelefun.mpf_sin(z.imag, p, @mpf.round_nearest)
-  let cb = @libelefun.mpf_cos(z.imag, p, @mpf.round_nearest)
+  let sha = elefun_sinh_checked(z.real, p, @mpf.round_nearest)
+  let cha = elefun_cosh_checked(z.real, p, @mpf.round_nearest)
+  let sb = elefun_sin_checked(z.imag, p, @mpf.round_nearest)
+  let cb = elefun_cos_checked(z.imag, p, @mpf.round_nearest)
   {
     real: @mpf.mpf_mul(sha, cb, prec, rnd),
     imag: @mpf.mpf_mul(cha, sb, prec, rnd),
@@ -598,12 +810,16 @@ pub fn mpc_sinh(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 }
 
 ///|
-pub fn mpc_cosh(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+pub fn mpc_cosh(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
   let p = work_prec(prec)
-  let sha = @libelefun.mpf_sinh(z.real, p, @mpf.round_nearest)
-  let cha = @libelefun.mpf_cosh(z.real, p, @mpf.round_nearest)
-  let sb = @libelefun.mpf_sin(z.imag, p, @mpf.round_nearest)
-  let cb = @libelefun.mpf_cos(z.imag, p, @mpf.round_nearest)
+  let sha = elefun_sinh_checked(z.real, p, @mpf.round_nearest)
+  let cha = elefun_cosh_checked(z.real, p, @mpf.round_nearest)
+  let sb = elefun_sin_checked(z.imag, p, @mpf.round_nearest)
+  let cb = elefun_cos_checked(z.imag, p, @mpf.round_nearest)
   {
     real: @mpf.mpf_mul(cha, cb, prec, rnd),
     imag: @mpf.mpf_mul(sha, sb, prec, rnd),
@@ -611,7 +827,11 @@ pub fn mpc_cosh(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
 }
 
 ///|
-pub fn mpc_tanh(z : RawMpc, prec : Int, rnd : @mpf.RoundMode) -> RawMpc {
+pub fn mpc_tanh(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
   if @mpf.is_inf(z.real) {
     return from_parts(
       if z.real.sign == 1 {

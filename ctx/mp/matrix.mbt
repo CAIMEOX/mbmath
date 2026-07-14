@@ -1,5 +1,9 @@
 ///|
-fn p3_norm_index(idx : Int, n : Int, name : String) -> Int raise MPError {
+fn normalize_matrix_index(
+  idx : Int,
+  n : Int,
+  name : String,
+) -> Int raise MPError {
   let k0 = if idx < 0 { idx + n } else { idx }
   if k0 < 0 || k0 >= n {
     raise ValueError("\{name}: index out of range")
@@ -8,7 +12,7 @@ fn p3_norm_index(idx : Int, n : Int, name : String) -> Int raise MPError {
 }
 
 ///|
-fn p3_norm_slice_bound(
+fn normalize_matrix_slice_bound(
   idx : Int?,
   n : Int,
   is_end : Bool,
@@ -25,14 +29,14 @@ fn p3_norm_slice_bound(
 }
 
 ///|
-fn p3_norm_slice(
+fn normalize_matrix_slice(
   start : Int?,
   end : Int?,
   n : Int,
   name : String,
 ) -> (Int, Int) raise MPError {
-  let s = p3_norm_slice_bound(start, n, false, name)
-  let e = p3_norm_slice_bound(end, n, true, name)
+  let s = normalize_matrix_slice_bound(start, n, false, name)
+  let e = normalize_matrix_slice_bound(end, n, true, name)
   if s > e {
     raise ValueError("\{name}: invalid slice")
   }
@@ -66,7 +70,7 @@ pub fn MPContext::matrix_from_vector(
 ) -> MpfMatrix raise MPError {
   let out = self.matrix(xs.length(), 1)
   for i in 0..<xs.length() {
-    out.data[p3_idx(1, i, 0)] = @mpf.mpf_pos(
+    out.data[matrix_offset(1, i, 0)] = @mpf.mpf_pos(
       xs[i],
       self.precision(),
       self.round_mode(),
@@ -78,7 +82,7 @@ pub fn MPContext::matrix_from_vector(
 ///|
 pub fn MPContext::matrix_copy(self : MPContext, a : MpfMatrix) -> MpfMatrix {
   ignore(self)
-  { rows: a.rows, cols: a.cols, data: p3_copy_vec(a.data) }
+  { rows: a.rows, cols: a.cols, data: copy_mpf_vector(a.data) }
 }
 
 ///|
@@ -92,7 +96,7 @@ pub fn MpfMatrix::tolist(self : MpfMatrix) -> Array[Array[@mpf.RawMpf]] {
   for i in 0..<self.rows {
     let row : Array[@mpf.RawMpf] = []
     for j in 0..<self.cols {
-      row.push(self.data[p3_idx(self.cols, i, j)])
+      row.push(self.data[matrix_offset(self.cols, i, j)])
     }
     out.push(row)
   }
@@ -101,7 +105,7 @@ pub fn MpfMatrix::tolist(self : MpfMatrix) -> Array[Array[@mpf.RawMpf]] {
 
 ///|
 pub fn MpfMatrix::flat(self : MpfMatrix) -> Array[@mpf.RawMpf] {
-  p3_copy_vec(self.data)
+  copy_mpf_vector(self.data)
 }
 
 ///|
@@ -116,7 +120,7 @@ pub fn MpfMatrix::len(self : MpfMatrix) -> Int {
 }
 
 ///|
-fn p3_is_vector(a : MpfMatrix) -> Bool {
+fn is_vector_matrix(a : MpfMatrix) -> Bool {
   a.cols == 1 || a.rows == 1
 }
 
@@ -125,15 +129,15 @@ pub fn MpfMatrix::vget(
   self : MpfMatrix,
   idx : Int,
 ) -> @mpf.RawMpf raise MPError {
-  if !p3_is_vector(self) {
+  if !is_vector_matrix(self) {
     raise ValueError("matrix.vget: matrix is not a vector")
   }
   let n = self.len()
-  let k = p3_norm_index(idx, n, "matrix.vget")
+  let k = normalize_matrix_index(idx, n, "matrix.vget")
   if self.cols == 1 {
-    self.data[p3_idx(self.cols, k, 0)]
+    self.data[matrix_offset(self.cols, k, 0)]
   } else {
-    self.data[p3_idx(self.cols, 0, k)]
+    self.data[matrix_offset(self.cols, 0, k)]
   }
 }
 
@@ -143,15 +147,15 @@ pub fn MpfMatrix::vset(
   idx : Int,
   v : @mpf.RawMpf,
 ) -> Unit raise MPError {
-  if !p3_is_vector(self) {
+  if !is_vector_matrix(self) {
     raise ValueError("matrix.vset: matrix is not a vector")
   }
   let n = self.len()
-  let k = p3_norm_index(idx, n, "matrix.vset")
+  let k = normalize_matrix_index(idx, n, "matrix.vset")
   if self.cols == 1 {
-    self.data[p3_idx(self.cols, k, 0)] = v
+    self.data[matrix_offset(self.cols, k, 0)] = v
   } else {
-    self.data[p3_idx(self.cols, 0, k)] = v
+    self.data[matrix_offset(self.cols, 0, k)] = v
   }
 }
 
@@ -161,9 +165,9 @@ pub fn MpfMatrix::get_at(
   r : Int,
   c : Int,
 ) -> @mpf.RawMpf raise MPError {
-  let rr = p3_norm_index(r, self.rows, "matrix.get_at")
-  let cc = p3_norm_index(c, self.cols, "matrix.get_at")
-  self.data[p3_idx(self.cols, rr, cc)]
+  let rr = normalize_matrix_index(r, self.rows, "matrix.get_at")
+  let cc = normalize_matrix_index(c, self.cols, "matrix.get_at")
+  self.data[matrix_offset(self.cols, rr, cc)]
 }
 
 ///|
@@ -173,9 +177,9 @@ pub fn MpfMatrix::set_at(
   c : Int,
   v : @mpf.RawMpf,
 ) -> Unit raise MPError {
-  let rr = p3_norm_index(r, self.rows, "matrix.set_at")
-  let cc = p3_norm_index(c, self.cols, "matrix.set_at")
-  self.data[p3_idx(self.cols, rr, cc)] = v
+  let rr = normalize_matrix_index(r, self.rows, "matrix.set_at")
+  let cc = normalize_matrix_index(c, self.cols, "matrix.set_at")
+  self.data[matrix_offset(self.cols, rr, cc)] = v
 }
 
 ///|
@@ -188,12 +192,26 @@ pub fn MPContext::matrix_slice(
   col_end? : Int,
 ) -> MpfMatrix raise MPError {
   ignore(self)
-  let (rs, re) = p3_norm_slice(row_start, row_end, a.rows, "matrix_slice")
-  let (cs, ce) = p3_norm_slice(col_start, col_end, a.cols, "matrix_slice")
+  let (rs, re) = normalize_matrix_slice(
+    row_start,
+    row_end,
+    a.rows,
+    "matrix_slice",
+  )
+  let (cs, ce) = normalize_matrix_slice(
+    col_start,
+    col_end,
+    a.cols,
+    "matrix_slice",
+  )
   let out = self.matrix(re - rs, ce - cs)
   for i in 0..<(re - rs) {
     for j in 0..<(ce - cs) {
-      out.data[p3_idx(out.cols, i, j)] = a.data[p3_idx(a.cols, rs + i, cs + j)]
+      out.data[matrix_offset(out.cols, i, j)] = a.data[matrix_offset(
+          a.cols,
+          rs + i,
+          cs + j,
+        )]
     }
   }
   out
@@ -210,14 +228,28 @@ pub fn MPContext::matrix_set_slice(
   col_end? : Int,
 ) -> Unit raise MPError {
   ignore(self)
-  let (rs, re) = p3_norm_slice(row_start, row_end, a.rows, "matrix_set_slice")
-  let (cs, ce) = p3_norm_slice(col_start, col_end, a.cols, "matrix_set_slice")
+  let (rs, re) = normalize_matrix_slice(
+    row_start,
+    row_end,
+    a.rows,
+    "matrix_set_slice",
+  )
+  let (cs, ce) = normalize_matrix_slice(
+    col_start,
+    col_end,
+    a.cols,
+    "matrix_set_slice",
+  )
   if src.rows != re - rs || src.cols != ce - cs {
     raise ValueError("matrix_set_slice: shape mismatch")
   }
   for i in 0..<src.rows {
     for j in 0..<src.cols {
-      a.data[p3_idx(a.cols, rs + i, cs + j)] = src.data[p3_idx(src.cols, i, j)]
+      a.data[matrix_offset(a.cols, rs + i, cs + j)] = src.data[matrix_offset(
+          src.cols,
+          i,
+          j,
+        )]
     }
   }
 }
@@ -233,13 +265,13 @@ pub fn MPContext::matrix_set_slice_scalar(
   col_end? : Int,
 ) -> Unit raise MPError {
   ignore(self)
-  let (rs, re) = p3_norm_slice(
+  let (rs, re) = normalize_matrix_slice(
     row_start,
     row_end,
     a.rows,
     "matrix_set_slice_scalar",
   )
-  let (cs, ce) = p3_norm_slice(
+  let (cs, ce) = normalize_matrix_slice(
     col_start,
     col_end,
     a.cols,
@@ -248,7 +280,7 @@ pub fn MPContext::matrix_set_slice_scalar(
   let vv = @mpf.mpf_pos(value, self.precision(), self.round_mode())
   for i in rs..<re {
     for j in cs..<ce {
-      a.data[p3_idx(a.cols, i, j)] = vv
+      a.data[matrix_offset(a.cols, i, j)] = vv
     }
   }
 }
@@ -261,7 +293,7 @@ pub fn MPContext::diag(
   let n = xs.length()
   let out = self.matrix(n, n)
   for i in 0..<n {
-    out.data[p3_idx(n, i, i)] = @mpf.mpf_pos(
+    out.data[matrix_offset(n, i, i)] = @mpf.mpf_pos(
       xs[i],
       self.precision(),
       self.round_mode(),
@@ -278,9 +310,9 @@ pub fn MPContext::swap_row(
   r1 : Int,
 ) -> Unit raise MPError {
   ignore(self)
-  let rr0 = p3_norm_index(r0, a.rows, "swap_row")
-  let rr1 = p3_norm_index(r1, a.rows, "swap_row")
-  p3_swap_rows(a.data, a.cols, rr0, rr1)
+  let rr0 = normalize_matrix_index(r0, a.rows, "swap_row")
+  let rr1 = normalize_matrix_index(r1, a.rows, "swap_row")
+  swap_matrix_rows(a.data, a.cols, rr0, rr1)
 }
 
 ///|
@@ -296,9 +328,13 @@ pub fn MPContext::augment(
   let out = self.matrix(a.rows, a.cols + 1)
   for i in 0..<a.rows {
     for j in 0..<a.cols {
-      out.data[p3_idx(out.cols, i, j)] = a.data[p3_idx(a.cols, i, j)]
+      out.data[matrix_offset(out.cols, i, j)] = a.data[matrix_offset(
+          a.cols,
+          i,
+          j,
+        )]
     }
-    out.data[p3_idx(out.cols, i, a.cols)] = @mpf.mpf_pos(
+    out.data[matrix_offset(out.cols, i, a.cols)] = @mpf.mpf_pos(
       rhs[i],
       self.precision(),
       self.round_mode(),
@@ -313,7 +349,7 @@ pub fn MPContext::matrix_scale(
   a : MpfMatrix,
   c : @mpf.RawMpf,
 ) -> MpfMatrix raise MPError {
-  let p = self.p2_work_prec()
+  let p = self.working_precision()
   let out = self.matrix(a.rows, a.cols)
   for i in 0..<(a.rows * a.cols) {
     out.data[i] = @mpf.mpf_pos(
@@ -331,7 +367,7 @@ pub fn MPContext::matrix_add_scalar(
   a : MpfMatrix,
   c : @mpf.RawMpf,
 ) -> MpfMatrix raise MPError {
-  let p = self.p2_work_prec()
+  let p = self.working_precision()
   let out = self.matrix(a.rows, a.cols)
   for i in 0..<(a.rows * a.cols) {
     out.data[i] = @mpf.mpf_pos(
@@ -349,7 +385,7 @@ pub fn MPContext::matrix_sub_scalar(
   a : MpfMatrix,
   c : @mpf.RawMpf,
 ) -> MpfMatrix raise MPError {
-  let p = self.p2_work_prec()
+  let p = self.working_precision()
   let out = self.matrix(a.rows, a.cols)
   for i in 0..<(a.rows * a.cols) {
     out.data[i] = @mpf.mpf_pos(
@@ -367,7 +403,7 @@ pub fn MPContext::matrix_rsub_scalar(
   c : @mpf.RawMpf,
   a : MpfMatrix,
 ) -> MpfMatrix raise MPError {
-  let p = self.p2_work_prec()
+  let p = self.working_precision()
   let out = self.matrix(a.rows, a.cols)
   for i in 0..<(a.rows * a.cols) {
     out.data[i] = @mpf.mpf_pos(
@@ -385,7 +421,7 @@ pub fn MPContext::matrix_div_scalar(
   a : MpfMatrix,
   c : @mpf.RawMpf,
 ) -> MpfMatrix raise MPError {
-  let p = self.p2_work_prec()
+  let p = self.working_precision()
   let out = self.matrix(a.rows, a.cols)
   for i in 0..<(a.rows * a.cols) {
     out.data[i] = @mpf.mpf_pos(
@@ -401,7 +437,7 @@ pub fn MPContext::matrix_div_scalar(
 
 ///|
 pub fn MPContext::matrix_sum(self : MPContext, a : MpfMatrix) -> @mpf.RawMpf {
-  let p = self.p2_work_prec()
+  let p = self.working_precision()
   let mut s = @mpf.fzero
   for x in a.data {
     s = @mpf.mpf_add(s, x, p, @mpf.round_nearest)
@@ -445,13 +481,13 @@ pub fn MPContext::matrix_pow(
 
 ///|
 pub fn MPContext::hilbert(self : MPContext, n : Int) -> MpfMatrix raise MPError {
-  p3_check_dims(n, n, "hilbert")
-  let p = self.p2_work_prec()
+  validate_matrix_dimensions(n, n, "hilbert")
+  let p = self.working_precision()
   let out = self.matrix(n, n)
   for i in 0..<n {
     for j in 0..<n {
       let denom = @mpf.from_int(i + j + 1)
-      out.data[p3_idx(n, i, j)] = @mpf.mpf_pos(
+      out.data[matrix_offset(n, i, j)] = @mpf.mpf_pos(
         @mpf.mpf_div(@mpf.fone, denom, p, @mpf.round_nearest) catch {
           err => raise from_mpf_error(err)
         },
@@ -470,7 +506,7 @@ pub fn MPContext::randmatrix(
   cols? : Int = -1,
 ) -> MpfMatrix raise MPError {
   let c = if cols < 0 { rows } else { cols }
-  p3_check_dims(rows, c, "randmatrix")
+  validate_matrix_dimensions(rows, c, "randmatrix")
   let out = self.matrix(rows, c)
   for i in 0..<(rows * c) {
     out.data[i] = @mpf.mpf_pos(
@@ -510,7 +546,7 @@ pub fn MPContext::vector_norm(
   p? : Int = 2,
   inf? : Bool = false,
 ) -> @mpf.RawMpf raise MPError {
-  let wp = self.p2_work_prec()
+  let wp = self.working_precision()
   if xs.length() == 0 {
     return @mpf.fzero
   }
@@ -567,7 +603,7 @@ pub fn MPContext::vector_norm(
     s = @mpf.mpf_add(s, pow_nonneg(a, p, wp), wp, @mpf.round_nearest)
   }
   let out = @libelefun.mpf_nthroot(s, p, wp, @mpf.round_nearest) catch {
-    _ => raise DomainError("vector_norm: failed to compute p-th root")
+    err => raise from_libelefun_error(err)
   }
   @mpf.mpf_pos(out, self.precision(), self.round_mode())
 }

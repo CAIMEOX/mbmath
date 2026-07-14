@@ -47,14 +47,14 @@ test "cli literal/version subset from mpmath test_cli" {
     parts.push(part.to_owned())
   }
   assert_true(parts.length() >= 3)
-  assert_eq(parts[0], "0")
-  assert_eq(parts[1], "3")
+  @debug.assert_eq(parts[0], "0")
+  @debug.assert_eq(parts[1], "3")
   assert_true(cli_text_matches(ctx.cli_eval_division(1, 2, dps=8), "0.5", 8))
   assert_true(cli_text_matches(ctx.cli_eval_literal("10.9", dps=6), "10.9", 6))
   let low = ctx.cli_eval_literal("1e100", dps=24)
   let up = ctx.cli_eval_literal("1E100", dps=24)
   assert_true(low.has_suffix("e+100"))
-  assert_eq(low, up)
+  @debug.assert_eq(low, up)
   assert_true(cli_text_matches(ctx.cli_eval_literal("0x1p-1", dps=8), "0.5", 8))
   assert_true(cli_text_matches(ctx.cli_eval_literal("0b10", dps=8), "2", 8))
 }
@@ -69,9 +69,9 @@ test "visualization plot axes subset from mpmath test_visualization" {
     axes,
     samples=9,
   )
-  assert_eq(axes.xlabel, "x")
-  assert_eq(axes.ylabel, "f(x)")
-  assert_eq(points.length(), 9)
+  @debug.assert_eq(axes.xlabel, "x")
+  @debug.assert_eq(axes.ylabel, "f(x)")
+  @debug.assert_eq(points.length(), 9)
   let (x0, y0) = points[0]
   assert_true(@mpf.mpf_eq(x0, @mpf.fzero))
   assert_true(@mpf.mpf_eq(y0, @mpf.fzero))
@@ -91,11 +91,11 @@ test "visualization cplot axes subset from mpmath test_visualization" {
     axes,
     samples=5,
   )
-  assert_eq(axes.xlabel, "Re(z)")
-  assert_eq(axes.ylabel, "Im(z)")
-  assert_eq(values.length(), 25)
+  @debug.assert_eq(axes.xlabel, "Re(z)")
+  @debug.assert_eq(axes.ylabel, "Im(z)")
+  @debug.assert_eq(values.length(), 25)
   let (z0, w0) = values[0]
   let (zn, wn) = values[values.length() - 1]
-  assert_eq(z0, w0)
-  assert_eq(zn, wn)
+  @debug.assert_eq(z0, w0)
+  @debug.assert_eq(zn, wn)
 }

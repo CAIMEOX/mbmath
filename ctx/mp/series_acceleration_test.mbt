@@ -6,9 +6,7 @@ test "levin subset from mpmath test_levin" {
   let mut s_alt = @mpf.fzero
   for k in 1..<=30 {
     let sign = if (k & 1) == 1 { @mpf.fone } else { @mpf.fnone }
-    let term = @mpf.mpf_div(sign, @mpf.from_int(k), p, @mpf.round_nearest) catch {
-      _ => @mpf.fnan
-    }
+    let term = @mpf.mpf_div(sign, @mpf.from_int(k), p, @mpf.round_nearest)
     s_alt = @mpf.mpf_add(s_alt, term, p, @mpf.round_nearest)
     partials_alt.push(s_alt)
   }
@@ -26,18 +24,14 @@ test "levin subset from mpmath test_levin" {
   for k in 1..<=40 {
     let kk = @mpf.from_int(k)
     let k2 = @mpf.mpf_mul(kk, kk, p, @mpf.round_nearest)
-    let term = @mpf.mpf_div(@mpf.fone, k2, p, @mpf.round_nearest) catch {
-      _ => @mpf.fnan
-    }
+    let term = @mpf.mpf_div(@mpf.fone, k2, p, @mpf.round_nearest)
     s_pos = @mpf.mpf_add(s_pos, term, p, @mpf.round_nearest)
     partials_pos.push(s_pos)
   }
   let (v_rich, _) = ctx.levin(partials_pos, algo="richardson")
   let pi = @libelefun.mpf_pi(p, @mpf.round_nearest)
   let pi2 = @mpf.mpf_mul(pi, pi, p, @mpf.round_nearest)
-  let pi2_over_6 = @mpf.mpf_div(pi2, @mpf.from_int(6), p, @mpf.round_nearest) catch {
-    _ => @mpf.fnan
-  }
+  let pi2_over_6 = @mpf.mpf_div(pi2, @mpf.from_int(6), p, @mpf.round_nearest)
   assert_close_mpf_str(
     @mpf.mpf_sub(v_rich, pi2_over_6, p, @mpf.round_nearest),
     "0",

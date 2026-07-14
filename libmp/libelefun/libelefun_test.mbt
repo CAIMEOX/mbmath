@@ -85,7 +85,7 @@ test "mpf_atan baseline" {
 
 ///|
 test "mpf_exp baseline" {
-  assert_eq(mpf_exp(@mpf.fzero, 80, @mpf.round_nearest), @mpf.fone)
+  @debug.assert_eq(mpf_exp(@mpf.fzero, 80, @mpf.round_nearest), @mpf.fone)
   let e = mpf_exp(@mpf.fone, 120, @mpf.round_nearest)
   assert_mpf_close_to_text(e, "2.718281828459045", 16)
   let inv_e = mpf_exp(@mpf.from_int(-1), 120, @mpf.round_nearest)
@@ -94,8 +94,8 @@ test "mpf_exp baseline" {
 
 ///|
 test "mpf_ln baseline" {
-  assert_eq(mpf_ln(@mpf.fone, 80, @mpf.round_nearest), @mpf.fzero)
-  assert_eq(mpf_ln(@mpf.fzero, 80, @mpf.round_nearest), @mpf.fninf)
+  @debug.assert_eq(mpf_ln(@mpf.fone, 80, @mpf.round_nearest), @mpf.fzero)
+  @debug.assert_eq(mpf_ln(@mpf.fzero, 80, @mpf.round_nearest), @mpf.fninf)
   let ln2 = mpf_ln(@mpf.from_int(2), 120, @mpf.round_nearest)
   assert_mpf_close_to_text(ln2, "0.6931471805599453", 16)
   let e = mpf_exp(@mpf.fone, 120, @mpf.round_nearest)
@@ -107,7 +107,10 @@ test "mpf_ln baseline" {
 test "mpf_log1p and constant helpers subset" {
   let l_small = mpf_log1p(@mpf.from_str("1e-10"), 180, @mpf.round_nearest)
   assert_mpf_close_to_text(l_small, "9.999999999500000e-11", 18)
-  assert_eq(mpf_log1p(@mpf.from_int(-1), 120, @mpf.round_nearest), @mpf.fninf)
+  @debug.assert_eq(
+    mpf_log1p(@mpf.from_int(-1), 120, @mpf.round_nearest),
+    @mpf.fninf,
+  )
   let sp = mpf_sqrtpi(160, @mpf.round_nearest)
   assert_mpf_close_to_text(sp, "1.772453850905516", 16)
   let lsp = mpf_ln_sqrt2pi(160, @mpf.round_nearest)
@@ -231,7 +234,7 @@ test "mpf pow and constants subset" {
     "1.148698354997",
     14,
   )
-  assert_eq(
+  @debug.assert_eq(
     mpf_nthroot(@mpf.from_int(-8), 3, 120, @mpf.round_nearest),
     @mpf.from_int(-2),
   )

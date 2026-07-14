@@ -6,21 +6,11 @@ pub struct RawMpc {
 } derive(Debug, Eq)
 
 ///|
-pub impl Show for RawMpc with fn output(self, logger) {
-  logger.write_object(self.to_repr())
-}
-
-///|
 pub(all) suberror MpcError {
   ValueError(String)
   DomainError(String)
   PoleError(String)
 } derive(Debug, Eq)
-
-///|
-pub impl Show for MpcError with fn output(self, logger) {
-  logger.write_object(self.to_repr())
-}
 
 ///|
 /// Additive identity `0 + 0j`.

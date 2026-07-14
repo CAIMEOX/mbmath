@@ -1,8 +1,5 @@
 ///|
-type OdeSystemFn = (@mpf.RawMpf, ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf]
-
-///|
-fn MPContext::p3_ode_expect_dim(
+fn MPContext::validate_ode_dimension(
   self : MPContext,
   name : String,
   y : ArrayView[@mpf.RawMpf],
@@ -15,7 +12,7 @@ fn MPContext::p3_ode_expect_dim(
 }
 
 ///|
-fn MPContext::p3_ode_shift(
+fn MPContext::shift_ode_state(
   self : MPContext,
   y : ArrayView[@mpf.RawMpf],
   k : ArrayView[@mpf.RawMpf],
@@ -38,7 +35,7 @@ fn MPContext::p3_ode_shift(
 }
 
 ///|
-fn MPContext::p3_ode_finalize(
+fn MPContext::combine_rk4_stages(
   self : MPContext,
   y : ArrayView[@mpf.RawMpf],
   k1 : ArrayView[@mpf.RawMpf],
@@ -48,7 +45,7 @@ fn MPContext::p3_ode_finalize(
   h : @mpf.RawMpf,
   prec : Int,
 ) -> Array[@mpf.RawMpf] raise MPError {
-  let h6 = p2_mpf_div_int(h, 6, prec, @mpf.round_nearest)
+  let h6 = checked_mpf_div_int(h, 6, prec, @mpf.round_nearest)
   let out : Array[@mpf.RawMpf] = []
   for i in 0..<y.length() {
     let combo = @mpf.mpf_add(
@@ -81,56 +78,56 @@ fn MPContext::p3_ode_finalize(
 ///|
 pub fn MPContext::ode_step_rk4(
   self : MPContext,
-  f : OdeSystemFn,
+  f : (@mpf.RawMpf, ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] raise?,
   t : @mpf.RawMpf,
   y : ArrayView[@mpf.RawMpf],
   h : @mpf.RawMpf,
-) -> Array[@mpf.RawMpf] raise MPError {
+) -> Array[@mpf.RawMpf] raise {
   let n = y.length()
-  let p = self.p2_work_prec()
-  let h2 = p2_mpf_div_int(h, 2, p, @mpf.round_nearest)
+  let p = self.working_precision()
+  let h2 = checked_mpf_div_int(h, 2, p, @mpf.round_nearest)
   let t2 = @mpf.mpf_add(t, h2, p, @mpf.round_nearest)
   let t4 = @mpf.mpf_add(t, h, p, @mpf.round_nearest)
 
   let k1 = f(t, y)
-  self.p3_ode_expect_dim("ode_step_rk4", k1, n)
-  let y2 = self.p3_ode_shift(y, k1, h2, p)
+  self.validate_ode_dimension("ode_step_rk4", k1, n)
+  let y2 = self.shift_ode_state(y, k1, h2, p)
 
   let k2 = f(t2, y2)
-  self.p3_ode_expect_dim("ode_step_rk4", k2, n)
-  let y3 = self.p3_ode_shift(y, k2, h2, p)
+  self.validate_ode_dimension("ode_step_rk4", k2, n)
+  let y3 = self.shift_ode_state(y, k2, h2, p)
 
   let k3 = f(t2, y3)
-  self.p3_ode_expect_dim("ode_step_rk4", k3, n)
-  let y4 = self.p3_ode_shift(y, k3, h, p)
+  self.validate_ode_dimension("ode_step_rk4", k3, n)
+  let y4 = self.shift_ode_state(y, k3, h, p)
 
   let k4 = f(t4, y4)
-  self.p3_ode_expect_dim("ode_step_rk4", k4, n)
+  self.validate_ode_dimension("ode_step_rk4", k4, n)
 
-  self.p3_ode_finalize(y, k1, k2, k3, k4, h, p)
+  self.combine_rk4_stages(y, k1, k2, k3, k4, h, p)
 }
 
 ///|
 pub fn MPContext::ode_solve(
   self : MPContext,
-  f : OdeSystemFn,
+  f : (@mpf.RawMpf, ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] raise?,
   t0 : @mpf.RawMpf,
   y0 : ArrayView[@mpf.RawMpf],
   t1 : @mpf.RawMpf,
   steps? : Int = 200,
-) -> Array[@mpf.RawMpf] raise MPError {
+) -> Array[@mpf.RawMpf] raise {
   if steps < 1 {
     raise ValueError("ode_solve: steps must be positive")
   }
-  let p = self.p2_work_prec()
-  let h = p2_mpf_div(
+  let p = self.working_precision()
+  let h = checked_mpf_div(
     @mpf.mpf_sub(t1, t0, p, @mpf.round_nearest),
     @mpf.from_int(steps),
     p,
     @mpf.round_nearest,
   )
   let mut t = t0
-  let mut y = p3_copy_vec(y0)
+  let mut y = copy_mpf_vector(y0)
   for _ in 0..<steps {
     y = self.ode_step_rk4(f, t, y, h)
     t = @mpf.mpf_add(t, h, p, @mpf.round_nearest)
@@ -141,12 +138,12 @@ pub fn MPContext::ode_solve(
 ///|
 pub fn MPContext::ode_solve_grid(
   self : MPContext,
-  f : OdeSystemFn,
+  f : (@mpf.RawMpf, ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] raise?,
   t0 : @mpf.RawMpf,
   y0 : ArrayView[@mpf.RawMpf],
   ts : ArrayView[@mpf.RawMpf],
   steps_per_interval? : Int = 128,
-) -> Array[Array[@mpf.RawMpf]] raise MPError {
+) -> Array[Array[@mpf.RawMpf]] raise {
   if steps_per_interval < 1 {
     raise ValueError("ode_solve_grid: steps_per_interval must be positive")
   }
@@ -158,13 +155,13 @@ pub fn MPContext::ode_solve_grid(
   }
   let out : Array[Array[@mpf.RawMpf]] = []
   let mut t = t0
-  let mut y = p3_copy_vec(y0)
-  out.push(p3_copy_vec(y))
+  let mut y = copy_mpf_vector(y0)
+  out.push(copy_mpf_vector(y))
   for i in 1..<ts.length() {
     let t_next = ts[i]
     y = self.ode_solve(f, t, y, t_next, steps=steps_per_interval)
     t = t_next
-    out.push(p3_copy_vec(y))
+    out.push(copy_mpf_vector(y))
   }
   out
 }
@@ -191,12 +188,15 @@ pub fn MPContext::eigsy(
   }
   for i in 0..<n {
     for j in (i + 1)..<n {
-      if !@mpf.mpf_eq(a.data[p3_idx(n, i, j)], a.data[p3_idx(n, j, i)]) {
+      if !@mpf.mpf_eq(
+          a.data[matrix_offset(n, i, j)],
+          a.data[matrix_offset(n, j, i)],
+        ) {
         raise ValueError("eigsy: matrix must be symmetric")
       }
     }
   }
-  let p = self.p2_work_prec() + 24
+  let p = self.working_precision() + 24
   let tol_abs = match tol {
     Some(v) => @mpf.mpf_abs(v, p, @mpf.round_nearest)
     None => {
@@ -205,9 +205,9 @@ pub fn MPContext::eigsy(
     }
   }
   let steps = if max_steps > 0 { max_steps } else { n * n * 32 }
-  let work = p3_copy_vec(a.data)
+  let work = copy_mpf_vector(a.data)
   let q0 = self.eye(n)
-  let q = p3_copy_vec(q0.data)
+  let q = copy_mpf_vector(q0.data)
   let mut done = false
   for _ in 0..<steps {
     let mut p_idx = 0
@@ -215,7 +215,11 @@ pub fn MPContext::eigsy(
     let mut max_off = @mpf.fzero
     for i in 0..<n {
       for j in (i + 1)..<n {
-        let v = @mpf.mpf_abs(work[p3_idx(n, i, j)], p, @mpf.round_nearest)
+        let v = @mpf.mpf_abs(
+          work[matrix_offset(n, i, j)],
+          p,
+          @mpf.round_nearest,
+        )
         if @mpf.mpf_gt(v, max_off) {
           max_off = v
           p_idx = i
@@ -227,13 +231,13 @@ pub fn MPContext::eigsy(
       done = true
       break
     }
-    let app = work[p3_idx(n, p_idx, p_idx)]
-    let aqq = work[p3_idx(n, q_idx, q_idx)]
-    let apq = work[p3_idx(n, p_idx, q_idx)]
+    let app = work[matrix_offset(n, p_idx, p_idx)]
+    let aqq = work[matrix_offset(n, q_idx, q_idx)]
+    let apq = work[matrix_offset(n, p_idx, q_idx)]
     if @mpf.is_zero(apq) {
       continue
     }
-    let tau = p2_mpf_div(
+    let tau = checked_mpf_div(
       @mpf.mpf_sub(aqq, app, p, @mpf.round_nearest),
       @mpf.mpf_mul_int(apq, 2, p, @mpf.round_nearest),
       p,
@@ -256,12 +260,12 @@ pub fn MPContext::eigsy(
     let mut t = if @mpf.is_zero(denom) {
       @mpf.fone
     } else {
-      p2_mpf_div(@mpf.fone, denom, p, @mpf.round_nearest)
+      checked_mpf_div(@mpf.fone, denom, p, @mpf.round_nearest)
     }
     if tau.sign == 1 {
       t = @mpf.mpf_neg(t, p, @mpf.round_nearest)
     }
-    let c = p2_mpf_div(
+    let c = checked_mpf_div(
       @mpf.fone,
       @mpf.mpf_sqrt(
         @mpf.mpf_add(
@@ -291,8 +295,8 @@ pub fn MPContext::eigsy(
       if k == p_idx || k == q_idx {
         continue
       }
-      let aik = work[p3_idx(n, k, p_idx)]
-      let akq = work[p3_idx(n, k, q_idx)]
+      let aik = work[matrix_offset(n, k, p_idx)]
+      let akq = work[matrix_offset(n, k, q_idx)]
       let new_aik = @mpf.mpf_sub(
         @mpf.mpf_mul(c, aik, p, @mpf.round_nearest),
         @mpf.mpf_mul(s, akq, p, @mpf.round_nearest),
@@ -305,12 +309,12 @@ pub fn MPContext::eigsy(
         p,
         @mpf.round_nearest,
       )
-      work[p3_idx(n, k, p_idx)] = new_aik
-      work[p3_idx(n, p_idx, k)] = new_aik
-      work[p3_idx(n, k, q_idx)] = new_akq
-      work[p3_idx(n, q_idx, k)] = new_akq
+      work[matrix_offset(n, k, p_idx)] = new_aik
+      work[matrix_offset(n, p_idx, k)] = new_aik
+      work[matrix_offset(n, k, q_idx)] = new_akq
+      work[matrix_offset(n, q_idx, k)] = new_akq
     }
-    work[p3_idx(n, p_idx, p_idx)] = @mpf.mpf_add(
+    work[matrix_offset(n, p_idx, p_idx)] = @mpf.mpf_add(
       @mpf.mpf_sub(
         @mpf.mpf_mul(c2, app, p, @mpf.round_nearest),
         @mpf.mpf_mul(sc2, apq, p, @mpf.round_nearest),
@@ -321,7 +325,7 @@ pub fn MPContext::eigsy(
       p,
       @mpf.round_nearest,
     )
-    work[p3_idx(n, q_idx, q_idx)] = @mpf.mpf_add(
+    work[matrix_offset(n, q_idx, q_idx)] = @mpf.mpf_add(
       @mpf.mpf_add(
         @mpf.mpf_mul(s2, app, p, @mpf.round_nearest),
         @mpf.mpf_mul(sc2, apq, p, @mpf.round_nearest),
@@ -332,19 +336,19 @@ pub fn MPContext::eigsy(
       p,
       @mpf.round_nearest,
     )
-    work[p3_idx(n, p_idx, q_idx)] = @mpf.fzero
-    work[p3_idx(n, q_idx, p_idx)] = @mpf.fzero
+    work[matrix_offset(n, p_idx, q_idx)] = @mpf.fzero
+    work[matrix_offset(n, q_idx, p_idx)] = @mpf.fzero
 
     for k in 0..<n {
-      let vip = q[p3_idx(n, k, p_idx)]
-      let viq = q[p3_idx(n, k, q_idx)]
-      q[p3_idx(n, k, p_idx)] = @mpf.mpf_sub(
+      let vip = q[matrix_offset(n, k, p_idx)]
+      let viq = q[matrix_offset(n, k, q_idx)]
+      q[matrix_offset(n, k, p_idx)] = @mpf.mpf_sub(
         @mpf.mpf_mul(c, vip, p, @mpf.round_nearest),
         @mpf.mpf_mul(s, viq, p, @mpf.round_nearest),
         p,
         @mpf.round_nearest,
       )
-      q[p3_idx(n, k, q_idx)] = @mpf.mpf_add(
+      q[matrix_offset(n, k, q_idx)] = @mpf.mpf_add(
         @mpf.mpf_mul(s, vip, p, @mpf.round_nearest),
         @mpf.mpf_mul(c, viq, p, @mpf.round_nearest),
         p,
@@ -357,7 +361,7 @@ pub fn MPContext::eigsy(
   }
   let vals : Array[@mpf.RawMpf] = []
   for i in 0..<n {
-    vals.push(work[p3_idx(n, i, i)])
+    vals.push(work[matrix_offset(n, i, i)])
   }
   for i in 0..<n {
     let mut best = i
@@ -370,7 +374,7 @@ pub fn MPContext::eigsy(
       let t = vals[i]
       vals[i] = vals[best]
       vals[best] = t
-      p3_swap_cols(q, n, n, i, best)
+      swap_matrix_columns(q, n, n, i, best)
     }
   }
   let out_vals : Array[@mpf.RawMpf] = []

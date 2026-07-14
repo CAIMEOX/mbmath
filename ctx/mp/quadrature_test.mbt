@@ -95,9 +95,7 @@ test "quad finite and piecewise subset from mpmath test_quad" {
     (x : @mpf.RawMpf) => {
       let x2 = @mpf.mpf_mul(x, x, 260, @mpf.round_nearest)
       let den = @mpf.mpf_add(@mpf.fone, x2, 260, @mpf.round_nearest)
-      @mpf.mpf_div(@mpf.fone, den, 260, @mpf.round_nearest) catch {
-        _ => @mpf.fnan
-      }
+      @mpf.mpf_div(@mpf.fone, den, 260, @mpf.round_nearest)
     },
     @mpf.fninf,
     @mpf.finf,

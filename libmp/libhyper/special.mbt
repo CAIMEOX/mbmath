@@ -1,11 +1,7 @@
 ///|
-let euler_gamma : @mpf.RawMpf = @mpf.from_str(
-  "0.57721566490153286060651209008240243104215933593992",
-  prec=200,
-  rnd=@mpf.round_nearest,
-) catch {
-  _ => @mpf.fnan
-}
+let euler_gamma : @mpf.RawMpf = @mpf.from_man_exp(
+  927549811672521911724738044671514915956439037055189363041055N, -200, 0, @mpf.round_down,
+)
 
 ///|
 fn wp(prec : Int) -> Int {
@@ -28,62 +24,113 @@ fn tiny_enough(x : @mpf.RawMpf, bits : Int) -> Bool {
 }
 
 ///|
-// These helpers totalize operations whose domains are established by the
-// surrounding special-function algorithm.
-fn div_or_nan(
-  x : @mpf.RawMpf,
-  y : @mpf.RawMpf,
-  prec : Int,
-  rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
-  @mpf.mpf_div(x, y, prec, rnd) catch {
-    _ => @mpf.fnan
+fn from_mpf_error(err : @mpf.MpfError) -> LibHyperError {
+  match err {
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    DivisionByZero(msg) => PoleError(msg)
+    ParseError(msg) => ValueError(msg)
+    FormatError(msg) => ValueError(msg)
+    UnsupportedError(msg) => ValueError(msg)
   }
 }
 
 ///|
-fn rdiv_int_or_nan(
+fn from_libelefun_error(err : @libelefun.LibElefunError) -> LibHyperError {
+  match err {
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    ComplexResult(msg) => ComplexResult(msg)
+  }
+}
+
+///|
+fn div_checked(
+  x : @mpf.RawMpf,
+  y : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise LibHyperError {
+  @mpf.mpf_div(x, y, prec, rnd) catch {
+    err => raise from_mpf_error(err)
+  }
+}
+
+///|
+fn rdiv_int_checked(
   n : Int,
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibHyperError {
   @mpf.mpf_rdiv_int(n, x, prec, rnd) catch {
-    _ => @mpf.fnan
+    err => raise from_mpf_error(err)
   }
 }
 
 ///|
-fn sqrt_or_nan(
+fn sqrt_checked(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibHyperError {
   @mpf.mpf_sqrt(x, prec, rnd) catch {
-    _ => @mpf.fnan
+    err => raise from_mpf_error(err)
   }
 }
 
 ///|
-fn ln_positive_or_nan(
+fn ln_positive_checked(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibHyperError {
   @libelefun.mpf_ln(x, prec, rnd) catch {
-    _ => @mpf.fnan
+    err => raise from_libelefun_error(err)
   }
 }
 
 ///|
-fn pow_real_or_nan(
+fn pow_real_checked(
   x : @mpf.RawMpf,
   y : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibHyperError {
   @libelefun.mpf_pow(x, y, prec, rnd) catch {
-    _ => @mpf.fnan
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn pi_checked(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise LibHyperError {
+  @libelefun.mpf_pi(prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn cos_sin_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> (@mpf.RawMpf, @mpf.RawMpf) raise LibHyperError {
+  @libelefun.mpf_cos_sin(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn exp_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise LibHyperError {
+  @libelefun.mpf_exp(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
   }
 }
 
@@ -122,7 +169,7 @@ pub fn mpf_agm(
   let mut b = @mpf.mpf_pos(y, p, @mpf.round_nearest)
   for _ in 0..<64 {
     let next_a = @mpf.mpf_shift(@mpf.mpf_add(a, b, p, @mpf.round_nearest), -1)
-    let next_b = sqrt_or_nan(
+    let next_b = sqrt_checked(
       @mpf.mpf_mul(a, b, p, @mpf.round_nearest),
       p,
       @mpf.round_nearest,
@@ -149,7 +196,7 @@ pub fn mpf_ci_si_taylor(
   x : @mpf.RawMpf,
   wp : Int,
   which? : Int = 0,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibHyperError {
   let p = if wp > 0 { wp } else { 32 }
   let x2 = @mpf.mpf_neg(
     @mpf.mpf_mul(x, x, p, @mpf.round_nearest),
@@ -170,13 +217,13 @@ pub fn mpf_ci_si_taylor(
   let max_terms = if p <= 128 { 256 } else if p <= 512 { 1024 } else { p * 3 }
   while k < max_terms {
     let den = k * (k - 1)
-    term = div_or_nan(
+    term = div_checked(
       @mpf.mpf_mul(term, x2, p, @mpf.round_nearest),
       @mpf.from_int(den),
       p,
       @mpf.round_nearest,
     )
-    let add = div_or_nan(term, @mpf.from_int(k), p, @mpf.round_nearest)
+    let add = div_checked(term, @mpf.from_int(k), p, @mpf.round_nearest)
     sum = @mpf.mpf_add(sum, add, p, @mpf.round_nearest)
     if tiny_enough(@mpf.mpf_abs(add, p, @mpf.round_nearest), p + 8) && k > 7 {
       break
@@ -192,7 +239,7 @@ pub fn mpf_ci_si(
   prec : Int,
   rnd : @mpf.RoundMode,
   which? : Int = 2,
-) -> (@mpf.RawMpf, @mpf.RawMpf) {
+) -> (@mpf.RawMpf, @mpf.RawMpf) raise LibHyperError {
   let p0 = wp(prec) + 20
   let mut ci = @mpf.fzero
   let mut si = @mpf.fzero
@@ -204,10 +251,7 @@ pub fn mpf_ci_si(
   }
   if @mpf.is_inf(x) {
     if which != 0 {
-      let half_pi = @mpf.mpf_shift(
-        @libelefun.mpf_pi(p0, @mpf.round_nearest),
-        -1,
-      )
+      let half_pi = @mpf.mpf_shift(pi_checked(p0, @mpf.round_nearest), -1)
       si = if x.sign == 1 {
         @mpf.mpf_neg(half_pi, prec, rnd)
       } else {
@@ -226,7 +270,7 @@ pub fn mpf_ci_si(
       ci = @mpf.mpf_pos(
         @mpf.mpf_add(
           @mpf.mpf_pos(euler_gamma, p0, @mpf.round_nearest),
-          ln_positive_or_nan(x_abs, p0, @mpf.round_nearest),
+          ln_positive_checked(x_abs, p0, @mpf.round_nearest),
           p0,
           @mpf.round_nearest,
         ),
@@ -252,7 +296,7 @@ pub fn mpf_ci_si(
             p,
             @mpf.round_nearest,
           ),
-          ln_positive_or_nan(x_abs, p, @mpf.round_nearest),
+          ln_positive_checked(x_abs, p, @mpf.round_nearest),
           p,
           @mpf.round_nearest,
         ),
@@ -262,7 +306,7 @@ pub fn mpf_ci_si(
     }
     return (ci, si)
   }
-  let inv_x = div_or_nan(@mpf.fone, x_abs, p, @mpf.round_nearest)
+  let inv_x = div_checked(@mpf.fone, x_abs, p, @mpf.round_nearest)
   let inv_x2 = @mpf.mpf_mul(inv_x, inv_x, p, @mpf.round_nearest)
   let mut f_term = inv_x
   let mut f_sum = f_term
@@ -293,7 +337,7 @@ pub fn mpf_ci_si(
     }
     m += 1
   }
-  let (cos_x, sin_x) = @libelefun.mpf_cos_sin(x_abs, p, @mpf.round_nearest)
+  let (cos_x, sin_x) = cos_sin_checked(x_abs, p, @mpf.round_nearest)
   if which != 1 {
     ci = @mpf.mpf_pos(
       @mpf.mpf_sub(
@@ -308,7 +352,7 @@ pub fn mpf_ci_si(
   }
   if which != 0 {
     let mut si_abs = @mpf.mpf_sub(
-      @mpf.mpf_shift(@libelefun.mpf_pi(p, @mpf.round_nearest), -1),
+      @mpf.mpf_shift(pi_checked(p, @mpf.round_nearest), -1),
       @mpf.mpf_add(
         @mpf.mpf_mul(cos_x, f_sum, p, @mpf.round_nearest),
         @mpf.mpf_mul(sin_x, g_sum, p, @mpf.round_nearest),
@@ -349,13 +393,21 @@ pub fn mpf_ci(
 }
 
 ///|
-pub fn mpf_si(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_si(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise LibHyperError {
   let (_, si) = mpf_ci_si(x, prec, rnd, which=1)
   si
 }
 
 ///|
-pub fn mpf_ei(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_ei(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise LibHyperError {
   if @mpf.is_nan(x) {
     return @mpf.fnan
   }
@@ -373,7 +425,7 @@ pub fn mpf_ei(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf 
   let abs_x = @mpf.mpf_abs(x, p, @mpf.round_nearest)
   let mut sum = @mpf.mpf_add(
     euler_gamma,
-    ln_positive_or_nan(abs_x, p, @mpf.round_nearest),
+    ln_positive_checked(abs_x, p, @mpf.round_nearest),
     p,
     @mpf.round_nearest,
   )
@@ -387,8 +439,8 @@ pub fn mpf_ei(x : @mpf.RawMpf, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf 
     let kp1 = k + 1
     term = @mpf.mpf_mul(term, x, p, @mpf.round_nearest)
     term = @mpf.mpf_mul_int(term, k, p, @mpf.round_nearest)
-    term = div_or_nan(term, @mpf.from_int(kp1), p, @mpf.round_nearest)
-    term = div_or_nan(term, @mpf.from_int(kp1), p, @mpf.round_nearest)
+    term = div_checked(term, @mpf.from_int(kp1), p, @mpf.round_nearest)
+    term = div_checked(term, @mpf.from_int(kp1), p, @mpf.round_nearest)
     sum = @mpf.mpf_add(sum, term, p, @mpf.round_nearest)
     k += 1
   }
@@ -412,10 +464,10 @@ pub fn mpf_ellipk(
   }
   let p = wp(prec)
   let t = @mpf.mpf_sub(@mpf.fone, m, p, @mpf.round_nearest)
-  let root = sqrt_or_nan(t, p, @mpf.round_nearest)
+  let root = sqrt_checked(t, p, @mpf.round_nearest)
   let agm = mpf_agm(@mpf.fone, root, p, @mpf.round_nearest)
-  let half_pi = @mpf.mpf_shift(@libelefun.mpf_pi(p, @mpf.round_nearest), -1)
-  @mpf.mpf_pos(div_or_nan(half_pi, agm, p, @mpf.round_nearest), prec, rnd)
+  let half_pi = @mpf.mpf_shift(pi_checked(p, @mpf.round_nearest), -1)
+  @mpf.mpf_pos(div_checked(half_pi, agm, p, @mpf.round_nearest), prec, rnd)
 }
 
 ///|
@@ -434,9 +486,9 @@ pub fn mpf_ellipe(
     raise ComplexResult("square root of a negative number")
   }
   let p = wp(prec) + 16
-  let half_pi = @mpf.mpf_shift(@libelefun.mpf_pi(p, @mpf.round_nearest), -1)
+  let half_pi = @mpf.mpf_shift(pi_checked(p, @mpf.round_nearest), -1)
   let mut a = @mpf.fone
-  let mut b = sqrt_or_nan(
+  let mut b = sqrt_checked(
     @mpf.mpf_sub(@mpf.fone, m, p, @mpf.round_nearest),
     p,
     @mpf.round_nearest,
@@ -453,7 +505,7 @@ pub fn mpf_ellipe(
       @mpf.round_nearest,
     )
     let next_a = @mpf.mpf_shift(@mpf.mpf_add(a, b, p, @mpf.round_nearest), -1)
-    let next_b = sqrt_or_nan(
+    let next_b = sqrt_checked(
       @mpf.mpf_mul(a, b, p, @mpf.round_nearest),
       p,
       @mpf.round_nearest,
@@ -465,7 +517,7 @@ pub fn mpf_ellipe(
       break
     }
   }
-  let k = div_or_nan(half_pi, a, p, @mpf.round_nearest)
+  let k = div_checked(half_pi, a, p, @mpf.round_nearest)
   let e = @mpf.mpf_mul(
     k,
     @mpf.mpf_sub(@mpf.fone, sum, p, @mpf.round_nearest),
@@ -519,7 +571,7 @@ pub fn mpf_erf(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibHyperError {
   if @mpf.is_nan(x) {
     return @mpf.fnan
   }
@@ -545,17 +597,17 @@ pub fn mpf_erf(
     let den2 = 2 * k + 3
     term = @mpf.mpf_mul(term, x2, p, @mpf.round_nearest)
     term = @mpf.mpf_mul_int(term, -num, p, @mpf.round_nearest)
-    term = div_or_nan(term, @mpf.from_int(den1), p, @mpf.round_nearest)
-    term = div_or_nan(term, @mpf.from_int(den2), p, @mpf.round_nearest)
+    term = div_checked(term, @mpf.from_int(den1), p, @mpf.round_nearest)
+    term = div_checked(term, @mpf.from_int(den2), p, @mpf.round_nearest)
     sum = @mpf.mpf_add(sum, term, p, @mpf.round_nearest)
     if tiny_enough(@mpf.mpf_abs(term, p, @mpf.round_nearest), p + 10) && k > 3 {
       break
     }
     k += 1
   }
-  let two_over_sqrt_pi = div_or_nan(
+  let two_over_sqrt_pi = div_checked(
     @mpf.from_int(2),
-    sqrt_or_nan(@libelefun.mpf_pi(p, @mpf.round_nearest), p, @mpf.round_nearest),
+    sqrt_checked(pi_checked(p, @mpf.round_nearest), p, @mpf.round_nearest),
     p,
     @mpf.round_nearest,
   )
@@ -571,7 +623,7 @@ pub fn mpf_erfc(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibHyperError {
   if @mpf.is_nan(x) {
     return @mpf.fnan
   }
@@ -629,7 +681,7 @@ pub fn mpf_expint(
     if @mpf.is_inf(x) {
       return if x.sign == 0 { @mpf.fzero } else { @mpf.fnan }
     }
-    let ex = @libelefun.mpf_exp(
+    let ex = exp_checked(
       @mpf.mpf_neg(x, p, @mpf.round_nearest),
       p,
       @mpf.round_nearest,
@@ -638,7 +690,7 @@ pub fn mpf_expint(
     let mut term = @mpf.fone
     for k in 1..<n {
       term = @mpf.mpf_mul(term, x, p, @mpf.round_nearest)
-      term = div_or_nan(term, @mpf.from_int(k), p, @mpf.round_nearest)
+      term = div_checked(term, @mpf.from_int(k), p, @mpf.round_nearest)
       sum = @mpf.mpf_add(sum, term, p, @mpf.round_nearest)
     }
     return @mpf.mpf_pos(
@@ -659,7 +711,7 @@ pub fn mpf_expint(
     if n == 1 {
       return @mpf.finf
     }
-    return rdiv_int_or_nan(1, @mpf.from_int(n - 1), prec, rnd)
+    return rdiv_int_checked(1, @mpf.from_int(n - 1), prec, rnd)
   }
   let p = wp(prec) + 16
   let mut en = if x.sign == 1 {
@@ -674,14 +726,14 @@ pub fn mpf_expint(
   if n == 1 {
     return @mpf.mpf_pos(en, prec, rnd)
   }
-  let ex = @libelefun.mpf_exp(
+  let ex = exp_checked(
     @mpf.mpf_neg(x, p, @mpf.round_nearest),
     p,
     @mpf.round_nearest,
   )
   let mut k = 1
   while k < n {
-    en = div_or_nan(
+    en = div_checked(
       @mpf.mpf_sub(
         ex,
         @mpf.mpf_mul(x, en, p, @mpf.round_nearest),
@@ -703,7 +755,7 @@ pub fn mpf_besseljn(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise LibHyperError {
   if @mpf.is_nan(x) {
     return @mpf.fnan
   }
@@ -721,20 +773,20 @@ pub fn mpf_besseljn(
   }
   let half_x = @mpf.mpf_shift(x, -1)
   let x2_over4 = @mpf.mpf_mul(half_x, half_x, p, @mpf.round_nearest)
-  let mut term = pow_real_or_nan(
+  let mut term = pow_real_checked(
     @mpf.mpf_abs(half_x, p, @mpf.round_nearest),
     @mpf.from_int(m),
     p,
     @mpf.round_nearest,
   )
-  term = div_or_nan(term, factorial_mpf(m, p), p, @mpf.round_nearest)
+  term = div_checked(term, factorial_mpf(m, p), p, @mpf.round_nearest)
   let mut sum = term
   let mut k = 0
   while k < 20000 {
     term = @mpf.mpf_mul(term, x2_over4, p, @mpf.round_nearest)
     term = @mpf.mpf_mul_int(term, -1, p, @mpf.round_nearest)
-    term = div_or_nan(term, @mpf.from_int(k + 1), p, @mpf.round_nearest)
-    term = div_or_nan(term, @mpf.from_int(k + m + 1), p, @mpf.round_nearest)
+    term = div_checked(term, @mpf.from_int(k + 1), p, @mpf.round_nearest)
+    term = div_checked(term, @mpf.from_int(k + m + 1), p, @mpf.round_nearest)
     sum = @mpf.mpf_add(sum, term, p, @mpf.round_nearest)
     if tiny_enough(@mpf.mpf_abs(term, p, @mpf.round_nearest), p + 12) && k > 4 {
       break

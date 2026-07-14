@@ -7,7 +7,7 @@ test "eigsy subset from mpmath test_eigen_symmetric" {
     [ctx.make_int(7), ctx.make_int(13), ctx.make_int(5)],
   ])
   let (d, q) = ctx.eigsy(a)
-  assert_eq(d.length(), 3)
+  @debug.assert_eq(d.length(), 3)
   assert_true(@mpf.mpf_le(d[0], d[1]))
   assert_true(@mpf.mpf_le(d[1], d[2]))
 

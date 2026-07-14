@@ -14,7 +14,7 @@ pub fn mpci_abs(RawMpci, Int) -> RawMpi raise MpiError
 
 pub fn mpci_add(RawMpci, RawMpci, Int) -> RawMpci
 
-pub fn mpci_arg(RawMpci, Int) -> RawMpi
+pub fn mpci_arg(RawMpci, Int) -> RawMpi raise MpiError
 
 pub fn mpci_contains_mpf(RawMpci, @mpf.RawMpf, @mpf.RawMpf) -> Bool
 
@@ -80,9 +80,9 @@ pub fn mpi_abs(RawMpi, prec? : Int) -> RawMpi
 
 pub fn mpi_add(RawMpi, RawMpi, prec? : Int) -> RawMpi
 
-pub fn mpi_atan(RawMpi, Int) -> RawMpi
+pub fn mpi_atan(RawMpi, Int) -> RawMpi raise MpiError
 
-pub fn mpi_atan2(RawMpi, RawMpi, Int) -> RawMpi
+pub fn mpi_atan2(RawMpi, RawMpi, Int) -> RawMpi raise MpiError
 
 pub fn mpi_cos(RawMpi, Int) -> RawMpi raise MpiError
 
@@ -100,7 +100,7 @@ pub fn mpi_div_mpf(RawMpi, @mpf.RawMpf, Int) -> RawMpi raise MpiError
 
 pub fn mpi_eq(RawMpi, RawMpi) -> Bool
 
-pub fn mpi_exp(RawMpi, Int) -> RawMpi
+pub fn mpi_exp(RawMpi, Int) -> RawMpi raise MpiError
 
 pub fn mpi_eye(Int) -> RawMpiMatrix raise MpiError
 
@@ -166,7 +166,7 @@ pub fn mpi_ones(Int, cols? : Int) -> RawMpiMatrix raise MpiError
 
 pub fn mpi_overlap(RawMpi, RawMpi) -> Bool
 
-pub fn mpi_pi(Int) -> RawMpi
+pub fn mpi_pi(Int) -> RawMpi raise MpiError
 
 pub fn mpi_pos(RawMpi, Int) -> RawMpi
 
@@ -208,14 +208,12 @@ pub(all) suberror MpiError {
   UnsupportedError(String)
   UnorderedError(String)
 } derive(Eq, @debug.Debug)
-pub impl Show for MpiError
 
 // Types and methods
 pub struct RawMpci {
   real : RawMpi
   imag : RawMpi
 } derive(Eq, @debug.Debug)
-pub impl Show for RawMpci
 
 pub struct RawMpciMatrix {
   rows : Int
@@ -223,13 +221,11 @@ pub struct RawMpciMatrix {
   data : Array[RawMpci]
 } derive(Eq, @debug.Debug)
 pub fn RawMpciMatrix::get(Self, Int, Int) -> RawMpci raise MpiError
-pub impl Show for RawMpciMatrix
 
 pub struct RawMpi {
   lo : @mpf.RawMpf
   hi : @mpf.RawMpf
 } derive(Eq, @debug.Debug)
-pub impl Show for RawMpi
 
 pub struct RawMpiMatrix {
   rows : Int
@@ -239,7 +235,6 @@ pub struct RawMpiMatrix {
 pub fn RawMpiMatrix::get(Self, Int, Int) -> RawMpi raise MpiError
 pub fn RawMpiMatrix::set(Self, Int, Int, RawMpi) -> Unit raise MpiError
 pub fn RawMpiMatrix::tolist(Self) -> Array[Array[RawMpi]]
-pub impl Show for RawMpiMatrix
 
 // Type aliases
 

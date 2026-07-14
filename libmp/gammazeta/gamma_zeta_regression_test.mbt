@@ -128,8 +128,11 @@ test "extra_gamma loggamma positive subset from mpmath test_fp" {
 
 ///|
 test "extra_gamma rgamma infinity subset from mpmath issue_510" {
-  assert_eq(mpf_rgamma(@mpf.finf, 160, @mpf.round_nearest), @mpf.fzero)
-  assert_eq(mpf_rgamma(@mpf.from_int(1), 160, @mpf.round_nearest), @mpf.fone)
+  @debug.assert_eq(mpf_rgamma(@mpf.finf, 160, @mpf.round_nearest), @mpf.fzero)
+  @debug.assert_eq(
+    mpf_rgamma(@mpf.from_int(1), 160, @mpf.round_nearest),
+    @mpf.fone,
+  )
 }
 
 ///|

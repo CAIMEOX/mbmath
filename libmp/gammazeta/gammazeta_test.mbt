@@ -51,16 +51,19 @@ fn assert_close_numeric(
 
 ///|
 test "mpf_factorial basic" {
-  assert_eq(mpf_factorial(0, 80, @mpf.round_nearest), @mpf.fone)
-  assert_eq(mpf_factorial(1, 80, @mpf.round_nearest), @mpf.fone)
-  assert_eq(mpf_factorial(5, 80, @mpf.round_nearest), @mpf.from_int(120))
-  assert_eq(mpf_factorial(10, 80, @mpf.round_nearest), @mpf.from_int(3628800))
+  @debug.assert_eq(mpf_factorial(0, 80, @mpf.round_nearest), @mpf.fone)
+  @debug.assert_eq(mpf_factorial(1, 80, @mpf.round_nearest), @mpf.fone)
+  @debug.assert_eq(mpf_factorial(5, 80, @mpf.round_nearest), @mpf.from_int(120))
+  @debug.assert_eq(
+    mpf_factorial(10, 80, @mpf.round_nearest),
+    @mpf.from_int(3628800),
+  )
 }
 
 ///|
 test "mpf_bernoulli small values" {
-  assert_eq(mpf_bernoulli(0, 120, @mpf.round_nearest), @mpf.from_int(1))
-  assert_eq(
+  @debug.assert_eq(mpf_bernoulli(0, 120, @mpf.round_nearest), @mpf.from_int(1))
+  @debug.assert_eq(
     mpf_bernoulli(1, 120, @mpf.round_nearest),
     @mpf.from_man_exp(-1N, -1, 0, @mpf.round_down),
   )
@@ -74,7 +77,7 @@ test "mpf_bernoulli small values" {
     "-0.033333333333333",
     16,
   )
-  assert_eq(mpf_bernoulli(3, 120, @mpf.round_nearest), @mpf.fzero)
+  @debug.assert_eq(mpf_bernoulli(3, 120, @mpf.round_nearest), @mpf.fzero)
 }
 
 ///|
@@ -95,7 +98,7 @@ test "mpf_zeta_int subset" {
 
 ///|
 test "mpf_gamma subset" {
-  assert_eq(
+  @debug.assert_eq(
     mpf_gamma(@mpf.from_int(6), 120, @mpf.round_nearest),
     @mpf.from_int(120),
   )
@@ -152,7 +155,10 @@ test "mpf rgamma/loggamma/gamma_int subset" {
     "1.200973602347",
     14,
   )
-  assert_eq(mpf_gamma_int(6, 120, @mpf.round_nearest), @mpf.from_int(120))
+  @debug.assert_eq(
+    mpf_gamma_int(6, 120, @mpf.round_nearest),
+    @mpf.from_int(120),
+  )
 }
 
 ///|
@@ -187,7 +193,7 @@ test "mpf psi harmonic fibonacci zeta subset" {
     "1.2803723053",
     14,
   )
-  assert_eq(
+  @debug.assert_eq(
     mpf_fibonacci(@mpf.from_int(10), 120, @mpf.round_nearest),
     @mpf.from_int(55),
   )
@@ -270,15 +276,15 @@ test "mpf gamma/zeta negative real subset" {
     "-0.828796644234",
     14,
   )
-  assert_eq(mpf_psi(1, @mpf.finf, 120, @mpf.round_nearest), @mpf.fzero)
+  @debug.assert_eq(mpf_psi(1, @mpf.finf, 120, @mpf.round_nearest), @mpf.fzero)
 }
 
 ///|
 test "mpf psi0 harmonic infinity semantics and large-negative stability" {
   assert_true(@mpf.is_nan(mpf_psi0(@mpf.fninf, 140, @mpf.round_nearest)))
-  assert_eq(mpf_psi0(@mpf.finf, 140, @mpf.round_nearest), @mpf.finf)
+  @debug.assert_eq(mpf_psi0(@mpf.finf, 140, @mpf.round_nearest), @mpf.finf)
   assert_true(@mpf.is_nan(mpf_harmonic(@mpf.fninf, 140, @mpf.round_nearest)))
-  assert_eq(mpf_harmonic(@mpf.finf, 140, @mpf.round_nearest), @mpf.finf)
+  @debug.assert_eq(mpf_harmonic(@mpf.finf, 140, @mpf.round_nearest), @mpf.finf)
   let psi1_large_neg = mpf_psi(
     1,
     @mpf.from_str("-1e80"),

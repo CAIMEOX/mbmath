@@ -55,7 +55,7 @@ pub fn mpi_cos_sin(s : RawMpi, prec : Int) -> (RawMpi, RawMpi) raise MpiError {
   }
   let wp = if prec > 0 { prec + 32 } else { 96 }
   let out_prec = if prec > 0 { prec } else { wp }
-  let pi = @libelefun.mpf_pi(wp, @mpf.round_nearest)
+  let pi = elefun_pi_checked(wp, @mpf.round_nearest)
   let half_pi = @mpf.mpf_shift(pi, -1)
   let neg_half_pi = @mpf.mpf_neg(half_pi, 0, @mpf.round_down)
   let two_pi = @mpf.mpf_mul_int(pi, 2, wp, @mpf.round_nearest)
@@ -65,14 +65,14 @@ pub fn mpi_cos_sin(s : RawMpi, prec : Int) -> (RawMpi, RawMpi) raise MpiError {
     return (u, u)
   }
   // Evaluate endpoints with directional rounding to preserve enclosure.
-  let ca_lo = @libelefun.mpf_cos(s.lo, wp, @mpf.round_floor)
-  let ca_hi = @libelefun.mpf_cos(s.lo, wp, @mpf.round_ceiling)
-  let cb_lo = @libelefun.mpf_cos(s.hi, wp, @mpf.round_floor)
-  let cb_hi = @libelefun.mpf_cos(s.hi, wp, @mpf.round_ceiling)
-  let sa_lo = @libelefun.mpf_sin(s.lo, wp, @mpf.round_floor)
-  let sa_hi = @libelefun.mpf_sin(s.lo, wp, @mpf.round_ceiling)
-  let sb_lo = @libelefun.mpf_sin(s.hi, wp, @mpf.round_floor)
-  let sb_hi = @libelefun.mpf_sin(s.hi, wp, @mpf.round_ceiling)
+  let ca_lo = elefun_cos_checked(s.lo, wp, @mpf.round_floor)
+  let ca_hi = elefun_cos_checked(s.lo, wp, @mpf.round_ceiling)
+  let cb_lo = elefun_cos_checked(s.hi, wp, @mpf.round_floor)
+  let cb_hi = elefun_cos_checked(s.hi, wp, @mpf.round_ceiling)
+  let sa_lo = elefun_sin_checked(s.lo, wp, @mpf.round_floor)
+  let sa_hi = elefun_sin_checked(s.lo, wp, @mpf.round_ceiling)
+  let sb_lo = elefun_sin_checked(s.hi, wp, @mpf.round_floor)
+  let sb_hi = elefun_sin_checked(s.hi, wp, @mpf.round_ceiling)
   let (c_lo0, _) = @mpf.mpf_min_max([ca_lo, cb_lo]) catch {
     err => raise from_mpf_error(err)
   }

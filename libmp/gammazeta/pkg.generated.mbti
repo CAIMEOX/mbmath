@@ -9,33 +9,33 @@ import {
 // Values
 pub fn mpf_altzeta(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
-pub fn mpf_apery(Int, @mpf.RoundMode) -> @mpf.RawMpf
+pub fn mpf_apery(Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
 pub fn mpf_bernoulli(Int, Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
 pub fn mpf_bernoulli_huge(Int, Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
-pub fn mpf_catalan(Int, @mpf.RoundMode) -> @mpf.RawMpf
+pub fn mpf_catalan(Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
-pub fn mpf_euler(Int, @mpf.RoundMode) -> @mpf.RawMpf
+pub fn mpf_euler(Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
 pub fn mpf_factorial(Int, Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
-pub fn mpf_fibonacci(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf
+pub fn mpf_fibonacci(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
 pub fn mpf_gamma(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
 pub fn mpf_gamma_int(Int, Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
-pub fn mpf_glaisher(Int, @mpf.RoundMode) -> @mpf.RawMpf
+pub fn mpf_glaisher(Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
 pub fn mpf_harmonic(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
-pub fn mpf_khinchin(Int, @mpf.RoundMode) -> @mpf.RawMpf
+pub fn mpf_khinchin(Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
 pub fn mpf_loggamma(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
-pub fn mpf_mertens(Int, @mpf.RoundMode) -> @mpf.RawMpf
+pub fn mpf_mertens(Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
 pub fn mpf_psi(Int, @mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
@@ -43,13 +43,13 @@ pub fn mpf_psi0(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZeta
 
 pub fn mpf_rgamma(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
-pub fn mpf_twinprime(Int, @mpf.RoundMode) -> @mpf.RawMpf
+pub fn mpf_twinprime(Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
 pub fn mpf_zeta(@mpf.RawMpf, Int, @mpf.RoundMode, alt? : Bool) -> @mpf.RawMpf raise GammaZetaError
 
 pub fn mpf_zeta_int(Int, Int, @mpf.RoundMode) -> @mpf.RawMpf raise GammaZetaError
 
-pub fn mpf_zetasum(@mpf.RawMpf, Int, @mpf.RoundMode, start? : Int, terms? : Int) -> @mpf.RawMpf
+pub fn mpf_zetasum(@mpf.RawMpf, Int, @mpf.RoundMode, start? : Int, terms? : Int) -> @mpf.RawMpf raise GammaZetaError
 
 // Errors
 pub(all) suberror GammaZetaError {
@@ -57,7 +57,6 @@ pub(all) suberror GammaZetaError {
   DomainError(String)
   PoleError(String)
 } derive(Eq, @debug.Debug)
-pub impl Show for GammaZetaError
 
 // Types and methods
 

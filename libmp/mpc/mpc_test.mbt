@@ -4,8 +4,8 @@ fn assert_parts(
   real : @mpf.RawMpf,
   imag : @mpf.RawMpf,
 ) -> Unit raise {
-  assert_eq(z.real, real)
-  assert_eq(z.imag, imag)
+  @debug.assert_eq(z.real, real)
+  @debug.assert_eq(z.imag, imag)
 }
 
 ///|
@@ -106,7 +106,7 @@ test "mpc div basic exact case" {
 test "mpc div denominator inf finite numerator returns zero" {
   let z = from_parts(@mpf.from_int(5), @mpf.from_int(-2))
   let w = from_parts(@mpf.finf, @mpf.fzero)
-  assert_eq(mpc_div(z, w, 40, @mpf.round_nearest), zero())
+  @debug.assert_eq(mpc_div(z, w, 40, @mpf.round_nearest), zero())
 }
 
 ///|
@@ -176,7 +176,7 @@ test "mpc reciprocal and mpf_div" {
     @mpf.from_int(1),
     @mpf.from_int(-1),
   )
-  assert_eq(
+  @debug.assert_eq(
     mpc_mpf_div(
       @mpf.from_int(2),
       from_parts(@mpf.finf, @mpf.fzero),
@@ -221,7 +221,7 @@ test "mpc shift mul_int floor ceil nint frac" {
 ///|
 test "mpc abs arg sqrt" {
   let z = from_parts(@mpf.from_int(3), @mpf.from_int(4))
-  assert_eq(mpc_abs(z, 60, @mpf.round_nearest), @mpf.from_int(5))
+  @debug.assert_eq(mpc_abs(z, 60, @mpf.round_nearest), @mpf.from_int(5))
   let arg = mpc_arg(
     from_parts(@mpf.from_int(1), @mpf.from_int(1)),
     80,
@@ -331,17 +331,24 @@ test "mpc exp/log/pow and trig-hyperbolic subset" {
 }
 
 ///|
-test "mpc_pow_int zero negative exponent returns nan" {
-  let value = mpc_pow_int(zero(), -1, 20, @mpf.round_nearest)
-  assert_true(mpc_is_infnan(value))
+test "mpc_pow_int zero negative exponent raises PoleError" {
+  try mpc_pow_int(zero(), -1, 20, @mpf.round_nearest) catch {
+    PoleError(_) => ()
+    _ => fail("unexpected error type")
+  } noraise {
+    _ => fail("expected PoleError for a negative power of zero")
+  }
 }
 
 ///|
-test "mpc_div by zero returns nan" {
+test "mpc_div by zero raises PoleError" {
   let z = from_parts(@mpf.from_int(1), @mpf.from_int(1))
-  let value = mpc_div(z, zero(), 20, @mpf.round_nearest)
-  assert_true(@mpf.is_nan(value.real))
-  assert_true(@mpf.is_nan(value.imag))
+  try mpc_div(z, zero(), 20, @mpf.round_nearest) catch {
+    PoleError(_) => ()
+    _ => fail("unexpected error type")
+  } noraise {
+    _ => fail("expected PoleError for complex division by zero")
+  }
 }
 
 ///|
@@ -352,13 +359,13 @@ test "panic mpc_log zero" {
 ///|
 test "mpc to_str to_complex hash and ln alias" {
   let z = from_parts(@mpf.from_str("1.25"), @mpf.from_str("-2.5"))
-  assert_eq(mpc_to_str(z, dps=10), "1.25 - 2.5j")
+  @debug.assert_eq(mpc_to_str(z, dps=10), "1.25 - 2.5j")
   let (re_s, im_s) = mpc_to_complex(z, dps=10)
-  assert_eq(re_s, "1.25")
-  assert_eq(im_s, "-2.5")
+  @debug.assert_eq(re_s, "1.25")
+  @debug.assert_eq(im_s, "-2.5")
   let h_expect = @mpf.mpf_hash(z.real) + 1000003 * @mpf.mpf_hash(z.imag)
   let h = if h_expect == -1 { -2 } else { h_expect }
-  assert_eq(mpc_hash(z), h)
+  @debug.assert_eq(mpc_hash(z), h)
   let l = mpc_ln(
     from_parts(@mpf.from_int(3), @mpf.from_int(4)),
     140,
@@ -384,11 +391,11 @@ test "mpc pi-family and expj subset" {
   assert_mpf_close_with_dps(sp.real, "0.7071067", 10)
   let z = from_parts(@mpf.from_str("0.75"), @mpf.from_str("0.0"))
   let (cz, sz) = mpc_cos_sin(z, 120, @mpf.round_nearest)
-  assert_eq(cz.imag, @mpf.fzero)
-  assert_eq(sz.imag, @mpf.fzero)
+  @debug.assert_eq(cz.imag, @mpf.fzero)
+  @debug.assert_eq(sz.imag, @mpf.fzero)
   let (czp, szp) = mpc_cos_sin_pi(z, 120, @mpf.round_nearest)
-  assert_eq(czp.imag, @mpf.fzero)
-  assert_eq(szp.imag, @mpf.fzero)
+  @debug.assert_eq(czp.imag, @mpf.fzero)
+  @debug.assert_eq(szp.imag, @mpf.fzero)
   let ej = mpc_expj(
     from_parts(@libelefun.mpf_pi(140, @mpf.round_nearest), @mpf.fzero),
     120,
@@ -447,13 +454,13 @@ test "mpc inverse trig-hyperbolic and roots subset" {
     120,
     @mpf.round_nearest,
   )
-  assert_eq(nr, from_parts(@mpf.from_int(2), @mpf.fzero))
+  @debug.assert_eq(nr, from_parts(@mpf.from_int(2), @mpf.fzero))
   let cr = mpc_cbrt(
     from_parts(@mpf.from_int(8), @mpf.fzero),
     120,
     @mpf.round_nearest,
   )
-  assert_eq(cr, from_parts(@mpf.from_int(2), @mpf.fzero))
+  @debug.assert_eq(cr, from_parts(@mpf.from_int(2), @mpf.fzero))
 }
 
 ///|
@@ -463,7 +470,7 @@ test "mpc agm fibonacci and real-special wrappers" {
     120,
     @mpf.round_nearest,
   )
-  assert_eq(fib, from_parts(@mpf.from_int(55), @mpf.fzero))
+  @debug.assert_eq(fib, from_parts(@mpf.from_int(55), @mpf.fzero))
   let agm = mpc_agm(
     from_parts(@mpf.from_int(1), @mpf.fzero),
     from_parts(@mpf.from_str("0.25"), @mpf.fzero),
@@ -477,7 +484,7 @@ test "mpc agm fibonacci and real-special wrappers" {
     @mpf.round_nearest,
   )
   assert_mpf_close_with_dps(agm1.real, "0.560757145071", 14)
-  assert_eq(
+  @debug.assert_eq(
     mpc_gamma(from_parts(@mpf.from_int(5), @mpf.fzero), 120, @mpf.round_nearest),
     from_parts(@mpf.from_int(24), @mpf.fzero),
   )
@@ -498,7 +505,7 @@ test "mpc agm fibonacci and real-special wrappers" {
     120,
     @mpf.round_nearest,
   )
-  assert_eq(fac, from_parts(@mpf.from_int(120), @mpf.fzero))
+  @debug.assert_eq(fac, from_parts(@mpf.from_int(120), @mpf.fzero))
   let har = mpc_harmonic(
     from_parts(@mpf.from_int(5), @mpf.fzero),
     140,

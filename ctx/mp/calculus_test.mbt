@@ -1,10 +1,14 @@
 ///|
-fn p2_calc_i(ctx : MPContext, n : Int) -> @mpf.RawMpf {
+fn calculus_integer(ctx : MPContext, n : Int) -> @mpf.RawMpf {
   ctx.make_int(n)
 }
 
 ///|
-fn p2_calc_close(x : @mpf.RawMpf, y : @mpf.RawMpf, tol : String) -> Unit raise {
+fn assert_real_close(
+  x : @mpf.RawMpf,
+  y : @mpf.RawMpf,
+  tol : String,
+) -> Unit raise {
   let p = 320
   let err = @mpf.mpf_abs(
     @mpf.mpf_sub(x, y, p, @mpf.round_nearest),
@@ -15,13 +19,17 @@ fn p2_calc_close(x : @mpf.RawMpf, y : @mpf.RawMpf, tol : String) -> Unit raise {
 }
 
 ///|
-fn p2_calc_cclose(z : @mpc.RawMpc, w : @mpc.RawMpc, tol : String) -> Unit raise {
-  p2_calc_close(z.real, w.real, tol)
-  p2_calc_close(z.imag, w.imag, tol)
+fn assert_complex_close(
+  z : @mpc.RawMpc,
+  w : @mpc.RawMpc,
+  tol : String,
+) -> Unit raise {
+  assert_real_close(z.real, w.real, tol)
+  assert_real_close(z.imag, w.imag, tol)
 }
 
 ///|
-fn p2_calc_matrix_close(
+fn assert_calculus_matrix_close(
   ctx : MPContext,
   a : MpfMatrix,
   b : MpfMatrix,
@@ -33,7 +41,7 @@ fn p2_calc_matrix_close(
 }
 
 ///|
-fn p2_calc_take(xs : ArrayView[@mpf.RawMpf], n : Int) -> Array[@mpf.RawMpf] {
+fn take_mpf_prefix(xs : ArrayView[@mpf.RawMpf], n : Int) -> Array[@mpf.RawMpf] {
   let m = if n < xs.length() { n } else { xs.length() }
   let out : Array[@mpf.RawMpf] = []
   for i in 0..<m {
@@ -43,7 +51,9 @@ fn p2_calc_take(xs : ArrayView[@mpf.RawMpf], n : Int) -> Array[@mpf.RawMpf] {
 }
 
 ///|
-fn p2_calc_legendre_coeffs(ctx : MPContext) -> Array[@mpf.RawMpf] raise MPError {
+fn legendre_polynomial_coefficients(
+  ctx : MPContext,
+) -> Array[@mpf.RawMpf] raise MPError {
   let out : Array[@mpf.RawMpf] = []
   for
     s in [
@@ -76,7 +86,7 @@ test "calculus approximation (chebyfit/polyval) from mpmath test_calculus" {
     @mpf.mpf_div(
       ctx.cos(
         @mpf.mpf_sub(
-          p2_calc_i(ctx, 2),
+          calculus_integer(ctx, 2),
           @mpf.mpf_mul_int(x, 2, 260, @mpf.round_nearest),
           260,
           @mpf.round_nearest,
@@ -85,18 +95,18 @@ test "calculus approximation (chebyfit/polyval) from mpmath test_calculus" {
       x,
       260,
       @mpf.round_nearest,
-    ) catch {
-      _ => @mpf.fnan
-    }
+    )
   }
-  let (p, err) = ctx.chebyfit(f, (p2_calc_i(ctx, 2), p2_calc_i(ctx, 4)), 8)
+  let (p, err) = ctx.chebyfit(
+    f,
+    (calculus_integer(ctx, 2), calculus_integer(ctx, 4)),
+    8,
+  )
   assert_true(@mpf.mpf_lt(err, @mpf.from_str("1e-5")))
   for i in 0..<10 {
     let x = @mpf.mpf_add(
-      p2_calc_i(ctx, 2),
-      @mpf.mpf_div(@mpf.from_int(i), @mpf.from_int(5), 260, @mpf.round_nearest) catch {
-        _ => @mpf.fnan
-      },
+      calculus_integer(ctx, 2),
+      @mpf.mpf_div(@mpf.from_int(i), @mpf.from_int(5), 260, @mpf.round_nearest),
       260,
       @mpf.round_nearest,
     )
@@ -110,7 +120,7 @@ test "calculus approximation (chebyfit/polyval) from mpmath test_calculus" {
   }
   let (p_desc, err_desc) = ctx.chebyfit(
     f,
-    (p2_calc_i(ctx, 2), p2_calc_i(ctx, 4)),
+    (calculus_integer(ctx, 2), calculus_integer(ctx, 4)),
     8,
     asc=false,
   )
@@ -123,10 +133,8 @@ test "calculus approximation (chebyfit/polyval) from mpmath test_calculus" {
   }
   for i in 0..<10 {
     let x = @mpf.mpf_add(
-      p2_calc_i(ctx, 2),
-      @mpf.mpf_div(@mpf.from_int(i), @mpf.from_int(5), 260, @mpf.round_nearest) catch {
-        _ => @mpf.fnan
-      },
+      calculus_integer(ctx, 2),
+      @mpf.mpf_div(@mpf.from_int(i), @mpf.from_int(5), 260, @mpf.round_nearest),
       260,
       @mpf.round_nearest,
     )
@@ -145,25 +153,24 @@ test "calculus limits subset from mpmath test_calculus" {
   let ctx = new(260, @mpf.round_nearest)
   let lim0 = ctx.limit(
     (x : @mpf.RawMpf) => {
-      let x3 = @mpf.mpf_pow_int(x, 3, 260, @mpf.round_nearest) catch {
-        _ => @mpf.fnan
-      }
+      let x3 = @mpf.mpf_pow_int(x, 3, 260, @mpf.round_nearest)
       @mpf.mpf_div(
         @mpf.mpf_sub(x, ctx.sin(x), 260, @mpf.round_nearest),
         x3,
         260,
         @mpf.round_nearest,
-      ) catch {
-        _ => @mpf.fnan
-      }
+      )
     },
     @mpf.fzero,
   )
-  p2_calc_close(
+  assert_real_close(
     lim0,
-    @mpf.mpf_div(p2_calc_i(ctx, 1), p2_calc_i(ctx, 6), 260, @mpf.round_nearest) catch {
-      _ => @mpf.fnan
-    },
+    @mpf.mpf_div(
+      calculus_integer(ctx, 1),
+      calculus_integer(ctx, 6),
+      260,
+      @mpf.round_nearest,
+    ),
     "1e-8",
   )
   let lim_inf = ctx.limit(
@@ -171,52 +178,62 @@ test "calculus limits subset from mpmath test_calculus" {
       @libelefun.mpf_pow(
         @mpf.mpf_add(
           @mpf.fone,
-          @mpf.mpf_div(@mpf.fone, n, 260, @mpf.round_nearest) catch {
-            _ => @mpf.fnan
-          },
+          @mpf.mpf_div(@mpf.fone, n, 260, @mpf.round_nearest),
           260,
           @mpf.round_nearest,
         ),
         n,
         260,
         @mpf.round_nearest,
-      ) catch {
-        _ => @mpf.fnan
-      }
+      )
     },
     @mpf.finf,
   )
-  p2_calc_close(lim_inf, @libelefun.mpf_e(260, @mpf.round_nearest), "2e-6")
+  assert_real_close(lim_inf, @libelefun.mpf_e(260, @mpf.round_nearest), "2e-6")
 }
 
 ///|
 test "calculus polyval subset from mpmath test_calculus" {
   let ctx = new(220, @mpf.round_nearest)
-  assert_true(@mpf.mpf_eq(ctx.polyval([], p2_calc_i(ctx, 3)), @mpf.fzero))
   assert_true(
-    @mpf.mpf_eq(ctx.polyval([@mpf.fzero], p2_calc_i(ctx, 3)), @mpf.fzero),
+    @mpf.mpf_eq(ctx.polyval([], calculus_integer(ctx, 3)), @mpf.fzero),
+  )
+  assert_true(
+    @mpf.mpf_eq(ctx.polyval([@mpf.fzero], calculus_integer(ctx, 3)), @mpf.fzero),
   )
   assert_true(
     @mpf.mpf_eq(
-      ctx.polyval([p2_calc_i(ctx, 5)], p2_calc_i(ctx, 3)),
-      p2_calc_i(ctx, 5),
+      ctx.polyval([calculus_integer(ctx, 5)], calculus_integer(ctx, 3)),
+      calculus_integer(ctx, 5),
     ),
   )
-  let p = [p2_calc_i(ctx, 5), p2_calc_i(ctx, -2), @mpf.fzero, p2_calc_i(ctx, 4)]
+  let p = [
+    calculus_integer(ctx, 5),
+    calculus_integer(ctx, -2),
+    @mpf.fzero,
+    calculus_integer(ctx, 4),
+  ]
   assert_true(
-    @mpf.mpf_eq(ctx.polyval(p, p2_calc_i(ctx, 4)), p2_calc_i(ctx, 253)),
+    @mpf.mpf_eq(
+      ctx.polyval(p, calculus_integer(ctx, 4)),
+      calculus_integer(ctx, 253),
+    ),
   )
-  let (y, dy) = ctx.polyval_with_derivative(p, p2_calc_i(ctx, 4))
-  assert_true(@mpf.mpf_eq(y, p2_calc_i(ctx, 253)))
-  assert_true(@mpf.mpf_eq(dy, p2_calc_i(ctx, 190)))
+  let (y, dy) = ctx.polyval_with_derivative(p, calculus_integer(ctx, 4))
+  assert_true(@mpf.mpf_eq(y, calculus_integer(ctx, 253)))
+  assert_true(@mpf.mpf_eq(dy, calculus_integer(ctx, 190)))
   assert_true(
     @mpf.mpf_eq(
       ctx.polyval(
-        [p2_calc_i(ctx, 1), p2_calc_i(ctx, 2), p2_calc_i(ctx, 3)],
-        p2_calc_i(ctx, 2),
+        [
+          calculus_integer(ctx, 1),
+          calculus_integer(ctx, 2),
+          calculus_integer(ctx, 3),
+        ],
+        calculus_integer(ctx, 2),
         asc=false,
       ),
-      p2_calc_i(ctx, 11),
+      calculus_integer(ctx, 11),
     ),
   )
 }
@@ -224,27 +241,30 @@ test "calculus polyval subset from mpmath test_calculus" {
 ///|
 test "calculus polyroots basic subset from mpmath test_calculus" {
   let ctx = new(260, @mpf.round_nearest)
-  let r0 = ctx.polyroots([p2_calc_i(ctx, -4), p2_calc_i(ctx, 1)])
-  assert_eq(r0.length(), 1)
-  p2_calc_close(r0[0].real, p2_calc_i(ctx, 4), "1e-12")
-  p2_calc_close(r0[0].imag, @mpf.fzero, "1e-12")
+  let r0 = ctx.polyroots([calculus_integer(ctx, -4), calculus_integer(ctx, 1)])
+  @debug.assert_eq(r0.length(), 1)
+  assert_real_close(r0[0].real, calculus_integer(ctx, 4), "1e-12")
+  assert_real_close(r0[0].imag, @mpf.fzero, "1e-12")
 
   let r2 = ctx.polyroots([
-    p2_calc_i(ctx, 3),
-    p2_calc_i(ctx, 2),
-    p2_calc_i(ctx, 1),
+    calculus_integer(ctx, 3),
+    calculus_integer(ctx, 2),
+    calculus_integer(ctx, 1),
   ])
-  assert_eq(r2.length(), 2)
+  @debug.assert_eq(r2.length(), 2)
   let target0 = @mpc.from_parts(
-    p2_calc_i(ctx, -1),
-    @mpf.mpf_neg(ctx.sqrt(p2_calc_i(ctx, 2)), 260, @mpf.round_nearest),
+    calculus_integer(ctx, -1),
+    @mpf.mpf_neg(ctx.sqrt(calculus_integer(ctx, 2)), 260, @mpf.round_nearest),
   )
-  let target1 = @mpc.from_parts(p2_calc_i(ctx, -1), ctx.sqrt(p2_calc_i(ctx, 2)))
-  p2_calc_cclose(r2[0], target0, "2e-8")
-  p2_calc_cclose(r2[1], target1, "2e-8")
+  let target1 = @mpc.from_parts(
+    calculus_integer(ctx, -1),
+    ctx.sqrt(calculus_integer(ctx, 2)),
+  )
+  assert_complex_close(r2[0], target0, "2e-8")
+  assert_complex_close(r2[1], target1, "2e-8")
 
-  let rc = ctx.polyroots([p2_calc_i(ctx, 1)])
-  assert_eq(rc.length(), 0)
+  let rc = ctx.polyroots([calculus_integer(ctx, 1)])
+  @debug.assert_eq(rc.length(), 0)
   try ctx.polyroots([@mpf.fzero]) catch {
     ValueError(_) => ()
     _ => fail("unexpected error type")
@@ -253,18 +273,22 @@ test "calculus polyroots basic subset from mpmath test_calculus" {
   }
 
   let r2_desc = ctx.polyroots(
-    [p2_calc_i(ctx, 1), p2_calc_i(ctx, 2), p2_calc_i(ctx, 3)],
+    [
+      calculus_integer(ctx, 1),
+      calculus_integer(ctx, 2),
+      calculus_integer(ctx, 3),
+    ],
     asc=false,
   )
-  p2_calc_cclose(r2_desc[0], target0, "2e-8")
-  p2_calc_cclose(r2_desc[1], target1, "2e-8")
+  assert_complex_close(r2_desc[0], target0, "2e-8")
+  assert_complex_close(r2_desc[1], target1, "2e-8")
 }
 
 ///|
 test "calculus polyroots legendre subset from mpmath test_calculus" {
   let low = new(40, @mpf.round_nearest)
   let hi = new(220, @mpf.round_nearest)
-  let coeffs = p2_calc_legendre_coeffs(low)
+  let coeffs = legendre_polynomial_coefficients(low)
   try low.polyroots(coeffs, max_steps=5, cleanup=true, extraprec=160) catch {
     ConvergenceError(_) => ()
     _ => fail("unexpected error type")
@@ -272,7 +296,7 @@ test "calculus polyroots legendre subset from mpmath test_calculus" {
     _ => fail("expected convergence error for low-step legendre run")
   }
   let roots = hi.polyroots(coeffs, max_steps=90, cleanup=true, extraprec=220)
-  assert_eq(roots.length(), 64)
+  @debug.assert_eq(roots.length(), 64)
   let mut prev = hi.make_int(-2)
   for r in roots {
     assert_true(
@@ -291,7 +315,7 @@ test "calculus polyroots legendre subset from mpmath test_calculus" {
 ///|
 test "calculus polyroots init subset from mpmath test_calculus" {
   let ctx = new(220, @mpf.round_nearest)
-  let coeffs = p2_calc_legendre_coeffs(ctx)
+  let coeffs = legendre_polynomial_coefficients(ctx)
   let init_vals : Array[@mpf.RawMpf] = []
   for
     s in [
@@ -340,7 +364,7 @@ test "calculus polyroots init subset from mpmath test_calculus" {
     @mpf.mpf_lt(maxd, @mpf.mpf_mul_int(err, 4, 260, @mpf.round_nearest)),
   )
 
-  let init60 = p2_calc_take(init_vals, 60)
+  let init60 = take_mpf_prefix(init_vals, 60)
   let (roots1, err1) = ctx.polyroots_with_init_error(
     coeffs,
     init60,
@@ -373,11 +397,7 @@ test "calculus pade subset from mpmath test_calculus" {
   let mut k = 1
   for i in 1..<=n {
     k *= i
-    a.push(
-      @mpf.mpf_div(one, @mpf.from_int(k), 260, @mpf.round_nearest) catch {
-        _ => @mpf.fnan
-      },
-    )
+    a.push(@mpf.mpf_div(one, @mpf.from_int(k), 260, @mpf.round_nearest))
   }
   let (p, q) = ctx.pade(a, n / 2, n / 2)
   for i in 0..<10 {
@@ -386,15 +406,11 @@ test "calculus pade subset from mpmath test_calculus" {
       @mpf.from_int(10),
       260,
       @mpf.round_nearest,
-    ) catch {
-      _ => @mpf.fnan
-    }
+    )
     let px = ctx.polyval(p, x)
     let qx = ctx.polyval(q, x)
-    let r = @mpf.mpf_div(px, qx, 260, @mpf.round_nearest) catch {
-      _ => @mpf.fnan
-    }
-    p2_calc_close(r, ctx.exp(x), "2e-8")
+    let r = @mpf.mpf_div(px, qx, 260, @mpf.round_nearest)
+    assert_real_close(r, ctx.exp(x), "2e-8")
   }
 }
 
@@ -407,8 +423,8 @@ test "calculus fourier subset from mpmath test_calculus" {
   let (c, s) = ctx.fourier(f, (ctx.make_int(-1), ctx.make_int(2)), 2)
   let pi = @libelefun.mpf_pi(260, @mpf.round_nearest)
   let sqrt3 = ctx.sqrt(ctx.make_int(3))
-  p2_calc_close(c[0], ctx.make_float("1.5"), "1e-8")
-  p2_calc_close(
+  assert_real_close(c[0], ctx.make_float("1.5"), "1e-8")
+  assert_real_close(
     c[1],
     @mpf.mpf_div(
       @mpf.mpf_neg(
@@ -419,46 +435,38 @@ test "calculus fourier subset from mpmath test_calculus" {
       @mpf.mpf_mul_int(pi, 2, 260, @mpf.round_nearest),
       260,
       @mpf.round_nearest,
-    ) catch {
-      _ => @mpf.fnan
-    },
+    ),
     "3e-7",
   )
-  p2_calc_close(
+  assert_real_close(
     c[2],
     @mpf.mpf_div(
       @mpf.mpf_mul_int(sqrt3, 3, 260, @mpf.round_nearest),
       @mpf.mpf_mul_int(pi, 4, 260, @mpf.round_nearest),
       260,
       @mpf.round_nearest,
-    ) catch {
-      _ => @mpf.fnan
-    },
+    ),
     "3e-7",
   )
   assert_true(@mpf.mpf_eq(s[0], @mpf.fzero))
-  p2_calc_close(
+  assert_real_close(
     s[1],
     @mpf.mpf_div(
-      p2_calc_i(ctx, 3),
+      calculus_integer(ctx, 3),
       @mpf.mpf_mul_int(pi, 2, 260, @mpf.round_nearest),
       260,
       @mpf.round_nearest,
-    ) catch {
-      _ => @mpf.fnan
-    },
+    ),
     "3e-7",
   )
-  p2_calc_close(
+  assert_real_close(
     s[2],
     @mpf.mpf_div(
-      p2_calc_i(ctx, 3),
+      calculus_integer(ctx, 3),
       @mpf.mpf_mul_int(pi, 4, 260, @mpf.round_nearest),
       260,
       @mpf.round_nearest,
-    ) catch {
-      _ => @mpf.fnan
-    },
+    ),
     "3e-7",
   )
   let v = ctx.fourierval(
@@ -466,7 +474,7 @@ test "calculus fourier subset from mpmath test_calculus" {
     (ctx.make_int(-1), ctx.make_int(2)),
     ctx.make_int(1),
   )
-  p2_calc_close(v, ctx.make_float("1.9134966715663442"), "6e-7")
+  assert_real_close(v, ctx.make_float("1.9134966715663442"), "6e-7")
 }
 
 ///|
@@ -480,11 +488,7 @@ test "calculus differint subset from mpmath test_calculus" {
   let pi = @libelefun.mpf_pi(280, @mpf.round_nearest)
   let target = @mpf.mpf_div(
     @mpf.mpf_mul_int(
-      ctx.sqrt(
-        @mpf.mpf_div(ctx.make_int(2), pi, 280, @mpf.round_nearest) catch {
-          _ => @mpf.fnan
-        },
-      ),
+      ctx.sqrt(@mpf.mpf_div(ctx.make_int(2), pi, 280, @mpf.round_nearest)),
       8,
       280,
       @mpf.round_nearest,
@@ -492,32 +496,22 @@ test "calculus differint subset from mpmath test_calculus" {
     ctx.make_int(3),
     280,
     @mpf.round_nearest,
-  ) catch {
-    _ => @mpf.fnan
-  }
-  p2_calc_close(y, target, "6e-4")
+  )
+  assert_real_close(y, target, "6e-4")
 
   let d1 = ctx.differint(
-    (t : @mpf.RawMpf) => {
-      @mpf.mpf_pow_int(t, 2, 300, @mpf.round_nearest) catch {
-        _ => @mpf.fnan
-      }
-    },
+    (t : @mpf.RawMpf) => @mpf.mpf_pow_int(t, 2, 300, @mpf.round_nearest),
     ctx.make_int(2),
     ctx.make_int(1),
   )
-  p2_calc_close(d1, ctx.make_int(4), "2e-6")
+  assert_real_close(d1, ctx.make_int(4), "2e-6")
 
   let d2 = ctx.differint(
-    (t : @mpf.RawMpf) => {
-      @mpf.mpf_pow_int(t, 3, 300, @mpf.round_nearest) catch {
-        _ => @mpf.fnan
-      }
-    },
+    (t : @mpf.RawMpf) => @mpf.mpf_pow_int(t, 3, 300, @mpf.round_nearest),
     ctx.make_int(2),
     ctx.make_int(2),
   )
-  p2_calc_close(d2, ctx.make_int(12), "2e-4")
+  assert_real_close(d2, ctx.make_int(12), "2e-4")
 
   try
     ctx.differint(
@@ -526,7 +520,7 @@ test "calculus differint subset from mpmath test_calculus" {
       ctx.make_float("0.5"),
     )
   catch {
-    ValueError(_) => ()
+    MPError::ValueError(_) => ()
     _ => fail("unexpected error type")
   } noraise {
     _ => fail("expected ValueError for positive non-integer order")
@@ -544,12 +538,8 @@ test "calculus invertlaplace subset from mpmath test_calculus" {
       2,
       300,
       @mpf.round_nearest,
-    ) catch {
-      _ => @mpf.fnan
-    }
-    @mpf.mpf_div(@mpf.fone, d, 300, @mpf.round_nearest) catch {
-      _ => @mpf.fnan
-    }
+    )
+    @mpf.mpf_div(@mpf.fone, d, 300, @mpf.round_nearest)
   }
   let ft1 = (t : @mpf.RawMpf) => {
     @mpf.mpf_mul(
@@ -568,14 +558,12 @@ test "calculus invertlaplace subset from mpmath test_calculus" {
     let target = ft1(t)
     for m in methods {
       let y = ctx.invertlaplace(fp1, t, algo=m)
-      p2_calc_close(y, target, "4e-4")
+      assert_real_close(y, target, "4e-4")
     }
   }
 
   let fp2 = (p : @mpf.RawMpf) => {
-    @mpf.mpf_div(ctx.ln(p), p, 300, @mpf.round_nearest) catch {
-      _ => @mpf.fnan
-    }
+    @mpf.mpf_div(ctx.ln(p), p, 300, @mpf.round_nearest)
   }
   let euler = @gammazeta.mpf_euler(300, @mpf.round_nearest)
   let ft2 = (t : @mpf.RawMpf) => {
@@ -591,7 +579,7 @@ test "calculus invertlaplace subset from mpmath test_calculus" {
     let target = ft2(t)
     for m in methods {
       let y = ctx.invertlaplace(fp2, t, algo=m)
-      p2_calc_close(y, target, "1e-3")
+      assert_real_close(y, target, "1e-3")
     }
   }
 }
@@ -609,7 +597,7 @@ test "calculus expm/cosm/sinm subset from mpmath test_calculus" {
     [ctx.exp(ctx.make_int(2)), @mpf.fzero],
     [@mpf.fzero, ctx.exp(ctx.make_int(1))],
   ])
-  p2_calc_matrix_close(ctx, e1, b1, "2e-8")
+  assert_calculus_matrix_close(ctx, e1, b1, "2e-8")
 
   let pi = @libelefun.mpf_pi(260, @mpf.round_nearest)
   let a2 = ctx.matrix_from_rows([
@@ -621,7 +609,7 @@ test "calculus expm/cosm/sinm subset from mpmath test_calculus" {
     [ctx.make_int(-1), @mpf.fzero],
     [@mpf.fzero, ctx.make_int(-1)],
   ])
-  p2_calc_matrix_close(ctx, e2, b2, "2e-7")
+  assert_calculus_matrix_close(ctx, e2, b2, "2e-7")
 
   let c = ctx.cosm(
     ctx.matrix_from_rows([
@@ -640,8 +628,8 @@ test "calculus expm/cosm/sinm subset from mpmath test_calculus" {
     [@mpf.fzero, ctx.cos(pi)],
   ])
   let s_exact = ctx.zeros(2)
-  p2_calc_matrix_close(ctx, c, c_exact, "2e-8")
-  p2_calc_matrix_close(ctx, s, s_exact, "2e-8")
+  assert_calculus_matrix_close(ctx, c, c_exact, "2e-8")
+  assert_calculus_matrix_close(ctx, s, s_exact, "2e-8")
 
   let nonsquare = ctx.matrix(3, 2)
   try ctx.expm(nonsquare) catch {

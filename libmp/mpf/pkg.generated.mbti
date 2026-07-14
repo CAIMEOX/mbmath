@@ -126,7 +126,6 @@ pub(all) suberror MpfError {
   FormatError(String)
   UnsupportedError(String)
 } derive(Eq, @debug.Debug)
-pub impl Show for MpfError
 
 // Types and methods
 type ParseState derive(Eq)
@@ -137,7 +136,6 @@ pub struct RawMpf {
   exp : Int
   bc : Int
 } derive(Eq, @debug.Debug)
-pub impl Show for RawMpf
 
 pub enum RoundMode {
   Nearest
@@ -146,7 +144,6 @@ pub enum RoundMode {
   Up
   Down
 } derive(Eq, @debug.Debug)
-pub impl Show for RoundMode
 
 // Type aliases
 

@@ -29,7 +29,6 @@ pub fn trailing_zero_bits(@bigint.BigInt) -> Int
 pub(all) suberror IntMathError {
   ValueError(String)
 } derive(Eq, @debug.Debug)
-pub impl Show for IntMathError
 
 // Types and methods
 

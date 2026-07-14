@@ -149,8 +149,8 @@ test "mpi unary and metrics" {
   assert_mpi_eq(mpi_neg(interval(-2, 3)), i(-3), i(2))
   assert_mpi_eq(mpi_abs(interval(-3, -2)), i(2), i(3))
   assert_mpi_eq(mpi_abs(interval(-2, 5)), i(0), i(5))
-  assert_eq(mpi_delta(interval(2, 6), 80), i(4))
-  assert_eq(mpi_mid(interval(2, 6), 80), i(4))
+  @debug.assert_eq(mpi_delta(interval(2, 6), 80), i(4))
+  @debug.assert_eq(mpi_mid(interval(2, 6), 80), i(4))
 }
 
 ///|
@@ -161,7 +161,7 @@ test "mpi elementary monotone functions" {
   assert_mpi_eq(mpi_log(interval(1, 1), 120), i(0), i(0))
   assert_mpi_eq(mpi_sqrt(interval(4, 9), 80), i(2), i(3))
   let a = mpi_atan(interval(0, 1), 120)
-  assert_eq(a.lo, i(0))
+  @debug.assert_eq(a.lo, i(0))
   assert_true(@mpf.mpf_le(a.hi, @mpf.from_str("0.785398163398")))
   assert_true(@mpf.mpf_ge(a.hi, @mpf.from_str("0.785398163397")))
   let p = mpi_pi(120)
@@ -188,8 +188,8 @@ test "mpi pow and to_str" {
   assert_mpi_eq(mpi_pow(interval(4, 4), mpi_make(half, half), 80), i(2), i(2))
   assert_mpi_eq(mpi_pow(interval(2, 3), mpi_zero, 80), i(1), i(1))
   let s = mpi_to_str(interval(1, 2))
-  assert_eq(s.get_char(0), Some('['))
-  assert_eq(s.get_char(1), Some('1'))
+  @debug.assert_eq(s.get_char(0), Some('['))
+  @debug.assert_eq(s.get_char(1), Some('1'))
   assert_true(s.contains(","))
 }
 
@@ -225,14 +225,14 @@ test "mpi_from_str variants" {
 ///|
 test "mpi_to_str_opts modes" {
   let x = interval(1, 2)
-  assert_eq(mpi_to_str_opts(x, dps=2, mode="plusminus"), "1.5 +- 0.5")
+  @debug.assert_eq(mpi_to_str_opts(x, dps=2, mode="plusminus"), "1.5 +- 0.5")
   assert_numeric_close_text(mpi_to_str_opts(x, dps=2, mode="percent"), "1.5", 2)
-  assert_eq(mpi_to_str_opts(x, dps=2, mode="brackets"), "[1.0, 2.0]")
-  assert_eq(
+  @debug.assert_eq(mpi_to_str_opts(x, dps=2, mode="brackets"), "[1.0, 2.0]")
+  @debug.assert_eq(
     mpi_to_str_opts(x, dps=2, mode="brackets", use_spaces=false),
     "[1.0,2.0]",
   )
-  assert_eq(
+  @debug.assert_eq(
     mpi_to_str_opts(
       x,
       dps=2,
@@ -255,9 +255,9 @@ test "mpi_to_str_opts modes" {
     dps=30,
     mode="diff",
   )
-  assert_eq(exp_diff, "[1.0e+123, 1.0e+129]")
+  @debug.assert_eq(exp_diff, "[1.0e+123, 1.0e+129]")
   let s = mpi_str(interval(1, 2), 80)
-  assert_eq(s.get_char(0), Some('['))
+  @debug.assert_eq(s.get_char(0), Some('['))
   assert_true(s.contains(","))
 }
 
@@ -278,11 +278,11 @@ test "mpi trig subset" {
   assert_true(@mpf.mpf_le(s1.lo, @mpf.fzero))
   assert_true(@mpf.mpf_ge(s1.hi, @mpf.fone))
   let t = mpi_tan(mpi_make(@mpf.from_str("1.4"), @mpf.from_str("1.7")), 80)
-  assert_eq(t.lo, @mpf.fninf)
-  assert_eq(t.hi, @mpf.finf)
+  @debug.assert_eq(t.lo, @mpf.fninf)
+  @debug.assert_eq(t.hi, @mpf.finf)
   let cot = mpi_cot(mpi_make(@mpf.from_str("-0.1"), @mpf.from_str("0.1")), 80)
-  assert_eq(cot.lo, @mpf.fninf)
-  assert_eq(cot.hi, @mpf.finf)
+  @debug.assert_eq(cot.lo, @mpf.fninf)
+  @debug.assert_eq(cot.hi, @mpf.finf)
   let c = mpi_cos(interval(0, 0), 80)
   let s = mpi_sin(interval(0, 0), 80)
   assert_mpi_eq(c, i(1), i(1))
@@ -346,8 +346,8 @@ test "mpi gamma family subset and pole behavior" {
     mpi_make(@mpf.from_str("-0.2"), @mpf.from_str("0.2")),
     160,
   )
-  assert_eq(pole.lo, @mpf.fninf)
-  assert_eq(pole.hi, @mpf.finf)
+  @debug.assert_eq(pole.lo, @mpf.fninf)
+  @debug.assert_eq(pole.hi, @mpf.finf)
   let rg_pole = mpi_rgamma(
     mpi_make(@mpf.from_str("-0.2"), @mpf.from_str("0.2")),
     160,
@@ -391,20 +391,20 @@ test "mpi gamma scalar identity subset from mpmath interval tests" {
 test "mpi nstr parity subset from mpmath interval tests" {
   let n = 30
   let x = interval(1, 2)
-  assert_eq(
+  @debug.assert_eq(
     mpi_to_str_opts(x, dps=n, mode="plusminus", error_dps=6),
     "1.5 +- 0.5",
   )
-  assert_eq(
+  @debug.assert_eq(
     mpi_to_str_opts(x, dps=n, mode="plusminus", use_spaces=false, error_dps=6),
     "1.5+-0.5",
   )
-  assert_eq(mpi_to_str_opts(x, dps=n, mode="percent"), "1.5 (33.33%)")
-  assert_eq(
+  @debug.assert_eq(mpi_to_str_opts(x, dps=n, mode="percent"), "1.5 (33.33%)")
+  @debug.assert_eq(
     mpi_to_str_opts(x, dps=n, mode="brackets", use_spaces=false),
     "[1.0,2.0]",
   )
-  assert_eq(
+  @debug.assert_eq(
     mpi_to_str_opts(
       x,
       dps=n,
@@ -418,7 +418,7 @@ test "mpi nstr parity subset from mpmath interval tests" {
     @mpf.from_str("5.2582327113062393041", prec=120, rnd=@mpf.round_floor),
     @mpf.from_str("5.2582327113062749951", prec=120, rnd=@mpf.round_ceiling),
   )
-  assert_eq(
+  @debug.assert_eq(
     mpi_to_str_opts(y, dps=n, mode="diff"),
     "5.2582327113062[393041, 749951]",
   )
@@ -711,7 +711,10 @@ test "mpi trig pi-grid sanity subset from mpmath interval tests" {
 
 ///|
 test "mpi nstr and convert edge extras from mpmath interval tests" {
-  assert_eq(mpi_to_str_opts(mpi_zero, dps=2, mode="percent"), "0.0 (0.0%)")
+  @debug.assert_eq(
+    mpi_to_str_opts(mpi_zero, dps=2, mode="percent"),
+    "0.0 (0.0%)",
+  )
   let s = mpi_to_str_opts(
     mpi_cos(mpi_from_mpf(@mpf.from_int(1)), 220),
     dps=30,

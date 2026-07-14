@@ -20,7 +20,7 @@ test "diff subset from mpmath test_diff" {
     ),
   )
   let dabs0 = ctx.diff((x : @mpf.RawMpf) => ctx.abs(x), @mpf.fzero)
-  assert_eq(dabs0, @mpf.fzero)
+  @debug.assert_eq(dabs0, @mpf.fzero)
   let dabs_pos = ctx.diff(
     (x : @mpf.RawMpf) => ctx.abs(x),
     @mpf.fzero,
@@ -61,7 +61,7 @@ test "diff subset from mpmath test_diff" {
   assert_close_mpf_str(d_quad, "6", "2e-6")
 
   try ctx.diff((x : @mpf.RawMpf) => x, ctx.make_int(2), algo="bad") catch {
-    ValueError(_) => ()
+    MPError::ValueError(_) => ()
     _ => fail("unexpected error type")
   } noraise {
     _ => fail("expected ValueError for unknown diff method")
@@ -70,7 +70,7 @@ test "diff subset from mpmath test_diff" {
   try
     ctx.diff((x : @mpf.RawMpf) => x, ctx.make_int(2), n=3, direction=1)
   catch {
-    ValueError(_) => ()
+    MPError::ValueError(_) => ()
     _ => fail("unexpected error type")
   } noraise {
     _ => fail("expected ValueError for direction with n>1")
@@ -81,7 +81,7 @@ test "diff subset from mpmath test_diff" {
 test "diffs/diffun subset from mpmath test_diff" {
   let ctx = new(280, @mpf.round_nearest)
   let d1 = ctx.diffs((x : @mpf.RawMpf) => ctx.sin(x), @mpf.fzero, n=1)
-  assert_eq(d1.length(), 2)
+  @debug.assert_eq(d1.length(), 2)
   assert_close_mpf_str(d1[0], "0", "2e-8")
   assert_close_mpf_str(d1[1], "1", "2e-6")
 
@@ -91,12 +91,12 @@ test "diffs/diffun subset from mpmath test_diff" {
     n=1,
     algo="quad",
   )
-  assert_eq(d1_quad.length(), 2)
+  @debug.assert_eq(d1_quad.length(), 2)
   assert_close_mpf_str(d1_quad[0], "0", "2e-8")
   assert_close_mpf_str(d1_quad[1], "1", "2e-6")
 
   let d2 = ctx.diffs((x : @mpf.RawMpf) => ctx.sin(x), @mpf.fzero, n=2)
-  assert_eq(d2.length(), 3)
+  @debug.assert_eq(d2.length(), 3)
   assert_close_mpf_str(d2[0], "0", "2e-8")
   assert_close_mpf_str(d2[1], "1", "2e-6")
   assert_close_mpf_str(d2[2], "0", "2e-5")
@@ -107,7 +107,7 @@ test "diffs/diffun subset from mpmath test_diff" {
     n=2,
     algo="quad",
   )
-  assert_eq(d2_quad.length(), 3)
+  @debug.assert_eq(d2_quad.length(), 3)
   assert_close_mpf_str(d2_quad[0], "0", "2e-8")
   assert_close_mpf_str(d2_quad[1], "1", "2e-6")
   assert_close_mpf_str(d2_quad[2], "0", "3e-5")
@@ -130,15 +130,11 @@ test "diffs/diffun subset from mpmath test_diff" {
 test "taylor subset from mpmath test_diff" {
   let ctx = new(300, @mpf.round_nearest)
   let coeffs = ctx.taylor(
-    (x : @mpf.RawMpf) => {
-      @mpf.mpf_sqrt(x, 340, @mpf.round_nearest) catch {
-        _ => @mpf.fnan
-      }
-    },
+    (x : @mpf.RawMpf) => @mpf.mpf_sqrt(x, 340, @mpf.round_nearest),
     ctx.make_int(1),
     4,
   )
-  assert_eq(coeffs.length(), 5)
+  @debug.assert_eq(coeffs.length(), 5)
   assert_close_mpf_str(coeffs[0], "1", "2e-8")
   assert_close_mpf_str(coeffs[1], "0.5", "2e-5")
   assert_close_mpf_str(coeffs[2], "-0.125", "3e-4")
@@ -147,7 +143,7 @@ test "taylor subset from mpmath test_diff" {
 }
 
 ///|
-fn p2_diff_partial_expected(i : Int, j : Int, k : Int) -> Int {
+fn expected_partial_derivative(i : Int, j : Int, k : Int) -> Int {
   let px = [12, 12, 6]
   let py = [125, 75, 30]
   let pz = [16807, 12005, 6860]
@@ -169,9 +165,7 @@ test "diff_partial3 subset from mpmath test_diff_partial" {
       340,
       @mpf.round_nearest,
     )
-    let z5 = @mpf.mpf_pow_int(z0, 5, 340, @mpf.round_nearest) catch {
-      _ => @mpf.fnan
-    }
+    let z5 = @mpf.mpf_pow_int(z0, 5, 340, @mpf.round_nearest)
     @mpf.mpf_mul(
       @mpf.mpf_mul(
         @mpf.mpf_mul_int(x2, 3, 340, @mpf.round_nearest),
@@ -188,7 +182,7 @@ test "diff_partial3 subset from mpmath test_diff_partial" {
     for j in 0..<=2 {
       for k in 0..<=2 {
         let got = ctx.diff_partial3(f, (x, y, z), (i, j, k))
-        let want = ctx.make_int(p2_diff_partial_expected(i, j, k))
+        let want = ctx.make_int(expected_partial_derivative(i, j, k))
         let err = @mpf.mpf_abs(
           @mpf.mpf_sub(got, want, 340, @mpf.round_nearest),
           340,
@@ -206,10 +200,10 @@ test "diff_partial3 subset from mpmath test_diff_partial" {
           @mpf.round_nearest,
         )
         if !@mpf.mpf_lt(err, tol) {
-          let gs = @mpf.to_str_opts(got, dps=20) catch { _ => "nan" }
-          let ws = @mpf.to_str_opts(want, dps=20) catch { _ => "nan" }
-          let es = @mpf.to_str_opts(err, dps=20) catch { _ => "nan" }
-          let ts = @mpf.to_str_opts(tol, dps=20) catch { _ => "nan" }
+          let gs = @mpf.to_str_opts(got, dps=20)
+          let ws = @mpf.to_str_opts(want, dps=20)
+          let es = @mpf.to_str_opts(err, dps=20)
+          let ts = @mpf.to_str_opts(tol, dps=20)
           fail(
             "diff_partial3 mismatch at (\{i},\{j},\{k}): got=\{gs} want=\{ws} err=\{es} tol=\{ts}",
           )

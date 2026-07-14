@@ -1,13 +1,13 @@
 ///|
 fn assert_raw(x : RawMpf, sign : Int, man : BigInt, exp : Int) -> Unit raise {
-  assert_eq(x.sign, sign)
-  assert_eq(x.man, man)
-  assert_eq(x.exp, exp)
+  @debug.assert_eq(x.sign, sign)
+  @debug.assert_eq(x.man, man)
+  @debug.assert_eq(x.exp, exp)
 }
 
 ///|
 test "bitwise round_down matrix from mpmath" {
-  assert_eq(from_man_exp(0N, -4, 4, round_down), fzero)
+  @debug.assert_eq(from_man_exp(0N, -4, 4, round_down), fzero)
   assert_raw(from_man_exp(240N, -4, 4, round_down), 0, 15N, 0)
   assert_raw(from_man_exp(241N, -4, 4, round_down), 0, 15N, 0)
   assert_raw(from_man_exp(255N, -4, 4, round_down), 0, 15N, 0)
@@ -18,7 +18,7 @@ test "bitwise round_down matrix from mpmath" {
 
 ///|
 test "bitwise round_up matrix from mpmath" {
-  assert_eq(from_man_exp(0N, -4, 4, round_up), fzero)
+  @debug.assert_eq(from_man_exp(0N, -4, 4, round_up), fzero)
   assert_raw(from_man_exp(240N, -4, 4, round_up), 0, 15N, 0)
   assert_raw(from_man_exp(241N, -4, 4, round_up), 0, 1N, 4)
   assert_raw(from_man_exp(255N, -4, 4, round_up), 0, 1N, 4)
@@ -58,22 +58,22 @@ test "bitwise historical rounding bugs subset" {
 ///|
 test "exact add cancellation subset from mpmath" {
   let tiny = from_man_exp(1N, -332, 0, round_down)
-  assert_eq(
+  @debug.assert_eq(
     mpf_sub(mpf_add(fone, tiny, 0, round_nearest), fone, 0, round_nearest),
     tiny,
   )
-  assert_eq(
+  @debug.assert_eq(
     mpf_sub(mpf_add(tiny, fone, 0, round_nearest), fone, 0, round_nearest),
     tiny,
   )
   let tiny_neg = mpf_neg(tiny, 0, round_down)
-  assert_eq(
+  @debug.assert_eq(
     mpf_sub(mpf_add(fone, tiny_neg, 0, round_nearest), fone, 0, round_nearest),
     tiny_neg,
   )
-  assert_eq(mpf_add(fone, fzero, 0, round_nearest), fone)
-  assert_eq(mpf_add(fzero, fone, 0, round_nearest), fone)
-  assert_eq(mpf_add(fzero, fzero, 0, round_nearest), fzero)
+  @debug.assert_eq(mpf_add(fone, fzero, 0, round_nearest), fone)
+  @debug.assert_eq(mpf_add(fzero, fone, 0, round_nearest), fone)
+  @debug.assert_eq(mpf_add(fzero, fzero, 0, round_nearest), fzero)
 }
 
 ///|
@@ -90,11 +90,11 @@ test "tight integer division exactness subset from mpmath" {
     let pa = from_int(p)
     let aa = from_int(a)
     let bb = from_int(b)
-    assert_eq(mpf_div(pa, aa, w, round_floor), bb)
-    assert_eq(mpf_div(pa, aa, w, round_ceiling), bb)
-    assert_eq(mpf_div(pa, aa, w, round_down), bb)
-    assert_eq(mpf_div(pa, aa, w, round_up), bb)
-    assert_eq(mpf_div(pa, aa, w, round_nearest), bb)
+    @debug.assert_eq(mpf_div(pa, aa, w, round_floor), bb)
+    @debug.assert_eq(mpf_div(pa, aa, w, round_ceiling), bb)
+    @debug.assert_eq(mpf_div(pa, aa, w, round_down), bb)
+    @debug.assert_eq(mpf_div(pa, aa, w, round_up), bb)
+    @debug.assert_eq(mpf_div(pa, aa, w, round_nearest), bb)
   }
 }
 
@@ -103,14 +103,14 @@ test "epsilon division rounding subset from mpmath" {
   let a = from_str("0b0.101000000000000000000000000000000000000000000000001")
   let b = from_str("0b1.10101")
   let c = mpf_mul(a, b, 260, round_floor)
-  assert_eq(mpf_div(c, b, 2, round_down), from_str("0b0.10"))
-  assert_eq(mpf_div(c, b, 3, round_down), from_str("0b0.101"))
-  assert_eq(mpf_div(c, b, 2, round_up), from_str("0b0.11"))
-  assert_eq(mpf_div(c, b, 3, round_up), from_str("0b0.110"))
-  assert_eq(mpf_div(c, b, 2, round_floor), from_str("0b0.10"))
-  assert_eq(mpf_div(c, b, 3, round_floor), from_str("0b0.101"))
-  assert_eq(mpf_div(c, b, 2, round_ceiling), from_str("0b0.11"))
-  assert_eq(mpf_div(c, b, 3, round_ceiling), from_str("0b0.110"))
+  @debug.assert_eq(mpf_div(c, b, 2, round_down), from_str("0b0.10"))
+  @debug.assert_eq(mpf_div(c, b, 3, round_down), from_str("0b0.101"))
+  @debug.assert_eq(mpf_div(c, b, 2, round_up), from_str("0b0.11"))
+  @debug.assert_eq(mpf_div(c, b, 3, round_up), from_str("0b0.110"))
+  @debug.assert_eq(mpf_div(c, b, 2, round_floor), from_str("0b0.10"))
+  @debug.assert_eq(mpf_div(c, b, 3, round_floor), from_str("0b0.101"))
+  @debug.assert_eq(mpf_div(c, b, 2, round_ceiling), from_str("0b0.11"))
+  @debug.assert_eq(mpf_div(c, b, 3, round_ceiling), from_str("0b0.110"))
 }
 
 ///|
@@ -118,12 +118,12 @@ test "epsilon division negative rounding subset from mpmath" {
   let a = from_str("-0b0.101000000000000000000000000000000000000000000000001")
   let b = from_str("0b1.10101")
   let c = mpf_mul(a, b, 260, round_floor)
-  assert_eq(mpf_div(c, b, 2, round_down), from_str("-0b0.10"))
-  assert_eq(mpf_div(c, b, 3, round_up), from_str("-0b0.110"))
-  assert_eq(mpf_div(c, b, 2, round_floor), from_str("-0b0.11"))
-  assert_eq(mpf_div(c, b, 3, round_floor), from_str("-0b0.110"))
-  assert_eq(mpf_div(c, b, 2, round_ceiling), from_str("-0b0.10"))
-  assert_eq(mpf_div(c, b, 3, round_ceiling), from_str("-0b0.101"))
+  @debug.assert_eq(mpf_div(c, b, 2, round_down), from_str("-0b0.10"))
+  @debug.assert_eq(mpf_div(c, b, 3, round_up), from_str("-0b0.110"))
+  @debug.assert_eq(mpf_div(c, b, 2, round_floor), from_str("-0b0.11"))
+  @debug.assert_eq(mpf_div(c, b, 3, round_floor), from_str("-0b0.110"))
+  @debug.assert_eq(mpf_div(c, b, 2, round_ceiling), from_str("-0b0.10"))
+  @debug.assert_eq(mpf_div(c, b, 3, round_ceiling), from_str("-0b0.101"))
 }
 
 ///|
@@ -132,6 +132,6 @@ test "basic ops mod/floor-div style subset from mpmath" {
   let b = from_str("2.53")
   let q = mpf_floor(mpf_div(a, b, 120, round_nearest), 0, round_nearest)
   let r = mpf_mod(a, b, 120, round_nearest)
-  assert_eq(q, from_int(11))
-  assert_eq(r, from_str("2.380000000000003"))
+  @debug.assert_eq(q, from_int(11))
+  @debug.assert_eq(r, from_str("2.380000000000003"))
 }

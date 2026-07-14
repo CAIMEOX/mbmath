@@ -4,3 +4,7 @@ import {
   "CAIMEOX/moon_floating/libmp/gammazeta",
   "CAIMEOX/moon_floating/libmp/mpc",
 }
+
+import {
+  "moonbitlang/core/debug",
+} for "test"

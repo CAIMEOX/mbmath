@@ -1,3 +1,7 @@
 import {
   "CAIMEOX/moon_floating/libmp/mpf",
 }
+
+import {
+  "moonbitlang/core/debug",
+} for "test"

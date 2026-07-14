@@ -29,6 +29,81 @@ fn from_gammazeta_error(err : @gammazeta.GammaZetaError) -> MpiError {
 }
 
 ///|
+fn from_mpc_error(err : @mpc.MpcError) -> MpiError {
+  match err {
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    PoleError(msg) => DomainError(msg)
+  }
+}
+
+///|
+fn elefun_pi_checked(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpiError {
+  @libelefun.mpf_pi(prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn elefun_exp_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpiError {
+  @libelefun.mpf_exp(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn elefun_atan_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpiError {
+  @libelefun.mpf_atan(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn elefun_atan2_checked(
+  y : @mpf.RawMpf,
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpiError {
+  @libelefun.mpf_atan2(y, x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn elefun_cos_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpiError {
+  @libelefun.mpf_cos(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn elefun_sin_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpiError {
+  @libelefun.mpf_sin(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
 let fhalf : @mpf.RawMpf = @mpf.from_man_exp(1N, -1, 0, @mpf.round_down)
 
 ///|
@@ -475,18 +550,18 @@ pub fn mpi_div(s : RawMpi, t : RawMpi, prec : Int) -> RawMpi raise MpiError {
 }
 
 ///|
-pub fn mpi_pi(prec : Int) -> RawMpi {
+pub fn mpi_pi(prec : Int) -> RawMpi raise MpiError {
   {
-    lo: @libelefun.mpf_pi(prec, @mpf.round_floor),
-    hi: @libelefun.mpf_pi(prec, @mpf.round_ceiling),
+    lo: elefun_pi_checked(prec, @mpf.round_floor),
+    hi: elefun_pi_checked(prec, @mpf.round_ceiling),
   }
 }
 
 ///|
-pub fn mpi_exp(s : RawMpi, prec : Int) -> RawMpi {
+pub fn mpi_exp(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
   {
-    lo: @libelefun.mpf_exp(s.lo, prec, @mpf.round_floor),
-    hi: @libelefun.mpf_exp(s.hi, prec, @mpf.round_ceiling),
+    lo: elefun_exp_checked(s.lo, prec, @mpf.round_floor),
+    hi: elefun_exp_checked(s.hi, prec, @mpf.round_ceiling),
   }
 }
 
@@ -513,10 +588,10 @@ pub fn mpi_sqrt(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
 }
 
 ///|
-pub fn mpi_atan(s : RawMpi, prec : Int) -> RawMpi {
+pub fn mpi_atan(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
   {
-    lo: @libelefun.mpf_atan(s.lo, prec, @mpf.round_floor),
-    hi: @libelefun.mpf_atan(s.hi, prec, @mpf.round_ceiling),
+    lo: elefun_atan_checked(s.lo, prec, @mpf.round_floor),
+    hi: elefun_atan_checked(s.hi, prec, @mpf.round_ceiling),
   }
 }
 

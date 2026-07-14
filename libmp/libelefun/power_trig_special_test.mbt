@@ -11,19 +11,19 @@ fn assert_close(v : @mpf.RawMpf, expected : String, tol : String) -> Unit raise 
 
 ///|
 test "power fractional exact subset from mpmath test_power" {
-  assert_eq(
+  @debug.assert_eq(
     mpf_pow(@mpf.from_int(16), @mpf.from_str("2.5"), 220, @mpf.round_nearest),
     @mpf.from_int(1024),
   )
-  assert_eq(
+  @debug.assert_eq(
     mpf_pow(@mpf.from_int(64), @mpf.from_str("0.5"), 220, @mpf.round_nearest),
     @mpf.from_int(8),
   )
-  assert_eq(
+  @debug.assert_eq(
     mpf_pow(@mpf.from_int(64), @mpf.from_str("-0.5"), 220, @mpf.round_nearest),
     @mpf.from_str("0.125"),
   )
-  assert_eq(
+  @debug.assert_eq(
     mpf_pow(@mpf.from_int(16), @mpf.from_str("-2.5"), 220, @mpf.round_nearest),
     @mpf.from_str("0.0009765625"),
   )
@@ -58,18 +58,18 @@ test "pow_int directed rounding subset from mpmath test_power" {
   let up_a = @mpf.mpf_pow_int(pos10001, 5, 40, @mpf.round_up)
   let up_b = @mpf.mpf_pow_int(pos09999, 5, 40, @mpf.round_up)
   assert_true(@mpf.mpf_gt(up_a, @mpf.fone))
-  assert_eq(up_b, @mpf.fone)
+  @debug.assert_eq(up_b, @mpf.fone)
   let dn_a = @mpf.mpf_pow_int(pos10001, 5, 40, @mpf.round_down)
   let dn_b = @mpf.mpf_pow_int(pos09999, 5, 40, @mpf.round_down)
-  assert_eq(dn_a, @mpf.fone)
+  @debug.assert_eq(dn_a, @mpf.fone)
   assert_true(@mpf.mpf_lt(dn_b, @mpf.fone))
   let up_neg = @mpf.mpf_pow_int(neg10001, 5, 40, @mpf.round_up)
   let dn_neg = @mpf.mpf_pow_int(neg10001, 5, 40, @mpf.round_down)
   assert_true(@mpf.mpf_lt(up_neg, @mpf.fnone))
-  assert_eq(dn_neg, @mpf.fnone)
+  @debug.assert_eq(dn_neg, @mpf.fnone)
   let up_neg_small = @mpf.mpf_pow_int(neg09999, 5, 40, @mpf.round_up)
   let dn_neg_small = @mpf.mpf_pow_int(neg09999, 5, 40, @mpf.round_down)
-  assert_eq(up_neg_small, @mpf.fnone)
+  @debug.assert_eq(up_neg_small, @mpf.fnone)
   assert_true(@mpf.mpf_gt(dn_neg_small, @mpf.fnone))
 }
 
@@ -205,10 +205,10 @@ test "trig around n*pi subset from mpmath test_trig" {
 
 ///|
 test "special function special-values subset from mpmath test_special" {
-  assert_eq(mpf_exp(@mpf.finf, 120, @mpf.round_nearest), @mpf.finf)
-  assert_eq(mpf_exp(@mpf.fninf, 120, @mpf.round_nearest), @mpf.fzero)
+  @debug.assert_eq(mpf_exp(@mpf.finf, 120, @mpf.round_nearest), @mpf.finf)
+  @debug.assert_eq(mpf_exp(@mpf.fninf, 120, @mpf.round_nearest), @mpf.fzero)
   assert_true(@mpf.is_nan(mpf_exp(@mpf.fnan, 120, @mpf.round_nearest)))
-  assert_eq(mpf_ln(@mpf.finf, 120, @mpf.round_nearest), @mpf.finf)
+  @debug.assert_eq(mpf_ln(@mpf.finf, 120, @mpf.round_nearest), @mpf.finf)
   assert_true(@mpf.is_nan(mpf_ln(@mpf.fnan, 120, @mpf.round_nearest)))
   assert_true(@mpf.is_nan(mpf_sin(@mpf.finf, 120, @mpf.round_nearest)))
   assert_true(@mpf.is_nan(mpf_sin(@mpf.fnan, 120, @mpf.round_nearest)))

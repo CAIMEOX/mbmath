@@ -41,7 +41,7 @@ test "ode rk4 rational and harmonic subset from mpmath test_ode" {
     ts,
     steps_per_interval=320,
   )
-  assert_eq(ys.length(), ts.length())
+  @debug.assert_eq(ys.length(), ts.length())
   for i in 0..<ts.length() {
     let c = ctx.cos(ts[i])
     let s = ctx.sin(ts[i])
@@ -79,7 +79,7 @@ test "ode dimension mismatch error subset" {
       ctx.make_float("0.01"),
     )
   catch {
-    ValueError(_) => ()
+    MPError::ValueError(_) => ()
     _ => fail("unexpected error type")
   } noraise {
     _ => fail("expected ValueError for derivative dimension mismatch")

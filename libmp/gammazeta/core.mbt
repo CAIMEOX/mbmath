@@ -118,18 +118,79 @@ fn mpf_pow_checked(
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   @libelefun.mpf_pow(x, y, prec, rnd) catch {
-    _ => raise DomainError("mpf_pow: invalid real-domain continuation")
+    err => raise from_libelefun_error(err)
   }
 }
 
 ///|
-let euler_gamma : @mpf.RawMpf = mpf_from_str_checked(
-  "0.57721566490153286060651209008240243104215933593992",
-  prec=240,
-  rnd=@mpf.round_nearest,
-) catch {
-  _ => @mpf.fnan
+fn mpf_pi_checked(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
+  @libelefun.mpf_pi(prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
 }
+
+///|
+fn mpf_exp_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
+  @libelefun.mpf_exp(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn mpf_sin_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
+  @libelefun.mpf_sin(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn mpf_cos_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
+  @libelefun.mpf_cos(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn mpf_cos_sin_pi_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> (@mpf.RawMpf, @mpf.RawMpf) raise GammaZetaError {
+  @libelefun.mpf_cos_sin_pi(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn mpf_phi_checked(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
+  @libelefun.mpf_phi(prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+let euler_gamma : @mpf.RawMpf = @mpf.from_man_exp(
+  254962950818844203052873526785993192115782030385265309526297679521529565N, -238,
+  0, @mpf.round_down,
+)
 
 ///|
 pub fn mpf_bernoulli_huge(
@@ -156,7 +217,7 @@ pub fn mpf_bernoulli_huge(
   v = @mpf.mpf_mul(
     v,
     mpf_pow_int_checked(
-      @libelefun.mpf_pi(piprec, @mpf.round_nearest),
+      mpf_pi_checked(piprec, @mpf.round_nearest),
       -n,
       p,
       @mpf.round_nearest,
@@ -239,7 +300,7 @@ fn zeta_even_via_bernoulli(
   let k = n / 2
   let b = mpf_bernoulli(n, p, @mpf.round_nearest)
   let two_pi = @mpf.mpf_mul_int(
-    @libelefun.mpf_pi(p, @mpf.round_nearest),
+    mpf_pi_checked(p, @mpf.round_nearest),
     2,
     p,
     @mpf.round_nearest,
@@ -443,7 +504,7 @@ fn gamma_lanczos_positive(
     p,
     @mpf.round_nearest,
   )
-  let exp_term = @libelefun.mpf_exp(
+  let exp_term = mpf_exp_checked(
     @mpf.mpf_neg(t, p, @mpf.round_nearest),
     p,
     @mpf.round_nearest,
@@ -493,11 +554,11 @@ pub fn mpf_gamma(
   let p = wp(prec)
   let half = @mpf.from_man_exp(1N, -1, 0, @mpf.round_down)
   if @mpf.mpf_eq(x, half) {
-    return mpf_sqrt_checked(@libelefun.mpf_pi(p, @mpf.round_nearest), prec, rnd)
+    return mpf_sqrt_checked(mpf_pi_checked(p, @mpf.round_nearest), prec, rnd)
   }
   if @mpf.mpf_eq(x, @mpf.mpf_neg(half, 0, @mpf.round_down)) {
     let root_pi = mpf_sqrt_checked(
-      @libelefun.mpf_pi(p, @mpf.round_nearest),
+      mpf_pi_checked(p, @mpf.round_nearest),
       p,
       @mpf.round_nearest,
     )
@@ -509,8 +570,8 @@ pub fn mpf_gamma(
     )
   }
   if x.sign == 1 {
-    let pi = @libelefun.mpf_pi(p, @mpf.round_nearest)
-    let sin_term = @libelefun.mpf_sin(
+    let pi = mpf_pi_checked(p, @mpf.round_nearest)
+    let sin_term = mpf_sin_checked(
       @mpf.mpf_mul(pi, x, p, @mpf.round_nearest),
       p,
       @mpf.round_nearest,
@@ -629,8 +690,8 @@ pub fn mpf_psi0(
     let p = wp(prec) + 24
     let one_minus_x = @mpf.mpf_sub(@mpf.fone, x, p, @mpf.round_nearest)
     let psi_ref = mpf_psi0(one_minus_x, p, @mpf.round_nearest)
-    let pi = @libelefun.mpf_pi(p, @mpf.round_nearest)
-    let (cos_pix, sin_pix) = @libelefun.mpf_cos_sin_pi(x, p, @mpf.round_nearest)
+    let pi = mpf_pi_checked(p, @mpf.round_nearest)
+    let (cos_pix, sin_pix) = mpf_cos_sin_pi_checked(x, p, @mpf.round_nearest)
     let cot_pix = mpf_div_checked(cos_pix, sin_pix, p, @mpf.round_nearest)
     let corr = @mpf.mpf_mul(pi, cot_pix, p, @mpf.round_nearest)
     return @mpf.mpf_pos(
@@ -751,7 +812,7 @@ pub fn mpf_fibonacci(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise GammaZetaError {
   if @mpf.is_nan(x) || @mpf.is_inf(x) {
     return @mpf.fnan
   }
@@ -759,24 +820,18 @@ pub fn mpf_fibonacci(
     Some(n) => @mpf.from_man_exp(fib_int(n), 0, prec, rnd)
     None => {
       let p = wp(prec) + 24
-      let phi = @libelefun.mpf_phi(p, @mpf.round_nearest)
-      let sqrt5 = mpf_sqrt_checked(@mpf.from_int(5), p, @mpf.round_nearest) catch {
-        _ => return @mpf.fnan
-      }
-      let phix = mpf_pow_checked(phi, x, p, @mpf.round_nearest) catch {
-        _ => return @mpf.fnan
-      }
+      let phi = mpf_phi_checked(p, @mpf.round_nearest)
+      let sqrt5 = mpf_sqrt_checked(@mpf.from_int(5), p, @mpf.round_nearest)
+      let phix = mpf_pow_checked(phi, x, p, @mpf.round_nearest)
       let phimx = mpf_pow_checked(
         phi,
         @mpf.mpf_neg(x, p, @mpf.round_nearest),
         p,
         @mpf.round_nearest,
-      ) catch {
-        _ => return @mpf.fnan
-      }
-      let cospix = @libelefun.mpf_cos(
+      )
+      let cospix = mpf_cos_checked(
         @mpf.mpf_mul(
-          @libelefun.mpf_pi(p, @mpf.round_nearest),
+          mpf_pi_checked(p, @mpf.round_nearest),
           x,
           p,
           @mpf.round_nearest,
@@ -791,9 +846,7 @@ pub fn mpf_fibonacci(
         @mpf.round_nearest,
       )
       @mpf.mpf_pos(
-        mpf_div_checked(numer, sqrt5, p, @mpf.round_nearest) catch {
-          _ => return @mpf.fnan
-        },
+        mpf_div_checked(numer, sqrt5, p, @mpf.round_nearest),
         prec,
         rnd,
       )
@@ -1008,7 +1061,7 @@ fn zeta_reflection_real(
   s : @mpf.RawMpf,
   p : Int,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  let pi = @libelefun.mpf_pi(p, @mpf.round_nearest)
+  let pi = mpf_pi_checked(p, @mpf.round_nearest)
   let one_minus_s = @mpf.mpf_sub(@mpf.fone, s, p, @mpf.round_nearest)
   let two_pow_s = mpf_pow_checked(@mpf.from_int(2), s, p, @mpf.round_nearest)
   let pi_pow = mpf_pow_checked(
@@ -1017,7 +1070,7 @@ fn zeta_reflection_real(
     p,
     @mpf.round_nearest,
   )
-  let sin_term = @libelefun.mpf_sin(
+  let sin_term = mpf_sin_checked(
     @mpf.mpf_shift(@mpf.mpf_mul(pi, s, p, @mpf.round_nearest), -1),
     p,
     @mpf.round_nearest,
@@ -1168,10 +1221,12 @@ pub fn mpf_zeta(
 }
 
 ///|
-fn const_str(v : String, prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
-  mpf_from_str_checked(v, prec=if prec > 0 { prec + 8 } else { 64 }, rnd~) catch {
-    _ => @mpf.fnan
-  }
+fn const_str(
+  v : String,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
+  mpf_from_str_checked(v, prec=if prec > 0 { prec + 8 } else { 64 }, rnd~)
 }
 
 ///|
@@ -1357,49 +1412,70 @@ pub fn mpf_psi(
 }
 
 ///|
-pub fn mpf_apery(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_apery(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
   const_str(
     "1.20205690315959428539973816151144999076498629234049888179227", prec, rnd,
   )
 }
 
 ///|
-pub fn mpf_catalan(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_catalan(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
   const_str(
     "0.915965594177219015054603514932384110774149374281672134266498", prec, rnd,
   )
 }
 
 ///|
-pub fn mpf_euler(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_euler(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
   const_str(
     "0.577215664901532860606512090082402431042159335939923598805767", prec, rnd,
   )
 }
 
 ///|
-pub fn mpf_glaisher(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_glaisher(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
   const_str(
     "1.28242712910062263687534256886979172776768892732500119206374", prec, rnd,
   )
 }
 
 ///|
-pub fn mpf_khinchin(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_khinchin(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
   const_str(
     "2.68545200106530644530971483548179569382038229399446295305115", prec, rnd,
   )
 }
 
 ///|
-pub fn mpf_mertens(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_mertens(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
   const_str(
     "0.261497212847642783755426838608695859051566648261199206192064", prec, rnd,
   )
 }
 
 ///|
-pub fn mpf_twinprime(prec : Int, rnd : @mpf.RoundMode) -> @mpf.RawMpf {
+pub fn mpf_twinprime(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
   const_str(
     "0.660161815846869573927812110014555778432623360284733413319448", prec, rnd,
   )
@@ -1412,7 +1488,7 @@ pub fn mpf_zetasum(
   rnd : @mpf.RoundMode,
   start? : Int = 1,
   terms? : Int = 1000,
-) -> @mpf.RawMpf {
+) -> @mpf.RawMpf raise GammaZetaError {
   if terms <= 0 {
     return @mpf.fzero
   }
@@ -1423,12 +1499,8 @@ pub fn mpf_zetasum(
     if k <= 0 {
       continue
     }
-    let den = mpf_pow_checked(@mpf.from_int(k), s, p, @mpf.round_nearest) catch {
-      _ => return @mpf.fnan
-    }
-    let term = mpf_div_checked(@mpf.fone, den, p, @mpf.round_nearest) catch {
-      _ => return @mpf.fnan
-    }
+    let den = mpf_pow_checked(@mpf.from_int(k), s, p, @mpf.round_nearest)
+    let term = mpf_div_checked(@mpf.fone, den, p, @mpf.round_nearest)
     sum = @mpf.mpf_add(sum, term, p, @mpf.round_nearest)
   }
   @mpf.mpf_pos(sum, prec, rnd)
