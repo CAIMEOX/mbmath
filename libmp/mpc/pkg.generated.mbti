@@ -77,6 +77,7 @@ pub fn RawMpc::imaginary_error_function(Self, Int, @mpf.RoundMode) -> Self raise
 pub fn RawMpc::is_infinite(Self) -> Bool
 pub fn RawMpc::is_non_finite(Self) -> Bool
 pub fn RawMpc::is_nonzero(Self) -> Bool
+pub fn RawMpc::lambert_w(Self, Int, @mpf.RoundMode, branch? : Int) -> Self raise MpcError
 pub fn RawMpc::ln(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::log(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::logarithmic_integral(Self, Int, @mpf.RoundMode, offset? : Bool) -> Self raise MpcError

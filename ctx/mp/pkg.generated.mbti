@@ -106,6 +106,7 @@ pub fn MPContext::complex_hyperbolic_sine_integral(Self, @mpc.RawMpc) -> @mpc.Ra
 pub fn MPContext::complex_hyperfactorial(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_imaginary_error_function(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_integer_order_bessel_first_kind(Self, Int, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_lambert_w(Self, @mpc.RawMpc, branch? : Int) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_log(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_log_gamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_logarithmic_integral(Self, @mpc.RawMpc, offset? : Bool) -> @mpc.RawMpc raise MPError
@@ -199,6 +200,7 @@ pub fn MPContext::integer_order_bessel_first_kind(Self, Int, @mpf.RawMpf) -> @mp
 pub fn MPContext::inverse(Self, MpfMatrix) -> MpfMatrix raise MPError
 pub fn MPContext::inverse_error_function(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::invertlaplace(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, algo? : StringView) -> @mpf.RawMpf raise
+pub fn MPContext::lambert_w(Self, @mpf.RawMpf, branch? : Int) -> @mpf.RawMpf raise MPError
 pub fn MPContext::levin(Self, ArrayView[@mpf.RawMpf], algo? : StringView) -> (@mpf.RawMpf, @mpf.RawMpf) raise MPError
 pub fn MPContext::limit(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, direction? : Int, max_steps? : Int) -> @mpf.RawMpf raise
 pub fn MPContext::ln(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
