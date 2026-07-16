@@ -16,6 +16,7 @@ pub(all) suberror MpiError {
   ParseError(String)
   UnsupportedError(String)
   UnorderedError(String)
+  ConvergenceError(String)
 } derive(Eq, @debug.Debug)
 
 // Types and methods

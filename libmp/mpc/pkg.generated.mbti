@@ -14,6 +14,7 @@ pub(all) suberror MpcError {
   ValueError(String)
   DomainError(String)
   PoleError(String)
+  ConvergenceError(String)
 } derive(Eq, @debug.Debug)
 
 // Types and methods
@@ -38,6 +39,7 @@ pub fn RawMpc::cbrt(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::ceil(Self, Int, @mpf.RoundMode) -> Self
 pub fn RawMpc::ci(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::ci_si_taylor(@mpf.RawMpf, @mpf.RawMpf, Int, which? : Int) -> Self raise MpcError
+pub fn RawMpc::complementary_error_function(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::conjugate(Self, Int, @mpf.RoundMode) -> Self
 pub fn RawMpc::cos(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::cos_pi(Self, Int, @mpf.RoundMode) -> Self raise MpcError
@@ -51,6 +53,7 @@ pub fn RawMpc::e1(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::ei(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::ellipe(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::ellipk(Self, Int, @mpf.RoundMode) -> Self raise MpcError
+pub fn RawMpc::error_function(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::eta(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::exp(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::exp_i(Self, Int, @mpf.RoundMode) -> Self raise MpcError
@@ -63,6 +66,7 @@ pub fn RawMpc::format_components(Self, dps? : Int) -> (String, String) raise Mpc
 pub fn RawMpc::fractional_part(Self, Int, @mpf.RoundMode) -> Self
 pub fn RawMpc::gamma(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::harmonic(Self, Int, @mpf.RoundMode) -> Self raise MpcError
+pub fn RawMpc::imaginary_error_function(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::is_infinite(Self) -> Bool
 pub fn RawMpc::is_non_finite(Self) -> Bool
 pub fn RawMpc::is_nonzero(Self) -> Bool

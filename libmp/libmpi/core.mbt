@@ -35,6 +35,7 @@ fn from_mpc_error(err : @mpc.MpcError) -> MpiError {
     ValueError(msg) => ValueError(msg)
     DomainError(msg) => DomainError(msg)
     PoleError(msg) => DomainError(msg)
+    ConvergenceError(msg) => ConvergenceError(msg)
   }
 }
 

@@ -10,6 +10,7 @@ pub(all) suberror MpcError {
   ValueError(String)
   DomainError(String)
   PoleError(String)
+  ConvergenceError(String)
 } derive(Debug, Eq)
 
 ///|

@@ -75,6 +75,39 @@ fn ei_real_checked(
 }
 
 ///|
+fn erf_real_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpcError {
+  @libhyper.erf(x, prec, rnd) catch {
+    err => raise from_libhyper_error(err)
+  }
+}
+
+///|
+fn erfc_real_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpcError {
+  @libhyper.erfc(x, prec, rnd) catch {
+    err => raise from_libhyper_error(err)
+  }
+}
+
+///|
+fn erfi_real_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpcError {
+  @libhyper.erfi(x, prec, rnd) catch {
+    err => raise from_libhyper_error(err)
+  }
+}
+
+///|
 fn ci_real_checked(
   x : @mpf.RawMpf,
   prec : Int,
@@ -482,6 +515,117 @@ fn clamp_series_terms(prec : Int) -> Int {
       n
     }
   }
+}
+
+///|
+fn error_series_work_precision(z : RawMpc, base_p : Int) -> Int {
+  let magnitude = mpc_mag_bound(z)
+  let exponent = 2 * magnitude + 2
+  let cancellation = if exponent <= 0 {
+    8
+  } else if exponent >= 30 {
+    base_p
+  } else {
+    let estimate = 1 << exponent
+    if estimate > base_p {
+      base_p
+    } else {
+      estimate
+    }
+  }
+  base_p + cancellation + 64
+}
+
+///|
+fn complex_norm_squared(z : RawMpc, p : Int) -> @mpf.RawMpf {
+  z.real.mul(z.real, p, Nearest).add(z.imag.mul(z.imag, p, Nearest), p, Nearest)
+}
+
+///|
+fn complex_error_series(z : RawMpc, base_p : Int) -> RawMpc raise MpcError {
+  let p = error_series_work_precision(z, base_p)
+  let z_work = z.rounded(p, Nearest)
+  let z2 = z_work.square(p, Nearest)
+  let mut term = z_work
+  let mut sum = term
+  let mut converged = false
+  let max_terms = 4 * p + 128
+  for k in 0..<max_terms {
+    term = term.mul(z2, p, Nearest).mul_int(-(2 * k + 1), p, Nearest)
+    term = term.div_real(@mpf.RawMpf::from_int(k + 1), p, Nearest)
+    term = term.div_real(@mpf.RawMpf::from_int(2 * k + 3), p, Nearest)
+    sum = sum.add(term, p, Nearest)
+    if k > 3 && tiny_enough_mpc(term, p, base_p + 32) {
+      converged = true
+      break
+    }
+  }
+  if !converged {
+    raise ConvergenceError(
+      "complex error function power series did not converge",
+    )
+  }
+  let scale = @libelefun.sqrt_pi(p, Nearest) catch {
+    err => raise from_libelefun_error(err)
+  }
+  sum.mul_real(
+    mpf_div_checked(@mpf.RawMpf::two(), scale, p, Nearest),
+    p,
+    Nearest,
+  )
+}
+
+///|
+fn complex_erfc_asymptotic(z : RawMpc, base_p : Int) -> RawMpc raise MpcError {
+  let p = base_p + 48
+  let z_work = z.rounded(p, Nearest)
+  let inverse_square = z_work.square(p, Nearest).reciprocal(p, Nearest)
+  let mut term = RawMpc::one()
+  let mut sum = term
+  let mut previous = @mpf.RawMpf::infinity()
+  let mut converged = false
+  let max_terms = 2 * base_p + 96
+  for k in 1..<=max_terms {
+    term = term
+      .mul(inverse_square, p, Nearest)
+      .mul_int(-(2 * k - 1), p, Nearest)
+      .scale_pow2(-1)
+    let magnitude = term.abs(p, Nearest)
+    if k > 3 && magnitude >= previous {
+      break
+    }
+    sum = sum.add(term, p, Nearest)
+    let relative_bound = sum.abs(p, Nearest).scale_pow2(-(base_p + 24))
+    if k > 3 && magnitude <= relative_bound {
+      converged = true
+      break
+    }
+    previous = magnitude
+  }
+  if !converged {
+    raise ConvergenceError(
+      "complex complementary error asymptotic did not converge",
+    )
+  }
+  let exponential = z_work
+    .square(p, Nearest)
+    .negated(p, Nearest)
+    .exp(p, Nearest)
+  let sqrt_pi = @libelefun.sqrt_pi(p, Nearest) catch {
+    err => raise from_libelefun_error(err)
+  }
+  let denominator = z_work.mul_real(sqrt_pi, p, Nearest)
+  let value = exponential.div(denominator, p, Nearest).mul(sum, p, Nearest)
+  if z.real.is_zero() {
+    RawMpc::new(@mpf.RawMpf::one(), value.imag)
+  } else {
+    value
+  }
+}
+
+///|
+fn should_use_error_asymptotic(z : RawMpc, p : Int) -> Bool {
+  complex_norm_squared(z, 32) > @mpf.RawMpf::from_int(p + 64)
 }
 
 ///|
@@ -1210,6 +1354,90 @@ pub fn RawMpc::agm_with_one(
   rnd : @mpf.RoundMode,
 ) -> RawMpc raise MpcError {
   RawMpc::one().agm(a, prec, rnd)
+}
+
+///|
+/// Evaluate the entire Gaussian error function for a complex argument.
+pub fn RawMpc::error_function(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  if z.imag.is_zero() {
+    return lift_real(erf_real_checked(z.real, prec, rnd))
+  }
+  if z.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  if z == RawMpc::zero() {
+    return RawMpc::zero()
+  }
+  let base_p = ext_prec(prec) + 32
+  if z.real.sign == 1 {
+    return z
+      .negated(base_p, Nearest)
+      .error_function(base_p, Nearest)
+      .negated(prec, rnd)
+  }
+  if should_use_error_asymptotic(z, base_p) {
+    return RawMpc::one()
+      .sub(complex_erfc_asymptotic(z, base_p), base_p, Nearest)
+      .rounded(prec, rnd)
+  }
+  complex_error_series(z, base_p).rounded(prec, rnd)
+}
+
+///|
+/// Evaluate the complementary Gaussian error function in a form that retains
+/// exponentially small tails in the right half-plane.
+pub fn RawMpc::complementary_error_function(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  if z.imag.is_zero() {
+    return lift_real(erfc_real_checked(z.real, prec, rnd))
+  }
+  if z.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  if z == RawMpc::zero() {
+    return RawMpc::one()
+  }
+  let base_p = ext_prec(prec) + 32
+  if z.real.sign == 1 {
+    let reflected = z
+      .negated(base_p, Nearest)
+      .complementary_error_function(base_p, Nearest)
+    return RawMpc::new(@mpf.RawMpf::two(), @mpf.RawMpf::zero())
+      .sub(reflected, base_p, Nearest)
+      .rounded(prec, rnd)
+  }
+  if should_use_error_asymptotic(z, base_p) {
+    return complex_erfc_asymptotic(z, base_p).rounded(prec, rnd)
+  }
+  RawMpc::one()
+  .sub(complex_error_series(z, base_p), base_p, Nearest)
+  .rounded(prec, rnd)
+}
+
+///|
+/// Evaluate the entire imaginary error function `-i erf(i z)`.
+pub fn RawMpc::imaginary_error_function(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  if z.imag.is_zero() {
+    return lift_real(erfi_real_checked(z.real, prec, rnd))
+  }
+  if z.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  let p = ext_prec(prec) + 32
+  let rotated = RawMpc::new(z.imag.negated(p, Nearest), z.real)
+  let value = rotated.error_function(p, Nearest)
+  RawMpc::new(value.imag, value.real.negated(p, Nearest)).rounded(prec, rnd)
 }
 
 ///|

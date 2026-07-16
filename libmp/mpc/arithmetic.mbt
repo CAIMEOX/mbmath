@@ -36,6 +36,7 @@ fn from_libhyper_error(err : @libhyper.LibHyperError) -> MpcError {
     DomainError(msg) => DomainError(msg)
     PoleError(msg) => PoleError(msg)
     ComplexResult(msg) => DomainError(msg)
+    ConvergenceError(msg) => ConvergenceError(msg)
   }
 }
 

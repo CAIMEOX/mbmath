@@ -4,4 +4,5 @@ pub(all) suberror LibHyperError {
   DomainError(String)
   PoleError(String)
   ComplexResult(String)
+  ConvergenceError(String)
 } derive(Debug, Eq)

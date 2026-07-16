@@ -1,12 +1,4 @@
 ///|
-let euler_gamma : @mpf.RawMpf = @mpf.RawMpf::from_mantissa_exponent(
-  927549811672521911724738044671514915956439037055189363041055N,
-  -200,
-  0,
-  Down,
-)
-
-///|
 fn wp(prec : Int) -> Int {
   if prec > 0 {
     prec + 24
@@ -45,6 +37,25 @@ fn from_libelefun_error(err : @libelefun.LibElefunError) -> LibHyperError {
     ValueError(msg) => ValueError(msg)
     DomainError(msg) => DomainError(msg)
     ComplexResult(msg) => ComplexResult(msg)
+  }
+}
+
+///|
+fn from_gammazeta_error(err : @gammazeta.GammaZetaError) -> LibHyperError {
+  match err {
+    ValueError(msg) => ValueError(msg)
+    DomainError(msg) => DomainError(msg)
+    PoleError(msg) => PoleError(msg)
+  }
+}
+
+///|
+fn euler_constant_checked(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise LibHyperError {
+  @gammazeta.euler(prec, rnd) catch {
+    err => raise from_gammazeta_error(err)
   }
 }
 
@@ -259,8 +270,7 @@ pub fn ci_si(
       si = x.rounded(prec, rnd)
     }
     if which != 1 {
-      ci = euler_gamma
-        .rounded(p0, Nearest)
+      ci = euler_constant_checked(p0, Nearest)
         .add(ln_positive_checked(x_abs, p0, Nearest), p0, Nearest)
         .rounded(prec, rnd)
     }
@@ -275,7 +285,7 @@ pub fn ci_si(
     if which != 1 {
       let core = ci_si_taylor(x_abs, p, which=0)
       ci = core
-        .add(euler_gamma.rounded(p, Nearest), p, Nearest)
+        .add(euler_constant_checked(p, Nearest), p, Nearest)
         .add(ln_positive_checked(x_abs, p, Nearest), p, Nearest)
         .rounded(prec, rnd)
     }
@@ -380,7 +390,7 @@ pub fn ei(
   }
   let p = wp(prec) + 8
   let abs_x = x.abs(p, Nearest)
-  let mut sum = euler_gamma.add(
+  let mut sum = euler_constant_checked(p, Nearest).add(
     ln_positive_checked(abs_x, p, Nearest),
     p,
     Nearest,
@@ -495,6 +505,100 @@ pub fn e1(
 }
 
 ///|
+fn erf_series_positive(
+  x : @mpf.RawMpf,
+  p : Int,
+) -> @mpf.RawMpf raise LibHyperError {
+  let x2 = x.mul(x, p, Nearest)
+  let mut term = x.rounded(p, Nearest)
+  let mut sum = term
+  let mut converged = false
+  let max_terms = 2 * p + 64
+  for k in 0..<max_terms {
+    term = term.mul(x2, p, Nearest).mul_int(-(2 * k + 1), p, Nearest)
+    term = div_checked(term, @mpf.RawMpf::from_int(k + 1), p, Nearest)
+    term = div_checked(term, @mpf.RawMpf::from_int(2 * k + 3), p, Nearest)
+    sum = sum.add(term, p, Nearest)
+    if k > 3 && tiny_enough(term.abs(p, Nearest), p + 16) {
+      converged = true
+      break
+    }
+  }
+  if !converged {
+    raise ConvergenceError("error function power series did not converge")
+  }
+  let scale = div_checked(
+    @mpf.RawMpf::two(),
+    sqrt_checked(pi_checked(p, Nearest), p, Nearest),
+    p,
+    Nearest,
+  )
+  scale.mul(sum, p, Nearest)
+}
+
+///|
+fn erfc_positive_continued_fraction(
+  x : @mpf.RawMpf,
+  p : Int,
+) -> @mpf.RawMpf raise LibHyperError {
+  let x2 = x.mul(x, p, Nearest)
+  let tiny = @mpf.RawMpf::one().scale_pow2(-(4 * p + 64))
+  let mut b = x2.add(@mpf.RawMpf::half(), p, Nearest)
+  let mut c = div_checked(@mpf.RawMpf::one(), tiny, p, Nearest)
+  let mut d = div_checked(@mpf.RawMpf::one(), b, p, Nearest)
+  let mut fraction = d
+  let mut converged = false
+  let max_terms = 4 * p + 128
+  for k in 1..<=max_terms {
+    let k_mpf = @mpf.RawMpf::from_int(k)
+    let k_minus_half = @mpf.RawMpf::from_int(2 * k - 1).scale_pow2(-1)
+    let coefficient = k_mpf.mul(k_minus_half, p, Nearest).negated(p, Nearest)
+    b = b.add(@mpf.RawMpf::two(), p, Nearest)
+    d = b.add(coefficient.mul(d, p, Nearest), p, Nearest)
+    if d.abs(p, Nearest) < tiny {
+      d = tiny
+    }
+    c = b.add(div_checked(coefficient, c, p, Nearest), p, Nearest)
+    if c.abs(p, Nearest) < tiny {
+      c = tiny
+    }
+    d = div_checked(@mpf.RawMpf::one(), d, p, Nearest)
+    let delta = c.mul(d, p, Nearest)
+    fraction = fraction.mul(delta, p, Nearest)
+    if k > 3 &&
+      tiny_enough(
+        delta.sub(@mpf.RawMpf::one(), p, Nearest).abs(p, Nearest),
+        p + 16,
+      ) {
+      converged = true
+      break
+    }
+  }
+  if !converged {
+    raise ConvergenceError(
+      "complementary error continued fraction did not converge",
+    )
+  }
+  let gaussian = exp_checked(x2.negated(p, Nearest), p, Nearest)
+  let sqrt_pi = sqrt_checked(pi_checked(p, Nearest), p, Nearest)
+  div_checked(gaussian.mul(x, p, Nearest), sqrt_pi, p, Nearest).mul(
+    fraction,
+    p,
+    Nearest,
+  )
+}
+
+///|
+fn erfc_positive(x : @mpf.RawMpf, p : Int) -> @mpf.RawMpf raise LibHyperError {
+  if x < @mpf.RawMpf::two() {
+    @mpf.RawMpf::one().sub(erf_series_positive(x, p), p, Nearest)
+  } else {
+    erfc_positive_continued_fraction(x, p)
+  }
+}
+
+///|
+/// Evaluate the real Gaussian error function at arbitrary precision.
 pub fn erf(
   x : @mpf.RawMpf,
   prec : Int,
@@ -504,49 +608,31 @@ pub fn erf(
     return @mpf.RawMpf::nan()
   }
   if x.is_infinite() {
-    if x.sign == 1 {
-      return @mpf.RawMpf::negative_one()
+    return if x.sign == 1 {
+      @mpf.RawMpf::negative_one()
     } else {
-      return @mpf.RawMpf::one()
+      @mpf.RawMpf::one()
     }
   }
   if x.is_zero() {
     return @mpf.RawMpf::zero()
   }
-  let p = wp(prec) + 16
-  let ax = x.abs(p, Nearest)
-  let x2 = ax.mul(ax, p, Nearest)
-  let mut term = ax
-  let mut sum = ax
-  let mut k = 0
-  while k < 60000 {
-    let num = 2 * k + 1
-    let den1 = k + 1
-    let den2 = 2 * k + 3
-    term = term.mul(x2, p, Nearest)
-    term = term.mul_int(-num, p, Nearest)
-    term = div_checked(term, @mpf.RawMpf::from_int(den1), p, Nearest)
-    term = div_checked(term, @mpf.RawMpf::from_int(den2), p, Nearest)
-    sum = sum.add(term, p, Nearest)
-    if tiny_enough(term.abs(p, Nearest), p + 10) && k > 3 {
-      break
-    }
-    k += 1
+  let p = wp(prec) + 32
+  let magnitude = x.abs(p, Nearest)
+  let mut value = if magnitude < @mpf.RawMpf::two() {
+    erf_series_positive(magnitude, p)
+  } else {
+    @mpf.RawMpf::one().sub(erfc_positive(magnitude, p), p, Nearest)
   }
-  let two_over_sqrt_pi = div_checked(
-    @mpf.RawMpf::from_int(2),
-    sqrt_checked(pi_checked(p, Nearest), p, Nearest),
-    p,
-    Nearest,
-  )
-  let mut v = two_over_sqrt_pi.mul(sum, p, Nearest)
   if x.sign == 1 {
-    v = v.negated(p, Nearest)
+    value = value.negated(p, Nearest)
   }
-  v.rounded(prec, rnd)
+  value.rounded(prec, rnd)
 }
 
 ///|
+/// Evaluate the real complementary error function without subtractive loss in
+/// the exponentially small positive tail.
 pub fn erfc(
   x : @mpf.RawMpf,
   prec : Int,
@@ -556,14 +642,116 @@ pub fn erfc(
     return @mpf.RawMpf::nan()
   }
   if x.is_infinite() {
-    if x.sign == 1 {
-      return @mpf.RawMpf::from_int(2)
+    return if x.sign == 1 { @mpf.RawMpf::two() } else { @mpf.RawMpf::zero() }
+  }
+  if x.is_zero() {
+    return @mpf.RawMpf::one()
+  }
+  let p = wp(prec) + 32
+  let magnitude = x.abs(p, Nearest)
+  let tail = erfc_positive(magnitude, p)
+  let value = if x.sign == 1 {
+    @mpf.RawMpf::two().sub(tail, p, Nearest)
+  } else {
+    tail
+  }
+  value.rounded(prec, rnd)
+}
+
+///|
+/// Evaluate the real imaginary error function `-i erf(i x)`.
+pub fn erfi(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise LibHyperError {
+  if x.is_nan() {
+    return @mpf.RawMpf::nan()
+  }
+  if x.is_infinite() {
+    return if x.sign == 1 {
+      @mpf.RawMpf::negative_infinity()
     } else {
-      return @mpf.RawMpf::zero()
+      @mpf.RawMpf::infinity()
     }
   }
-  let p = wp(prec) + 16
-  @mpf.RawMpf::one().sub(erf(x, p, Nearest), p, Nearest).rounded(prec, rnd)
+  if x.is_zero() {
+    return @mpf.RawMpf::zero()
+  }
+  let base_p = wp(prec) + 32
+  let magnitude = x.abs(base_p, Nearest)
+  let square = magnitude.mul(magnitude, base_p, Nearest)
+  let mut value = @mpf.RawMpf::zero()
+  if square > @mpf.RawMpf::from_int(base_p) {
+    let p = base_p + 32
+    let inverse_square = div_checked(@mpf.RawMpf::one(), square, p, Nearest)
+    let mut term = @mpf.RawMpf::one()
+    let mut sum = term
+    let mut previous = @mpf.RawMpf::infinity()
+    let mut converged = false
+    let max_terms = 2 * p + 64
+    for k in 1..<=max_terms {
+      term = term
+        .mul_int(2 * k - 1, p, Nearest)
+        .mul(inverse_square, p, Nearest)
+        .scale_pow2(-1)
+      let term_abs = term.abs(p, Nearest)
+      if k > 3 && term_abs >= previous {
+        break
+      }
+      sum = sum.add(term, p, Nearest)
+      let relative_bound = sum.abs(p, Nearest).scale_pow2(-(p + 16))
+      if k > 3 && term_abs <= relative_bound {
+        converged = true
+        break
+      }
+      previous = term_abs
+    }
+    if !converged {
+      raise ConvergenceError(
+        "imaginary error asymptotic series did not converge",
+      )
+    }
+    let gaussian = exp_checked(square, p, Nearest)
+    let denominator = sqrt_checked(pi_checked(p, Nearest), p, Nearest).mul(
+      magnitude,
+      p,
+      Nearest,
+    )
+    value = div_checked(gaussian, denominator, p, Nearest).mul(sum, p, Nearest)
+  } else {
+    let p = 2 * base_p + 64
+    let x2 = magnitude.mul(magnitude, p, Nearest)
+    let mut term = magnitude.rounded(p, Nearest)
+    let mut sum = term
+    let mut converged = false
+    let max_terms = 4 * p + 128
+    for k in 0..<max_terms {
+      term = term.mul(x2, p, Nearest).mul_int(2 * k + 1, p, Nearest)
+      term = div_checked(term, @mpf.RawMpf::from_int(k + 1), p, Nearest)
+      term = div_checked(term, @mpf.RawMpf::from_int(2 * k + 3), p, Nearest)
+      sum = sum.add(term, p, Nearest)
+      let relative_bound = sum.abs(p, Nearest).scale_pow2(-(p + 16))
+      if k > 3 && term.abs(p, Nearest) <= relative_bound {
+        converged = true
+        break
+      }
+    }
+    if !converged {
+      raise ConvergenceError("imaginary error power series did not converge")
+    }
+    let scale = div_checked(
+      @mpf.RawMpf::two(),
+      sqrt_checked(pi_checked(p, Nearest), p, Nearest),
+      p,
+      Nearest,
+    )
+    value = scale.mul(sum, p, Nearest)
+  }
+  if x.sign == 1 {
+    value = value.negated(base_p, Nearest)
+  }
+  value.rounded(prec, rnd)
 }
 
 ///|

@@ -52,6 +52,7 @@ pub fn MPContext::cholesky(Self, MpfMatrix, tol? : @mpf.RawMpf) -> MpfMatrix rai
 pub fn MPContext::cholesky_solve(Self, MpfMatrix, ArrayView[@mpf.RawMpf], tol? : @mpf.RawMpf) -> Array[@mpf.RawMpf] raise MPError
 pub fn MPContext::cli_eval_division(Self, Int, Int, dps? : Int) -> String raise MPError
 pub fn MPContext::cli_eval_literal(Self, StringView, dps? : Int) -> String raise MPError
+pub fn MPContext::complementary_error_function(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::complex(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpc.RawMpc
 pub fn MPContext::complex_abs(Self, @mpc.RawMpc) -> @mpf.RawMpf raise MPError
 pub fn MPContext::complex_acos(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
@@ -62,6 +63,7 @@ pub fn MPContext::complex_asinh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_atan(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_atanh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_cbrt(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_complementary_error_function(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_conjugate(Self, @mpc.RawMpc) -> @mpc.RawMpc
 pub fn MPContext::complex_cos(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_cos_pi(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
@@ -69,6 +71,7 @@ pub fn MPContext::complex_cos_sin(Self, @mpc.RawMpc) -> (@mpc.RawMpc, @mpc.RawMp
 pub fn MPContext::complex_cos_sin_pi(Self, @mpc.RawMpc) -> (@mpc.RawMpc, @mpc.RawMpc) raise MPError
 pub fn MPContext::complex_cosh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_digamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_error_function(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_eta(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_exp(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_exp_i(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
@@ -77,6 +80,7 @@ pub fn MPContext::complex_factorial(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPEr
 pub fn MPContext::complex_fibonacci(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_gamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_harmonic(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_imaginary_error_function(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_log(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_log_gamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_nthroot(Self, @mpc.RawMpc, Int) -> @mpc.RawMpc raise MPError
@@ -119,6 +123,7 @@ pub fn MPContext::e1_real(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::eig(Self, MpfMatrix, tol? : @mpf.RawMpf, max_steps? : Int) -> (Array[@mpf.RawMpf], MpfMatrix) raise MPError
 pub fn MPContext::eighe(Self, MpfMatrix, tol? : @mpf.RawMpf, max_steps? : Int) -> (Array[@mpf.RawMpf], MpfMatrix) raise MPError
 pub fn MPContext::eigsy(Self, MpfMatrix, tol? : @mpf.RawMpf, max_steps? : Int) -> (Array[@mpf.RawMpf], MpfMatrix) raise MPError
+pub fn MPContext::error_function(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::eta(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::exp(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::exp2(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
@@ -145,6 +150,7 @@ pub fn MPContext::hessenberg(Self, MpfMatrix, tol? : @mpf.RawMpf) -> (MpfMatrix,
 pub fn MPContext::hilbert(Self, Int) -> MpfMatrix raise MPError
 pub fn MPContext::hypot(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::identify(Self, @mpf.RawMpf, constants? : Map[String, @mpf.RawMpf]) -> String raise MPError
+pub fn MPContext::imaginary_error_function(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::inverse(Self, MpfMatrix) -> MpfMatrix raise MPError
 pub fn MPContext::invertlaplace(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, algo? : StringView) -> @mpf.RawMpf raise
 pub fn MPContext::levin(Self, ArrayView[@mpf.RawMpf], algo? : StringView) -> (@mpf.RawMpf, @mpf.RawMpf) raise MPError
