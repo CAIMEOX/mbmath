@@ -241,7 +241,7 @@ test "mpf gamma/zeta negative real subset" {
 }
 
 ///|
-test "mpf psi0 harmonic infinity semantics and large-negative stability" {
+test "mpf psi0 harmonic infinity and huge-pole semantics" {
   assert_true(digamma(@mpf.RawMpf::negative_infinity(), 140, Nearest).is_nan())
   @debug.assert_eq(
     digamma(@mpf.RawMpf::infinity(), 140, Nearest),
@@ -252,10 +252,19 @@ test "mpf psi0 harmonic infinity semantics and large-negative stability" {
     harmonic(@mpf.RawMpf::infinity(), 140, Nearest),
     @mpf.RawMpf::infinity(),
   )
-  let psi1_large_neg = polygamma(1, @mpf.RawMpf::parse("-1e80"), 180, Nearest)
-  assert_true(psi1_large_neg.is_finite())
-  let psi2_large_neg = polygamma(2, @mpf.RawMpf::parse("-1e80"), 180, Nearest)
-  assert_true(psi2_large_neg.is_finite())
+  let huge_negative_integer = @mpf.RawMpf::parse("-1e80")
+  try polygamma(1, huge_negative_integer, 180, Nearest) catch {
+    PoleError(_) => ()
+    _ => fail("unexpected huge trigamma pole error")
+  } noraise {
+    _ => fail("expected huge non-positive integer trigamma pole")
+  }
+  try polygamma(2, huge_negative_integer, 180, Nearest) catch {
+    PoleError(_) => ()
+    _ => fail("unexpected huge tetragamma pole error")
+  } noraise {
+    _ => fail("expected huge non-positive integer tetragamma pole")
+  }
 }
 
 ///|

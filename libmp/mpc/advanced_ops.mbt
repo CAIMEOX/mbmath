@@ -2781,6 +2781,116 @@ pub fn RawMpc::digamma(
 }
 
 ///|
+fn complex_cot_derivative_coefficients(order : Int) -> Array[BigInt] {
+  let mut coefficients = [0N, 1N]
+  for _ in 0..<order {
+    let next = Array::make(coefficients.length() + 1, 0N)
+    for degree in 1..<coefficients.length() {
+      let derivative = coefficients[degree] * BigInt::from_int(degree)
+      next[degree - 1] = next[degree - 1] - derivative
+      next[degree + 1] = next[degree + 1] - derivative
+    }
+    coefficients = next
+  }
+  coefficients
+}
+
+///|
+fn evaluate_complex_cot_derivative_polynomial(
+  order : Int,
+  cotangent : RawMpc,
+  p : Int,
+) -> RawMpc {
+  let coefficients = complex_cot_derivative_coefficients(order)
+  let mut value = RawMpc::zero()
+  let mut index = coefficients.length() - 1
+  while index >= 0 {
+    value = value
+      .mul(cotangent, p, Nearest)
+      .add_real(@mpf.RawMpf::from_bigint(coefficients[index]), p, Nearest)
+    index -= 1
+  }
+  value
+}
+
+///|
+fn complex_top_bit(z : RawMpc, p : Int) -> Int raise MpcError {
+  let magnitude = z.abs(p, Nearest)
+  if magnitude.is_zero() {
+    -1073741824
+  } else {
+    magnitude.exp + magnitude.bc
+  }
+}
+
+///|
+fn complex_relative_tiny(
+  term : RawMpc,
+  value : RawMpc,
+  p : Int,
+  bits : Int,
+) -> Bool raise MpcError {
+  let term_magnitude = term.abs(p, Nearest)
+  if term_magnitude.is_zero() {
+    return true
+  }
+  let value_magnitude = value.abs(p, Nearest)
+  if !term_magnitude.is_finite() ||
+    value_magnitude.is_zero() ||
+    !value_magnitude.is_finite() {
+    return false
+  }
+  term_magnitude.exp + term_magnitude.bc <=
+  value_magnitude.exp + value_magnitude.bc - bits
+}
+
+///|
+fn reflected_complex_polygamma(
+  z : RawMpc,
+  m : Int,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  let target = ext_prec(prec) + 8
+  let polynomial_guard = 64 + (m + 2) * int_bit_length(m + 2)
+  let mut p = target + polynomial_guard
+  let attempts = int_bit_length(target + polynomial_guard) + 4
+  for _ in 0..<attempts {
+    let reflected = RawMpc::one().sub(z, p, Nearest).polygamma(m, p, Nearest)
+    let signed_reflected = if (m & 1) == 1 {
+      reflected.negated(p, Nearest)
+    } else {
+      reflected
+    }
+    let (cosine, sine) = z.cos_sin_pi(p, Nearest)
+    let cotangent = cosine.div(sine, p, Nearest)
+    let derivative = evaluate_complex_cot_derivative_polynomial(m, cotangent, p)
+    let pi_power = mpf_pow_int_checked(
+      elefun_pi_checked(p, Nearest),
+      m + 1,
+      p,
+      Nearest,
+    )
+    let correction = derivative.mul_real(pi_power, p, Nearest)
+    let value = signed_reflected.sub(correction, p, Nearest)
+    let largest = complex_top_bit(signed_reflected, 24).max(
+      complex_top_bit(correction, 24),
+    )
+    let value_is_zero = value.real.is_zero() && value.imag.is_zero()
+    let needed = if value_is_zero {
+      target + polynomial_guard + largest.max(0)
+    } else {
+      target + polynomial_guard + (largest - complex_top_bit(value, 24)).max(0)
+    }
+    if p >= needed {
+      return value.rounded(prec, rnd)
+    }
+    p = needed + 16
+  }
+  raise ConvergenceError("complex polygamma reflection lost too much precision")
+}
+
+///|
 pub fn RawMpc::polygamma(
   z : RawMpc,
   m : Int,
@@ -2796,14 +2906,18 @@ pub fn RawMpc::polygamma(
   if m == 0 {
     return z.digamma(prec, rnd)
   }
-  let p = ext_prec(prec) + 36
+  if z.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  if z.real.sign == 1 {
+    return reflected_complex_polygamma(z, m, prec, rnd)
+  }
+  let target_bits = ext_prec(prec) + 8
+  let p = target_bits + 64 + 2 * int_bit_length(m + 2)
   let mut w = z.rounded(p, Nearest)
   let target = 2 * p / 5 + 4 * m + 2
   let mut s = RawMpc::zero()
-  for _ in 0..<512 {
-    if w.real >= @mpf.RawMpf::from_int(target) {
-      break
-    }
+  while w.real < @mpf.RawMpf::from_int(target) {
     let t = w.pow_int(m + 1, p, Nearest).reciprocal(p, Nearest)
     s = s.add(t, p, Nearest)
     w = w.add_real(@mpf.RawMpf::one(), p, Nearest)
@@ -2815,36 +2929,41 @@ pub fn RawMpc::polygamma(
     .div(w, p, Nearest)
     .mul_real(@mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down), p, Nearest)
   s = s.add(endpoint, p, Nearest)
-  let magn = s.abs(20, Nearest)
-  let eps = @mpf.RawMpf::one().scale_pow2(magn.exp + magn.bc - p + 2)
   let mut ratio = mpf_div_checked(
     @mpf.RawMpf::from_int(m + 1),
     @mpf.RawMpf::from_int(2),
     p,
     Nearest,
   )
-  let mut k = 1
-  while k < 128 {
+  let max_terms = p / 2 + m + 32
+  let mut previous = @mpf.RawMpf::infinity()
+  let mut converged = false
+  for k in 1..<=max_terms {
     zm = zm.mul(z2, p, Nearest)
     let bern = bernoulli_checked(2 * k, p, Nearest)
     let scal = bern.mul(ratio, p, Nearest)
     let term = zm.mul_real(scal, p, Nearest)
-    s = s.add(term, p, Nearest)
-    let szterm = term.abs(20, Nearest)
-    if k > 2 && szterm <= eps {
+    let magnitude = term.abs(24, Nearest)
+    if k > 4 && magnitude >= previous {
       break
     }
+    s = s.add(term, p, Nearest)
+    if k > 2 && complex_relative_tiny(term, s, 24, target_bits) {
+      converged = true
+      break
+    }
+    previous = magnitude
     ratio = ratio.mul_int(m + 2 * k, p, Nearest)
     ratio = ratio.mul_int(m + 2 * k + 1, p, Nearest)
     ratio = mpf_div_checked(ratio, @mpf.RawMpf::from_int(2 * k + 1), p, Nearest)
     ratio = mpf_div_checked(ratio, @mpf.RawMpf::from_int(2 * k + 2), p, Nearest)
-    k += 1
   }
-  let mut v = s.mul_real(
-    gamma_real_checked(@mpf.RawMpf::from_int(m + 1), p, Nearest),
-    p,
-    Nearest,
-  )
+  if !converged {
+    raise ConvergenceError(
+      "complex polygamma Euler-Maclaurin expansion did not converge",
+    )
+  }
+  let mut v = s.mul_real(factorial_mpf_small(m, p), p, Nearest)
   if (m & 1) == 0 {
     v = v.negated(p, Nearest)
   }

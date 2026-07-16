@@ -657,9 +657,6 @@ pub fn digamma(
     }
     None => ()
   }
-  if x.is_zero() {
-    raise DomainError("digamma: non-positive input is unsupported")
-  }
   if x.sign == 1 {
     let p = wp(prec) + 24
     let one_minus_x = @mpf.RawMpf::one().sub(x, p, Nearest)
@@ -1117,10 +1114,64 @@ fn factorial_small_mpf(n : Int, p : Int) -> @mpf.RawMpf {
 }
 
 ///|
+fn cot_derivative_coefficients(order : Int) -> Array[BigInt] {
+  let mut coefficients = [0N, 1N]
+  for _ in 0..<order {
+    let next = Array::make(coefficients.length() + 1, 0N)
+    for degree in 1..<coefficients.length() {
+      let derivative = coefficients[degree] * BigInt::from_int(degree)
+      next[degree - 1] = next[degree - 1] - derivative
+      next[degree + 1] = next[degree + 1] - derivative
+    }
+    coefficients = next
+  }
+  coefficients
+}
+
+///|
+fn evaluate_cot_derivative_polynomial(
+  order : Int,
+  cotangent : @mpf.RawMpf,
+  p : Int,
+) -> @mpf.RawMpf {
+  let coefficients = cot_derivative_coefficients(order)
+  let mut value = @mpf.RawMpf::zero()
+  let mut index = coefficients.length() - 1
+  while index >= 0 {
+    value = value
+      .mul(cotangent, p, Nearest)
+      .add(@mpf.RawMpf::from_bigint(coefficients[index]), p, Nearest)
+    index -= 1
+  }
+  value
+}
+
+///|
+fn mpf_top_bit(x : @mpf.RawMpf) -> Int {
+  if x.is_zero() {
+    -1073741824
+  } else {
+    x.exp + x.bc
+  }
+}
+
+///|
+fn relative_tiny(term : @mpf.RawMpf, value : @mpf.RawMpf, bits : Int) -> Bool {
+  if term.is_zero() {
+    return true
+  }
+  if !term.is_finite() || value.is_zero() || !value.is_finite() {
+    return false
+  }
+  mpf_top_bit(term) <= mpf_top_bit(value) - bits
+}
+
+///|
 fn hurwitz_power_sum_em(
   x : @mpf.RawMpf,
   s : Int,
   p : Int,
+  target_bits : Int,
 ) -> @mpf.RawMpf raise GammaZetaError {
   let n = {
     let value = p / 2 + 16
@@ -1131,7 +1182,7 @@ fn hurwitz_power_sum_em(
     }
   }
   let terms = {
-    let value = p / 3 + 12
+    let value = p / 2 + 4 * int_bit_length(s + 1) + 24
     if value < 12 {
       12
     } else {
@@ -1169,27 +1220,95 @@ fn hurwitz_power_sum_em(
     p,
     Nearest,
   ).scale_pow2(-1)
+  let inverse_xn = mpf_div_checked(@mpf.RawMpf::one(), xn, p, Nearest)
+  let inverse_xn_squared = inverse_xn.mul(inverse_xn, p, Nearest)
+  let mut pochhammer = @mpf.RawMpf::from_int(s)
+  let mut x_power = mpf_pow_int_checked(xn, -(s + 1), p, Nearest)
+  let mut factorial_value = @mpf.RawMpf::two()
   let mut corr = @mpf.RawMpf::zero()
+  let mut previous = @mpf.RawMpf::infinity()
+  let mut converged = false
   for r in 1..<=terms {
     let two_r = 2 * r
-    let mut poch = @mpf.RawMpf::one()
-    for j in 0..<(two_r - 1) {
-      poch = poch.mul_int(s + j, p, Nearest)
-    }
     let coeff = mpf_div_checked(
       bernoulli(two_r, p, Nearest),
-      factorial(two_r, p, Nearest),
+      factorial_value,
       p,
       Nearest,
     )
-    let xpow = mpf_pow_int_checked(xn, -(s + two_r - 1), p, Nearest)
-    let term = coeff.mul(poch.mul(xpow, p, Nearest), p, Nearest)
-    corr = corr.add(term, p, Nearest)
-    if r >= 3 && tiny_enough(term.abs(p, Nearest), p + 8) {
+    let term = coeff.mul(pochhammer.mul(x_power, p, Nearest), p, Nearest)
+    let magnitude = term.abs(p, Nearest)
+    if r > 4 && magnitude >= previous {
       break
     }
+    corr = corr.add(term, p, Nearest)
+    let estimate = sum.add(
+      tail_int.add(tail_half.add(corr, p, Nearest), p, Nearest),
+      p,
+      Nearest,
+    )
+    if r >= 3 && relative_tiny(magnitude, estimate.abs(p, Nearest), target_bits) {
+      converged = true
+      break
+    }
+    previous = magnitude
+    pochhammer = pochhammer
+      .mul_int(s + two_r - 1, p, Nearest)
+      .mul_int(s + two_r, p, Nearest)
+    x_power = x_power.mul(inverse_xn_squared, p, Nearest)
+    factorial_value = factorial_value
+      .mul_int(two_r + 1, 0, Down)
+      .mul_int(two_r + 2, 0, Down)
+  }
+  if !converged {
+    raise ConvergenceError(
+      "polygamma Euler-Maclaurin expansion did not converge",
+    )
   }
   sum.add(tail_int.add(tail_half.add(corr, p, Nearest), p, Nearest), p, Nearest)
+}
+
+///|
+fn reflected_polygamma(
+  m : Int,
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
+  let target = wp(prec) + 8
+  let polynomial_guard = 64 + (m + 2) * int_bit_length(m + 2)
+  let mut p = target + polynomial_guard
+  let attempts = int_bit_length(target + polynomial_guard) + 4
+  for _ in 0..<attempts {
+    let one_minus_x = @mpf.RawMpf::one().sub(x, p, Nearest)
+    let reflected = polygamma(m, one_minus_x, p, Nearest)
+    let signed_reflected = if (m & 1) == 1 {
+      reflected.negated(p, Nearest)
+    } else {
+      reflected
+    }
+    let pi = mpf_pi_checked(p, Nearest)
+    let (cosine, sine) = mpf_cos_sin_pi_checked(x, p, Nearest)
+    let cotangent = mpf_div_checked(cosine, sine, p, Nearest)
+    let derivative = evaluate_cot_derivative_polynomial(m, cotangent, p)
+    let correction = derivative.mul(
+      mpf_pow_int_checked(pi, m + 1, p, Nearest),
+      p,
+      Nearest,
+    )
+    let value = signed_reflected.sub(correction, p, Nearest)
+    let largest = mpf_top_bit(signed_reflected).max(mpf_top_bit(correction))
+    let needed = if value.is_zero() {
+      target + polynomial_guard + largest.max(0)
+    } else {
+      target + polynomial_guard + (largest - mpf_top_bit(value)).max(0)
+    }
+    if p >= needed {
+      return value.rounded(prec, rnd)
+    }
+    p = needed + 16
+  }
+  raise ConvergenceError("polygamma reflection lost too much precision")
 }
 
 ///|
@@ -1224,38 +1343,16 @@ pub fn polygamma(
       }
     None => ()
   }
-  let p = wp(prec) + 24
-  let mut y = x.rounded(p, Nearest)
-  let mut corr = @mpf.RawMpf::zero()
-  let fact = factorial_small_mpf(m, p)
-  if y.sign == 1 {
-    while y.sign == 1 {
-      let mut term = mpf_div_checked(
-        fact,
-        mpf_pow_checked(y, @mpf.RawMpf::from_int(m + 1), p, Nearest),
-        p,
-        Nearest,
-      )
-      if (m & 1) == 1 {
-        term = term.negated(p, Nearest)
-      }
-      corr = corr.add(term, p, Nearest)
-      let next_y = y.add(@mpf.RawMpf::one(), p, Nearest)
-      // Guard against non-progress loops when |y| is too large for +1 to change
-      // at the current working precision.
-      if next_y == y {
-        break
-      }
-      y = next_y
-    }
+  if x.sign == 1 {
+    return reflected_polygamma(m, x, prec, rnd)
   }
-  let sum = hurwitz_power_sum_em(y, m + 1, p)
+  let target_bits = wp(prec) + 8
+  let p = target_bits + 48
+  let fact = factorial_small_mpf(m, p)
+  let sum = hurwitz_power_sum_em(x, m + 1, p, target_bits)
   let mut val = fact.mul(sum, p, Nearest)
   if (m & 1) == 0 {
     val = val.negated(p, Nearest)
-  }
-  if !corr.is_zero() {
-    val = val.sub(corr, p, Nearest)
   }
   val.rounded(prec, rnd)
 }
