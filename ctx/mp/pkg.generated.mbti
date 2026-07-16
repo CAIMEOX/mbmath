@@ -46,6 +46,8 @@ pub fn MPContext::atanh(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 #alias(extend, deprecated)
 pub fn MPContext::augment(Self, MpfMatrix, ArrayView[@mpf.RawMpf]) -> MpfMatrix raise MPError
 pub fn MPContext::bernoulli_number(Self, Int) -> @mpf.RawMpf raise MPError
+pub fn MPContext::beta_function(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
+pub fn MPContext::binomial_coefficient(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::cbrt(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::chebyfit(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, (@mpf.RawMpf, @mpf.RawMpf), Int, asc? : Bool) -> (Array[@mpf.RawMpf], @mpf.RawMpf) raise
 pub fn MPContext::cholesky(Self, MpfMatrix, tol? : @mpf.RawMpf) -> MpfMatrix raise MPError
@@ -64,6 +66,8 @@ pub fn MPContext::complex_asin(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_asinh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_atan(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_atanh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_beta_function(Self, @mpc.RawMpc, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_binomial_coefficient(Self, @mpc.RawMpc, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_cbrt(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_complementary_error_function(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_complete_elliptic_first_kind(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
@@ -76,6 +80,7 @@ pub fn MPContext::complex_cos_sin_pi(Self, @mpc.RawMpc) -> (@mpc.RawMpc, @mpc.Ra
 pub fn MPContext::complex_cosh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_cosine_integral(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_digamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_double_factorial(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_error_function(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_eta(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_exp(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
@@ -84,8 +89,10 @@ pub fn MPContext::complex_exp_i_pi(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPErr
 pub fn MPContext::complex_exponential_integral_e1(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_exponential_integral_ei(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_factorial(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_falling_factorial(Self, @mpc.RawMpc, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_fibonacci(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_gamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_gamma_product(Self, ArrayView[@mpc.RawMpc], ArrayView[@mpc.RawMpc]) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_harmonic(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_imaginary_error_function(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_integer_order_bessel_first_kind(Self, Int, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
@@ -95,6 +102,7 @@ pub fn MPContext::complex_nthroot(Self, @mpc.RawMpc, Int) -> @mpc.RawMpc raise M
 pub fn MPContext::complex_polygamma(Self, Int, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_pow(Self, @mpc.RawMpc, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_reciprocal_gamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_rising_factorial(Self, @mpc.RawMpc, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sin(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sin_pi(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sine_integral(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
@@ -127,6 +135,7 @@ pub fn MPContext::diffs(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, 
 pub fn MPContext::diffun(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, n? : Int, algo? : StringView) -> (@mpf.RawMpf) -> @mpf.RawMpf raise
 pub fn MPContext::digamma(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::div(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
+pub fn MPContext::double_factorial(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::e(Self) -> @mpf.RawMpf raise MPError
 pub fn MPContext::e1(Self, @mpf.RawMpf) -> @mpc.RawMpc raise MPError
 pub fn MPContext::e1_real(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
@@ -143,6 +152,7 @@ pub fn MPContext::exponential_integral(Self, Int, @mpf.RawMpf, gamma? : Bool) ->
 pub fn MPContext::exponential_integral_ei(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::eye(Self, Int) -> MpfMatrix raise MPError
 pub fn MPContext::factorial(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
+pub fn MPContext::falling_factorial(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::fibonacci(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::findroot(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, x1? : @mpf.RawMpf, tol? : @mpf.RawMpf, max_steps? : Int, solver? : StringView) -> @mpf.RawMpf raise
 pub fn MPContext::findroot2(Self, (@mpf.RawMpf, @mpf.RawMpf) -> (@mpf.RawMpf, @mpf.RawMpf) raise?, @mpf.RawMpf, @mpf.RawMpf, tol? : @mpf.RawMpf, max_steps? : Int) -> (@mpf.RawMpf, @mpf.RawMpf) raise
@@ -155,6 +165,7 @@ pub fn MPContext::fprod(Self, ArrayView[@mpf.RawMpf]) -> @mpf.RawMpf
 pub fn MPContext::from_int(Self, Int) -> @mpf.RawMpf
 pub fn MPContext::fsum(Self, ArrayView[@mpf.RawMpf], absolute? : Bool, squared? : Bool) -> @mpf.RawMpf
 pub fn MPContext::gamma(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
+pub fn MPContext::gamma_product(Self, ArrayView[@mpf.RawMpf], ArrayView[@mpf.RawMpf]) -> @mpf.RawMpf raise MPError
 pub fn MPContext::golden_ratio(Self) -> @mpf.RawMpf raise MPError
 pub fn MPContext::harmonic(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::hessenberg(Self, MpfMatrix, tol? : @mpf.RawMpf) -> (MpfMatrix, MpfMatrix) raise MPError
@@ -235,6 +246,7 @@ pub fn MPContext::quadts(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf,
 pub fn MPContext::randmatrix(Self, Int, cols? : Int) -> MpfMatrix raise MPError
 pub fn MPContext::rank(Self, MpfMatrix, tol? : @mpf.RawMpf) -> Int raise MPError
 pub fn MPContext::reciprocal_gamma(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
+pub fn MPContext::rising_factorial(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::round_mode(Self) -> @mpf.RoundMode
 pub fn MPContext::scalar_abs(Self, @mpf.RawMpf) -> @mpf.RawMpf
 pub fn MPContext::schur(Self, MpfMatrix, tol? : @mpf.RawMpf, max_steps? : Int) -> (MpfMatrix, MpfMatrix) raise MPError
