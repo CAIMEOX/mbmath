@@ -110,6 +110,7 @@ pub fn RawMpc::sinh(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::sqrt(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::square(Self, Int, @mpf.RoundMode) -> Self
 pub fn RawMpc::stable_hash(Self) -> Int
+pub fn RawMpc::stieltjes_constant(Self, Int, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::sub(Self, Self, Int, @mpf.RoundMode) -> Self
 pub fn RawMpc::sub_real(Self, @mpf.RawMpf, Int, @mpf.RoundMode) -> Self
 pub fn RawMpc::subtracted_from_real(Self, @mpf.RawMpf, Int, @mpf.RoundMode) -> Self

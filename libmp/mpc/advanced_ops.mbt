@@ -3342,11 +3342,12 @@ fn hurwitz_integral_tail_derivative(
 }
 
 ///|
-fn hurwitz_euler_maclaurin_derivative(
+fn hurwitz_euler_maclaurin_derivative_core(
   s : RawMpc,
   parameter : RawMpc,
   order : Int,
   target_p : Int,
+  regularize_pole : Bool,
 ) -> RawMpc raise MpcError {
   let order_guard = order * int_bit_length(order + 2)
   let p = ext_prec(target_p) + 96 + order_guard
@@ -3386,14 +3387,27 @@ fn hurwitz_euler_maclaurin_derivative(
   let endpoint_negative_s = hurwitz_power(
     endpoint, minus_s, integer_exponent, p,
   )
-  sum = sum.add(
+  let logarithm_powers = signed_logarithm_powers(
+    endpoint_logarithm,
+    if regularize_pole {
+      order + 1
+    } else {
+      order
+    },
+    p,
+  )
+  let integral_tail = if regularize_pole {
+    logarithm_powers[order + 1].div_real(
+      @mpf.RawMpf::from_int(order + 1),
+      p,
+      Nearest,
+    )
+  } else {
     hurwitz_integral_tail_derivative(
       s, endpoint, endpoint_negative_s, endpoint_logarithm, order, p,
-    ),
-    p,
-    Nearest,
-  )
-  let logarithm_powers = signed_logarithm_powers(endpoint_logarithm, order, p)
+    )
+  }
+  sum = sum.add(integral_tail, p, Nearest)
   sum = sum.add(
     endpoint_negative_s.mul(logarithm_powers[order], p, Nearest).scale_pow2(-1),
     p,
@@ -3473,6 +3487,16 @@ fn hurwitz_euler_maclaurin_derivative(
     )
   }
   sum.rounded(target_p, Nearest)
+}
+
+///|
+fn hurwitz_euler_maclaurin_derivative(
+  s : RawMpc,
+  parameter : RawMpc,
+  order : Int,
+  target_p : Int,
+) -> RawMpc raise MpcError {
+  hurwitz_euler_maclaurin_derivative_core(s, parameter, order, target_p, false)
 }
 
 ///|
@@ -3658,6 +3682,56 @@ pub fn RawMpc::zeta_derivative(
     return s.zeta(prec, rnd)
   }
   s.hurwitz_zeta_derivative(RawMpc::one(), order, prec, rnd)
+}
+
+///|
+/// Evaluate the generalized Stieltjes constant associated with this Hurwitz
+/// parameter.
+///
+/// The pole of `zeta(s, a)` at `s=1` is removed analytically inside the
+/// Euler-Maclaurin expansion. `order` must be nonnegative; nonpositive integer
+/// parameters are singular, while negative noninteger parameters follow the
+/// principal logarithm branch.
+pub fn RawMpc::stieltjes_constant(
+  parameter : RawMpc,
+  order : Int,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  if order < 0 {
+    raise DomainError("Stieltjes constant order must be nonnegative")
+  }
+  if parameter.real.is_nan() || parameter.imag.is_nan() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  if parameter.imag.is_zero() &&
+    (
+      parameter.real.is_zero() ||
+      (parameter.real.sign == 1 && parameter.real.exp >= 0)
+    ) {
+    raise DomainError(
+      "Stieltjes constants are singular at nonpositive integer parameters",
+    )
+  }
+  if parameter.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  if order == 0 && parameter == RawMpc::one() {
+    return RawMpc::new(euler_constant_checked(prec, rnd), @mpf.RawMpf::zero())
+  }
+  let value = hurwitz_euler_maclaurin_derivative_core(
+    RawMpc::one(),
+    parameter,
+    order,
+    prec,
+    true,
+  )
+  let result = if (order & 1) == 1 {
+    value.negated(prec, Nearest)
+  } else {
+    value
+  }
+  result.rounded(prec, rnd)
 }
 
 ///|

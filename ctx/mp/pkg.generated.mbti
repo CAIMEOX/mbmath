@@ -125,6 +125,7 @@ pub fn MPContext::complex_sin_pi(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sine_integral(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sinh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sqrt(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_stieltjes_constant(Self, Int, parameter? : @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_superfactorial(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_tan(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_tanh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
@@ -299,6 +300,7 @@ pub fn MPContext::sinh(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::sinm(Self, MpfMatrix, max_terms? : Int) -> MpfMatrix raise MPError
 pub fn MPContext::sqrt(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::sqrt_pi(Self) -> @mpf.RawMpf raise MPError
+pub fn MPContext::stieltjes_constant(Self, Int, parameter? : @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::sub(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf
 pub fn MPContext::summation(Self, (Int) -> @mpf.RawMpf raise?, Int, Int, step? : Int) -> @mpf.RawMpf raise
 pub fn MPContext::superfactorial(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
