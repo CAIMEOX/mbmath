@@ -4,8 +4,15 @@ fn assert_close_mpf_str(
   expected : String,
   tol : String,
 ) -> Unit raise {
-  let y = @mpf.RawMpf::parse(expected, prec=320, rnd=Nearest)
-  let err = x.sub(y, 320, Nearest).abs(320, Nearest)
-  let tolerance = @mpf.RawMpf::parse(tol, prec=320, rnd=Nearest)
+  let comparison_precision = 640
+  let y = @mpf.RawMpf::parse(expected, prec=comparison_precision, rnd=Nearest)
+  let err = x
+    .sub(y, comparison_precision, Nearest)
+    .abs(comparison_precision, Nearest)
+  let tolerance = @mpf.RawMpf::parse(
+    tol,
+    prec=comparison_precision,
+    rnd=Nearest,
+  )
   assert_true(err < tolerance)
 }

@@ -214,3 +214,90 @@ test "mpf pow and constants subset" {
 test "panic inverse domain" {
   ignore(asin(@mpf.RawMpf::from_int(2), 80, Nearest))
 }
+
+///|
+test "pi-scaled trig reduces dyadic periods exactly" {
+  @debug.assert_eq(
+    sin_pi(@mpf.RawMpf::from_int(7), 240, Nearest),
+    @mpf.RawMpf::zero(),
+  )
+  @debug.assert_eq(
+    cos_pi(@mpf.RawMpf::from_int(7), 240, Nearest),
+    @mpf.RawMpf::negative_one(),
+  )
+  let half = @mpf.RawMpf::half()
+  @debug.assert_eq(sin_pi(half, 240, Nearest), @mpf.RawMpf::one())
+  @debug.assert_eq(cos_pi(half, 240, Nearest), @mpf.RawMpf::zero())
+  @debug.assert_eq(
+    sin_pi(half.negated(0, Down), 240, Nearest),
+    @mpf.RawMpf::negative_one(),
+  )
+  let three_halves = @mpf.RawMpf::from_mantissa_exponent(3N, -1, 0, Down)
+  @debug.assert_eq(
+    sin_pi(three_halves, 240, Nearest),
+    @mpf.RawMpf::negative_one(),
+  )
+  @debug.assert_eq(cos_pi(three_halves, 240, Nearest), @mpf.RawMpf::zero())
+  let huge_even = @mpf.RawMpf::from_mantissa_exponent(1N, 100000, 0, Down)
+  @debug.assert_eq(sin_pi(huge_even, 240, Nearest), @mpf.RawMpf::zero())
+  @debug.assert_eq(cos_pi(huge_even, 240, Nearest), @mpf.RawMpf::one())
+  let huge_plus_eighth = @mpf.RawMpf::from_mantissa_exponent(
+    (1N << 103) + 1N,
+    -3,
+    0,
+    Down,
+  )
+  let eighth = @mpf.RawMpf::from_mantissa_exponent(1N, -3, 0, Down)
+  @debug.assert_eq(
+    sin_pi(huge_plus_eighth, 240, Nearest),
+    sin_pi(eighth, 240, Nearest),
+  )
+  @debug.assert_eq(
+    cos_pi(huge_plus_eighth, 240, Nearest),
+    cos_pi(eighth, 240, Nearest),
+  )
+}
+
+///|
+test "elementary extreme precision and infinity semantics" {
+  let p = 420
+  let quarter_pi = pi(p, Nearest).scale_pow2(-2)
+  let three_quarters_pi = quarter_pi.mul_int(3, p, Nearest)
+  @debug.assert_eq(
+    atan2(@mpf.RawMpf::infinity(), @mpf.RawMpf::infinity(), p, Nearest),
+    quarter_pi,
+  )
+  @debug.assert_eq(
+    atan2(@mpf.RawMpf::infinity(), @mpf.RawMpf::negative_infinity(), p, Nearest),
+    three_quarters_pi,
+  )
+  @debug.assert_eq(
+    atan2(@mpf.RawMpf::negative_infinity(), @mpf.RawMpf::infinity(), p, Nearest),
+    quarter_pi.negated(p, Nearest),
+  )
+  @debug.assert_eq(
+    atan2(
+      @mpf.RawMpf::negative_infinity(),
+      @mpf.RawMpf::negative_infinity(),
+      p,
+      Nearest,
+    ),
+    three_quarters_pi.negated(p, Nearest),
+  )
+  assert_mpf_close_to_text(
+    asinh(@mpf.RawMpf::parse("-1e100", prec=500, rnd=Nearest), 500, Nearest),
+    "-230.9516564799645137112163775898945973281856489972375528574534701062506545897049427392055838359562485217387798852491955490746380667",
+    130,
+  )
+  let tiny = @mpf.RawMpf::parse("1e-30", prec=420, rnd=Nearest)
+  assert_mpf_close_to_text(
+    sinh(tiny, 420, Nearest),
+    "0.000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000166666666666666666666666666666666666666666666666666666666666675",
+    130,
+  )
+  assert_mpf_close_to_text(
+    tanh(tiny, 420, Nearest),
+    "0.0000000000000000000000000000009999999999999999999999999999999999999999999999999999999999996666666666666666666666666666666666666666666666666666666666668",
+    130,
+  )
+}

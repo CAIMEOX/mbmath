@@ -196,6 +196,28 @@ fn exp_series_small(
 }
 
 ///|
+fn sinh_series_small(
+  x : @mpf.RawMpf,
+  wp : Int,
+) -> @mpf.RawMpf raise LibElefunError {
+  let x2 = x.mul(x, wp, Nearest)
+  let mut term = x
+  let mut sum = x
+  let mut k = 1
+  while k < 50000 {
+    term = term.mul(x2, wp, Nearest)
+    term = div_checked(term, @mpf.RawMpf::from_int(2 * k), wp, Nearest)
+    term = div_checked(term, @mpf.RawMpf::from_int(2 * k + 1), wp, Nearest)
+    sum = sum.add(term, wp, Nearest)
+    if tiny_enough(abs_mpf(term, wp), wp + 10) {
+      break
+    }
+    k += 1
+  }
+  sum
+}
+
+///|
 pub fn atan(
   x : @mpf.RawMpf,
   prec : Int,
@@ -266,6 +288,15 @@ pub fn atan2(
 ) -> @mpf.RawMpf raise LibElefunError {
   if y.is_nan() || x.is_nan() {
     return @mpf.RawMpf::nan()
+  }
+  if y.is_infinite() && x.is_infinite() {
+    let quarter_pi = pi(prec, rnd).scale_pow2(-2)
+    let magnitude = if x.sign == 1 {
+      quarter_pi.mul_int(3, prec, rnd)
+    } else {
+      quarter_pi
+    }
+    return if y.sign == 1 { magnitude.negated(prec, rnd) } else { magnitude }
   }
   let wp = work_prec(prec)
   let sx = x.signum()
@@ -573,10 +604,25 @@ pub fn sinh(
   if x.is_infinite() {
     return x
   }
+  if x.is_zero() {
+    return @mpf.RawMpf::zero()
+  }
   let wp = work_prec(prec) + 8
-  let ex = exp(x, wp, Nearest)
-  let enx = exp(x.negated(wp, Nearest), wp, Nearest)
-  ex.sub(enx, wp, Nearest).scale_pow2(-1).rounded(prec, rnd)
+  let ax = x.abs(wp, Nearest)
+  let half = @mpf.RawMpf::half()
+  let magnitude = if ax <= half {
+    sinh_series_small(ax, wp)
+  } else {
+    let ex = exp(ax, wp, Nearest)
+    let enx = exp(ax.negated(wp, Nearest), wp, Nearest)
+    ex.sub(enx, wp, Nearest).scale_pow2(-1)
+  }
+  let result = if x.sign == 1 {
+    magnitude.negated(wp, Nearest)
+  } else {
+    magnitude
+  }
+  result.rounded(prec, rnd)
 }
 
 ///|
@@ -676,9 +722,16 @@ pub fn asinh(
     return x
   }
   let wp = work_prec(prec) + 8
-  let x2 = x.mul(x, wp, Nearest)
+  let ax = x.abs(wp, Nearest)
+  let x2 = ax.mul(ax, wp, Nearest)
   let root = sqrt_checked(x2.add(@mpf.RawMpf::one(), wp, Nearest), wp, Nearest)
-  ln_positive_checked(x.add(root, wp, Nearest), prec, rnd)
+  let magnitude = ln_positive_checked(ax.add(root, wp, Nearest), wp, Nearest)
+  let result = if x.sign == 1 {
+    magnitude.negated(wp, Nearest)
+  } else {
+    magnitude
+  }
+  result.rounded(prec, rnd)
 }
 
 ///|
@@ -896,6 +949,84 @@ pub fn degree(
 }
 
 ///|
+fn exact_cos_sin_pi(x : @mpf.RawMpf) -> (@mpf.RawMpf, @mpf.RawMpf)? {
+  if !x.is_finite() {
+    return None
+  }
+  if x.is_zero() {
+    return Some((@mpf.RawMpf::one(), @mpf.RawMpf::zero()))
+  }
+  if x.exp >= 0 {
+    let even = x.exp > 0 || (x.man & 1N) == 0N
+    let cosine = if even {
+      @mpf.RawMpf::one()
+    } else {
+      @mpf.RawMpf::negative_one()
+    }
+    return Some((cosine, @mpf.RawMpf::zero()))
+  }
+  if x.exp == -1 {
+    let residue = (x.man & 3N).to_int()
+    let mut sine = if residue == 1 {
+      @mpf.RawMpf::one()
+    } else {
+      @mpf.RawMpf::negative_one()
+    }
+    if x.sign == 1 {
+      sine = sine.negated(0, Down)
+    }
+    return Some((@mpf.RawMpf::zero(), sine))
+  }
+  None
+}
+
+///|
+fn reduce_pi_units(x : @mpf.RawMpf) -> @mpf.RawMpf {
+  // Avoid forming `2^(1-exp)` when the value already lies inside one period.
+  if x.exp <= 1 - x.bc {
+    return x
+  }
+  let shift = 1 - x.exp
+  let remainder = x.man - (x.man >> shift << shift)
+  if remainder == 0N {
+    return @mpf.RawMpf::zero()
+  }
+  let signed_remainder = if x.sign == 1 { -remainder } else { remainder }
+  let reduced = @mpf.RawMpf::from_mantissa_exponent(
+    signed_remainder,
+    x.exp,
+    0,
+    Down,
+  )
+  if reduced > @mpf.RawMpf::one() {
+    reduced.sub(@mpf.RawMpf::two(), 0, Down)
+  } else if reduced < @mpf.RawMpf::negative_one() {
+    reduced.add(@mpf.RawMpf::two(), 0, Down)
+  } else {
+    reduced
+  }
+}
+
+///|
+fn select_cos_sin(
+  cosine : @mpf.RawMpf,
+  sine : @mpf.RawMpf,
+  which : Int,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> (@mpf.RawMpf, @mpf.RawMpf) raise LibElefunError {
+  if which == 1 {
+    (cosine, @mpf.RawMpf::zero())
+  } else if which == 2 {
+    (sine, @mpf.RawMpf::zero())
+  } else if which == 3 {
+    (div_checked(sine, cosine, prec, rnd), @mpf.RawMpf::zero())
+  } else {
+    (cosine, sine)
+  }
+}
+
+///|
 pub fn cos_sin(
   x : @mpf.RawMpf,
   prec : Int,
@@ -903,24 +1034,32 @@ pub fn cos_sin(
   which? : Int = 0,
   times_pi? : Bool = false,
 ) -> (@mpf.RawMpf, @mpf.RawMpf) raise LibElefunError {
+  if times_pi {
+    match exact_cos_sin_pi(x) {
+      Some((cosine, sine)) =>
+        return select_cos_sin(cosine, sine, which, prec, rnd)
+      None => ()
+    }
+    if !x.is_finite() {
+      return select_cos_sin(
+        @mpf.RawMpf::nan(),
+        @mpf.RawMpf::nan(),
+        which,
+        prec,
+        rnd,
+      )
+    }
+  }
   let wp = work_prec(prec) + 8
   let arg = if times_pi {
-    pi(wp, Nearest).mul(x, wp, Nearest)
+    pi(wp, Nearest).mul(reduce_pi_units(x), wp, Nearest)
   } else {
     x.rounded(wp, Nearest)
   }
   let (s, c) = sin_cos_reduced(arg, wp)
   let cos_v = c.rounded(prec, rnd)
   let sin_v = s.rounded(prec, rnd)
-  if which == 1 {
-    (cos_v, @mpf.RawMpf::zero())
-  } else if which == 2 {
-    (sin_v, @mpf.RawMpf::zero())
-  } else if which == 3 {
-    (div_checked(sin_v, cos_v, prec, rnd), @mpf.RawMpf::zero())
-  } else {
-    (cos_v, sin_v)
-  }
+  select_cos_sin(cos_v, sin_v, which, prec, rnd)
 }
 
 ///|
