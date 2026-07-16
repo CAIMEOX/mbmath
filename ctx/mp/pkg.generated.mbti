@@ -70,12 +70,15 @@ pub fn MPContext::complex_cos_pi(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_cos_sin(Self, @mpc.RawMpc) -> (@mpc.RawMpc, @mpc.RawMpc) raise MPError
 pub fn MPContext::complex_cos_sin_pi(Self, @mpc.RawMpc) -> (@mpc.RawMpc, @mpc.RawMpc) raise MPError
 pub fn MPContext::complex_cosh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_cosine_integral(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_digamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_error_function(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_eta(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_exp(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_exp_i(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_exp_i_pi(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_exponential_integral_e1(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_exponential_integral_ei(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_factorial(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_fibonacci(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_gamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
@@ -89,6 +92,7 @@ pub fn MPContext::complex_pow(Self, @mpc.RawMpc, @mpc.RawMpc) -> @mpc.RawMpc rai
 pub fn MPContext::complex_reciprocal_gamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sin(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sin_pi(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_sine_integral(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sinh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sqrt(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_tan(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
@@ -101,6 +105,7 @@ pub fn MPContext::cos_sin(Self, @mpf.RawMpf) -> (@mpf.RawMpf, @mpf.RawMpf) raise
 pub fn MPContext::cos_sin_pi(Self, @mpf.RawMpf) -> (@mpf.RawMpf, @mpf.RawMpf) raise MPError
 pub fn MPContext::cosh(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::cosh_sinh(Self, @mpf.RawMpf) -> (@mpf.RawMpf, @mpf.RawMpf) raise MPError
+pub fn MPContext::cosine_integral(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::cosm(Self, MpfMatrix, max_terms? : Int) -> MpfMatrix raise MPError
 pub fn MPContext::cot(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::coth(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
@@ -130,6 +135,7 @@ pub fn MPContext::exp2(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::expm(Self, MpfMatrix, max_terms? : Int) -> MpfMatrix raise MPError
 pub fn MPContext::expm1(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::exponential_integral(Self, Int, @mpf.RawMpf, gamma? : Bool) -> @mpc.RawMpc raise MPError
+pub fn MPContext::exponential_integral_ei(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::eye(Self, Int) -> MpfMatrix raise MPError
 pub fn MPContext::factorial(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::fibonacci(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
@@ -233,6 +239,7 @@ pub fn MPContext::sin(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::sin_pi(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::sinc(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::sinc_pi(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
+pub fn MPContext::sine_integral(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::sinh(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::sinm(Self, MpfMatrix, max_terms? : Int) -> MpfMatrix raise MPError
 pub fn MPContext::sqrt(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError

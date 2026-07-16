@@ -164,6 +164,23 @@ fn int_bit_length(n : Int) -> Int {
 }
 
 ///|
+fn cancellation_guard(magnitude : Int, base_p : Int) -> Int {
+  let exponent = magnitude + 2
+  if exponent <= 0 {
+    8
+  } else if exponent >= 30 {
+    base_p
+  } else {
+    let estimate = 1 << exponent
+    if estimate > base_p {
+      base_p
+    } else {
+      estimate
+    }
+  }
+}
+
+///|
 pub fn agm(
   x : @mpf.RawMpf,
   y : @mpf.RawMpf,
@@ -204,7 +221,10 @@ pub fn ci_si_taylor(
   wp : Int,
   which? : Int = 0,
 ) -> @mpf.RawMpf raise LibHyperError {
-  let p = if wp > 0 { wp } else { 32 }
+  let base_p = if wp > 0 { wp } else { 32 }
+  let magnitude = x.abs(16, Nearest)
+  let mag = if magnitude.is_zero() { 0 } else { magnitude.exp + magnitude.bc }
+  let p = base_p + cancellation_guard(mag, base_p) + 32
   let x2 = x.mul(x, p, Nearest).negated(p, Nearest)
   let mut sum = if which == 0 {
     @mpf.RawMpf::zero()
@@ -217,7 +237,8 @@ pub fn ci_si_taylor(
     x.rounded(p, Nearest)
   }
   let mut k = if which == 0 { 2 } else { 3 }
-  let max_terms = if p <= 128 { 256 } else if p <= 512 { 1024 } else { p * 3 }
+  let max_terms = 4 * p + 128
+  let mut converged = false
   while k < max_terms {
     let den = k * (k - 1)
     term = div_checked(
@@ -228,12 +249,18 @@ pub fn ci_si_taylor(
     )
     let add = div_checked(term, @mpf.RawMpf::from_int(k), p, Nearest)
     sum = sum.add(add, p, Nearest)
-    if tiny_enough(add.abs(p, Nearest), p + 8) && k > 7 {
+    if tiny_enough(add.abs(p, Nearest), base_p + 24) && k > 7 {
+      converged = true
       break
     }
     k += 2
   }
-  sum
+  if !converged {
+    raise ConvergenceError(
+      "trigonometric integral Taylor series did not converge",
+    )
+  }
+  sum.rounded(base_p, Nearest)
 }
 
 ///|
@@ -276,7 +303,7 @@ pub fn ci_si(
     }
     return (ci, si)
   }
-  let p = p0 + (if mag > 0 { mag } else { -mag })
+  let p = p0 + cancellation_guard(if mag < 0 { -mag } else { mag }, p0) + 32
   let asymptotic = mag - 1 > int_bit_length(p)
   if !asymptotic {
     if which != 0 {
@@ -298,19 +325,40 @@ pub fn ci_si(
   let mut g_term = inv_x2
   let mut g_sum = g_term
   let mut m = 0
-  let max_terms = if p <= 256 { 256 } else if p <= 1024 { 1024 } else { p * 2 }
+  let max_terms = 2 * p + 128
+  let mut previous = @mpf.RawMpf::infinity()
+  let mut converged = false
   while m < max_terms {
     let a = 2 * m + 2
     f_term = f_term.mul_int(-(a * (a - 1)), p, Nearest).mul(inv_x2, p, Nearest)
     g_term = g_term.mul_int(-((a + 1) * a), p, Nearest).mul(inv_x2, p, Nearest)
+    let magnitude = {
+      let f_abs = f_term.abs(p, Nearest)
+      let g_abs = g_term.abs(p, Nearest)
+      if f_abs > g_abs {
+        f_abs
+      } else {
+        g_abs
+      }
+    }
+    if m > 3 && magnitude >= previous {
+      break
+    }
     f_sum = f_sum.add(f_term, p, Nearest)
     g_sum = g_sum.add(g_term, p, Nearest)
     if tiny_enough(f_term.abs(p, Nearest), p + 8) &&
       tiny_enough(g_term.abs(p, Nearest), p + 8) &&
       m > 3 {
+      converged = true
       break
     }
+    previous = magnitude
     m += 1
+  }
+  if !converged {
+    raise ConvergenceError(
+      "trigonometric integral asymptotic series did not converge",
+    )
   }
   let (cos_x, sin_x) = cos_sin_checked(x_abs, p, Nearest)
   if which != 1 {
@@ -388,27 +436,71 @@ pub fn ei(
   if x.is_zero() {
     return @mpf.RawMpf::negative_infinity()
   }
-  let p = wp(prec) + 8
-  let abs_x = x.abs(p, Nearest)
+  let base_p = wp(prec) + 32
+  let abs_x = x.abs(base_p, Nearest)
+  if abs_x > @mpf.RawMpf::from_int(base_p + 64) {
+    let p = base_p + 48
+    let inverse = div_checked(@mpf.RawMpf::one(), x, p, Nearest)
+    let mut term = @mpf.RawMpf::one()
+    let mut sum = term
+    let mut previous = @mpf.RawMpf::infinity()
+    let mut converged = false
+    let max_terms = 2 * base_p + 128
+    for k in 1..<=max_terms {
+      term = term.mul_int(k, p, Nearest).mul(inverse, p, Nearest)
+      let magnitude = term.abs(p, Nearest)
+      if k > 3 && magnitude >= previous {
+        break
+      }
+      sum = sum.add(term, p, Nearest)
+      let relative_bound = sum.abs(p, Nearest).scale_pow2(-(base_p + 24))
+      if k > 3 && magnitude <= relative_bound {
+        converged = true
+        break
+      }
+      previous = magnitude
+    }
+    if !converged {
+      raise ConvergenceError(
+        "exponential integral asymptotic series did not converge",
+      )
+    }
+    return exp_checked(x, p, Nearest)
+      .mul(inverse, p, Nearest)
+      .mul(sum, p, Nearest)
+      .rounded(prec, rnd)
+  }
+  let magnitude = abs_x.exp + abs_x.bc
+  let extra_bits = cancellation_guard(magnitude, base_p)
+  let p = base_p + extra_bits + 128
+  let abs_work = x.abs(p, Nearest)
   let mut sum = euler_constant_checked(p, Nearest).add(
-    ln_positive_checked(abs_x, p, Nearest),
+    ln_positive_checked(abs_work, p, Nearest),
     p,
     Nearest,
   )
   let mut term = x.rounded(p, Nearest)
   sum = sum.add(term, p, Nearest)
-  let mut k = 1
-  while k < 60000 {
-    if tiny_enough(term.abs(p, Nearest), p + 10) && k > 3 {
-      break
-    }
+  let mut converged = false
+  let max_terms = 6 * p + 128
+  for k in 1..<=max_terms {
     let kp1 = k + 1
-    term = term.mul(x, p, Nearest)
-    term = term.mul_int(k, p, Nearest)
+    term = term.mul(x, p, Nearest).mul_int(k, p, Nearest)
     term = div_checked(term, @mpf.RawMpf::from_int(kp1), p, Nearest)
     term = div_checked(term, @mpf.RawMpf::from_int(kp1), p, Nearest)
     sum = sum.add(term, p, Nearest)
-    k += 1
+    let threshold = if x.sign == 1 {
+      @mpf.RawMpf::one().scale_pow2(-(base_p + extra_bits + 24))
+    } else {
+      sum.abs(p, Nearest).scale_pow2(-(base_p + 24))
+    }
+    if k > 3 && term.abs(p, Nearest) <= threshold {
+      converged = true
+      break
+    }
+  }
+  if !converged {
+    raise ConvergenceError("exponential integral power series did not converge")
   }
   sum.rounded(prec, rnd)
 }

@@ -656,22 +656,43 @@ fn mpc_ci_si_asymptotic(z : RawMpc, p : Int) -> (RawMpc, RawMpc) raise MpcError 
   let mut f_sum = f_term
   let mut g_term = z_inv2
   let mut g_sum = g_term
-  let max_terms = clamp_series_terms(p)
+  let max_terms = 2 * p + 128
   let mut m = 0
+  let mut previous = @mpf.RawMpf::infinity()
+  let mut converged = false
   while m < max_terms {
     let a = 2 * m + 2
     f_term = f_term.mul(z_inv2, p, Nearest)
     f_term = f_term.mul_int(-(a * (a - 1)), p, Nearest)
     g_term = g_term.mul(z_inv2, p, Nearest)
     g_term = g_term.mul_int(-((a + 1) * a), p, Nearest)
+    let magnitude = {
+      let f_abs = f_term.abs(p, Nearest)
+      let g_abs = g_term.abs(p, Nearest)
+      if f_abs > g_abs {
+        f_abs
+      } else {
+        g_abs
+      }
+    }
+    if m > 3 && magnitude >= previous {
+      break
+    }
     f_sum = f_sum.add(f_term, p, Nearest)
     g_sum = g_sum.add(g_term, p, Nearest)
     if tiny_enough_mpc(f_term, p, p + 6) &&
       tiny_enough_mpc(g_term, p, p + 6) &&
       m > 3 {
+      converged = true
       break
     }
+    previous = magnitude
     m += 1
+  }
+  if !converged {
+    raise ConvergenceError(
+      "complex trigonometric integral asymptotic did not converge",
+    )
   }
   let (cos_z, sin_z) = z.cos_sin(p, Nearest)
   let ci = sin_z
@@ -687,6 +708,12 @@ fn mpc_ci_si_asymptotic(z : RawMpc, p : Int) -> (RawMpc, RawMpc) raise MpcError 
     Nearest,
   )
   (ci, si)
+}
+
+///|
+fn should_use_inverse_factorial_asymptotic(z : RawMpc, p : Int) -> Bool {
+  let threshold = @mpf.RawMpf::from_int(p + 64)
+  complex_norm_squared(z, 32) > threshold.mul(threshold, 32, Nearest)
 }
 
 ///|
@@ -1455,29 +1482,75 @@ pub fn RawMpc::ei(
   if z.is_non_finite() {
     return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
   }
-  let p = ext_prec(prec) + 24
+  let base_p = ext_prec(prec) + 32
+  if should_use_inverse_factorial_asymptotic(z, base_p) {
+    let p = base_p + 48
+    let inverse = z.reciprocal(p, Nearest)
+    let mut term = RawMpc::one()
+    let mut sum = term
+    let mut previous = @mpf.RawMpf::infinity()
+    let mut converged = false
+    let max_terms = 2 * base_p + 128
+    for k in 1..<=max_terms {
+      term = term.mul(inverse, p, Nearest).mul_int(k, p, Nearest)
+      let magnitude = term.abs(p, Nearest)
+      if k > 3 && magnitude >= previous {
+        break
+      }
+      sum = sum.add(term, p, Nearest)
+      let relative_bound = sum.abs(p, Nearest).scale_pow2(-(base_p + 24))
+      if k > 3 && magnitude <= relative_bound {
+        converged = true
+        break
+      }
+      previous = magnitude
+    }
+    if !converged {
+      raise ConvergenceError(
+        "complex exponential integral asymptotic did not converge",
+      )
+    }
+    let mut value = z
+      .exp(p, Nearest)
+      .mul(inverse, p, Nearest)
+      .mul(sum, p, Nearest)
+    let branch = elefun_pi_checked(p, Nearest).mul_int(
+      z.imag.signum(),
+      p,
+      Nearest,
+    )
+    value = value.add(RawMpc::new(@mpf.RawMpf::zero(), branch), p, Nearest)
+    return value.rounded(prec, rnd)
+  }
+  let p = error_series_work_precision(z, base_p)
   let mut term = z.rounded(p, Nearest)
   let mut sum = term
-  let mut k = 1
-  let max_terms = clamp_series_terms(p)
-  while k < max_terms {
+  let mut converged = false
+  let max_terms = 6 * p + 128
+  for k in 1..<=max_terms {
     let kp1 = k + 1
-    term = term.mul(z, p, Nearest)
-    term = term.mul_int(k, p, Nearest)
+    term = term.mul(z, p, Nearest).mul_int(k, p, Nearest)
     term = term.div_real(@mpf.RawMpf::from_int(kp1), p, Nearest)
     term = term.div_real(@mpf.RawMpf::from_int(kp1), p, Nearest)
     sum = sum.add(term, p, Nearest)
-    if tiny_enough_mpc(term, p, p + 6) && k > 6 {
+    if k > 6 && tiny_enough_mpc(term, p, base_p + 32) {
+      converged = true
       break
     }
-    k += 1
   }
-  let lg = z.ln(p, Nearest)
+  if !converged {
+    raise ConvergenceError(
+      "complex exponential integral power series did not converge",
+    )
+  }
   let gamma = RawMpc::new(
     euler_constant_checked(p, Nearest),
     @mpf.RawMpf::zero(),
   )
-  sum.add(lg, p, Nearest).add(gamma, p, Nearest).rounded(prec, rnd)
+  sum
+  .add(z.ln(p, Nearest), p, Nearest)
+  .add(gamma, p, Nearest)
+  .rounded(prec, rnd)
 }
 
 ///|
@@ -1519,47 +1592,31 @@ pub fn RawMpc::ci_si_taylor(
       RawMpc::new(re.rounded(base_p, Nearest), im.rounded(base_p, Nearest))
     }
   }
-  if mag > 2 {
-    let mut p_as = base_p + 48
-    if mag > 0 {
-      p_as += mag
-    }
-    let z_as = RawMpc::new(re.rounded(p_as, Nearest), im.rounded(p_as, Nearest))
-    let (ci_as, si_as) = mpc_ci_si_asymptotic(z_as, p_as)
-    return if which == 0 {
-      let gamma = RawMpc::new(
-        euler_constant_checked(p_as, Nearest),
-        @mpf.RawMpf::zero(),
-      )
-      ci_as
-      .sub(gamma, p_as, Nearest)
-      .sub(z_as.ln(p_as, Nearest), p_as, Nearest)
-      .rounded(base_p, Nearest)
-    } else {
-      si_as.rounded(base_p, Nearest)
-    }
-  }
-  let mut p = base_p + (2 - mag)
-  if p < 24 {
-    p = 24
-  }
+  let p = error_series_work_precision(RawMpc::new(re, im), base_p)
   let z = RawMpc::new(re.rounded(p, Nearest), im.rounded(p, Nearest))
   let z2 = z.square(p, Nearest).negated(p, Nearest)
   let mut sum = if which == 0 { RawMpc::zero() } else { z }
   let mut term = if which == 0 { RawMpc::one() } else { z }
   let mut k = if which == 0 { 2 } else { 3 }
-  let max_terms = clamp_series_terms(p)
+  let max_terms = 4 * p + 128
+  let mut converged = false
   while k < max_terms {
     let den = @mpf.RawMpf::from_int(k * (k - 1))
     term = term.mul(z2, p, Nearest).div_real(den, p, Nearest)
     let add = term.div_real(@mpf.RawMpf::from_int(k), p, Nearest)
     sum = sum.add(add, p, Nearest)
-    if tiny_enough_mpc(add, p, p + 6) && k > 7 {
+    if tiny_enough_mpc(add, p, base_p + 32) && k > 7 {
+      converged = true
       break
     }
     k += 2
   }
-  sum
+  if !converged {
+    raise ConvergenceError(
+      "complex trigonometric integral Taylor series did not converge",
+    )
+  }
+  sum.rounded(base_p, Nearest)
 }
 
 ///|
@@ -1589,7 +1646,7 @@ pub fn RawMpc::ci(
   if mag < -p {
     return gamma.add(z.ln(p, Nearest), p, Nearest).rounded(prec, rnd)
   }
-  if mag > 2 {
+  if should_use_inverse_factorial_asymptotic(z, p) {
     let (ci_as, _) = mpc_ci_si_asymptotic(z, p)
     return ci_as.rounded(prec, rnd)
   }
@@ -1617,7 +1674,7 @@ pub fn RawMpc::si(
   if mag < -p {
     return z.rounded(prec, rnd)
   }
-  if mag > 2 {
+  if should_use_inverse_factorial_asymptotic(z, p) {
     let (_, si_as) = mpc_ci_si_asymptotic(z, p)
     return si_as.rounded(prec, rnd)
   }
