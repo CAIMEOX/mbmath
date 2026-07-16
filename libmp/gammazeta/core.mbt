@@ -1221,9 +1221,7 @@ pub fn apery(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  const_str(
-    "1.20205690315959428539973816151144999076498629234049888179227", prec, rnd,
-  )
+  zeta_integer(3, prec, rnd)
 }
 
 ///|
@@ -1231,9 +1229,13 @@ pub fn catalan(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  const_str(
-    "0.915965594177219015054603514932384110774149374281672134266498", prec, rnd,
-  )
+  let p = wp(prec) + 80
+  let quarter = @mpf.RawMpf::one().scale_pow2(-2)
+  let three_quarters = @mpf.RawMpf::from_int(3).scale_pow2(-2)
+  polygamma(1, quarter, p, Nearest)
+  .sub(polygamma(1, three_quarters, p, Nearest), p, Nearest)
+  .scale_pow2(-4)
+  .rounded(prec, rnd)
 }
 
 ///|

@@ -35,6 +35,7 @@ pub fn MPContext::acsc(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::acsch(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::add(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf
 pub fn MPContext::agm(Self, @mpf.RawMpf, b? : @mpf.RawMpf) -> @mpf.RawMpf raise MPError
+pub fn MPContext::apery_constant(Self) -> @mpf.RawMpf raise MPError
 pub fn MPContext::arg(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::asec(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::asech(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
@@ -48,6 +49,7 @@ pub fn MPContext::augment(Self, MpfMatrix, ArrayView[@mpf.RawMpf]) -> MpfMatrix 
 pub fn MPContext::bernoulli_number(Self, Int) -> @mpf.RawMpf raise MPError
 pub fn MPContext::beta_function(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::binomial_coefficient(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
+pub fn MPContext::catalan_constant(Self) -> @mpf.RawMpf raise MPError
 pub fn MPContext::cbrt(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::chebyfit(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, (@mpf.RawMpf, @mpf.RawMpf), Int, asc? : Bool) -> (Array[@mpf.RawMpf], @mpf.RawMpf) raise
 pub fn MPContext::cholesky(Self, MpfMatrix, tol? : @mpf.RawMpf) -> MpfMatrix raise MPError
@@ -144,6 +146,7 @@ pub fn MPContext::eighe(Self, MpfMatrix, tol? : @mpf.RawMpf, max_steps? : Int) -
 pub fn MPContext::eigsy(Self, MpfMatrix, tol? : @mpf.RawMpf, max_steps? : Int) -> (Array[@mpf.RawMpf], MpfMatrix) raise MPError
 pub fn MPContext::error_function(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::eta(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
+pub fn MPContext::euler_mascheroni_constant(Self) -> @mpf.RawMpf raise MPError
 pub fn MPContext::exp(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::exp2(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::expm(Self, MpfMatrix, max_terms? : Int) -> MpfMatrix raise MPError
