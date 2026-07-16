@@ -26,6 +26,7 @@ fn from_gammazeta_error(err : @gammazeta.GammaZetaError) -> MpiError {
     ValueError(msg) => ValueError(msg)
     DomainError(msg) => DomainError(msg)
     PoleError(msg) => DomainError(msg)
+    ConvergenceError(msg) => ConvergenceError(msg)
   }
 }
 

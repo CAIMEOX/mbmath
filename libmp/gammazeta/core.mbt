@@ -218,7 +218,7 @@ pub fn large_bernoulli(
   let p = wp(prec) + 10
   let piprec = p + int_bit_length(n)
   let mut v = gamma_integer(n + 1, p, Nearest)
-  v = v.mul(zeta_eta_series(n, p), p, Nearest)
+  v = v.mul(zeta_large_integer_em(n, p), p, Nearest)
   v = v.mul(
     mpf_pow_int_checked(mpf_pi_checked(piprec, Nearest), -n, p, Nearest),
     p,
@@ -304,53 +304,111 @@ fn zeta_even_via_bernoulli(
 }
 
 ///|
-fn zeta_eta_series(n : Int, p : Int) -> @mpf.RawMpf raise GammaZetaError {
-  let mut eta = @mpf.RawMpf::zero()
-  let mut max_terms = 64 + p * 3
-  if n <= 3 {
-    max_terms += p * 8
-  } else if n <= 7 {
-    max_terms += p * 4
-  }
-  if max_terms < 512 {
-    max_terms = 512
-  }
-  if max_terms > 3000000 {
-    max_terms = 3000000
-  }
-  let mut conv_bits = p + 14
-  if conv_bits > p + 192 {
-    conv_bits = p + 192
-  }
-  let mut k = 1
-  while k < max_terms {
-    let odd = 2 * k - 1
-    let even = 2 * k
-    let odd_term = mpf_div_checked(
+fn bernoulli_even_table(
+  max_index : Int,
+  p : Int,
+) -> Array[@mpf.RawMpf] raise GammaZetaError {
+  let work = Array::make(max_index + 1, @mpf.RawMpf::zero())
+  let values = Array::make(max_index + 1, @mpf.RawMpf::zero())
+  for m in 0..<=max_index {
+    work[m] = mpf_div_checked(
       @mpf.RawMpf::one(),
-      mpf_pow_int_checked(@mpf.RawMpf::from_int(odd), n, p, Nearest),
+      @mpf.RawMpf::from_int(m + 1),
       p,
       Nearest,
     )
-    let even_term = mpf_div_checked(
-      @mpf.RawMpf::one(),
-      mpf_pow_int_checked(@mpf.RawMpf::from_int(even), n, p, Nearest),
-      p,
-      Nearest,
-    )
-    let term = odd_term.sub(even_term, p, Nearest)
-    eta = eta.add(term, p, Nearest)
-    if tiny_enough(term.abs(p, Nearest), conv_bits) && k > 8 {
-      break
+    let mut j = m
+    while j > 0 {
+      work[j - 1] = work[j - 1].sub(work[j], p, Nearest).mul_int(j, p, Nearest)
+      j -= 1
     }
-    k += 1
+    if (m & 1) == 0 {
+      values[m] = work[0]
+    }
   }
-  let denom = @mpf.RawMpf::one().sub(
-    @mpf.RawMpf::from_mantissa_exponent(1N, 1 - n, 0, Down),
-    p,
+  values
+}
+
+///|
+fn zeta_large_integer_em(n : Int, p : Int) -> @mpf.RawMpf raise GammaZetaError {
+  let correction_count = p / 32 + 8
+  let max_bernoulli = 2 * correction_count
+  let work_p = p + 4 * max_bernoulli + 32
+  let effective_order = n + max_bernoulli - 1
+  let sample_shift = (work_p + effective_order - 1) / effective_order + 2
+  let sample_count = 1 << sample_shift
+  let sample = @mpf.RawMpf::from_int(sample_count)
+  let bernoulli_values = bernoulli_even_table(max_bernoulli, work_p)
+  let mut sum = @mpf.RawMpf::zero()
+  for k in 1..<sample_count {
+    sum = sum.add(
+      mpf_div_checked(
+        @mpf.RawMpf::one(),
+        mpf_pow_int_checked(@mpf.RawMpf::from_int(k), n, work_p, Nearest),
+        work_p,
+        Nearest,
+      ),
+      work_p,
+      Nearest,
+    )
+  }
+  let inverse_sample = mpf_div_checked(
+    @mpf.RawMpf::one(),
+    sample,
+    work_p,
     Nearest,
   )
-  mpf_div_checked(eta, denom, p, Nearest)
+  let inverse_sample_squared = inverse_sample.mul(
+    inverse_sample,
+    work_p,
+    Nearest,
+  )
+  let sample_to_minus_n = mpf_pow_int_checked(sample, -n, work_p, Nearest)
+  let integral_tail = mpf_div_checked(
+    sample.mul(sample_to_minus_n, work_p, Nearest),
+    @mpf.RawMpf::from_int(n - 1),
+    work_p,
+    Nearest,
+  )
+  let mut value = sum
+    .add(integral_tail, work_p, Nearest)
+    .add(sample_to_minus_n.scale_pow2(-1), work_p, Nearest)
+  let mut poch = @mpf.RawMpf::from_int(n)
+  let mut sample_power = sample_to_minus_n.mul(inverse_sample, work_p, Nearest)
+  let mut factorial_value = @mpf.RawMpf::two()
+  let mut converged = false
+  for m in 1..<=correction_count {
+    let two_m = 2 * m
+    let coefficient = mpf_div_checked(
+      bernoulli_values[two_m],
+      factorial_value,
+      work_p,
+      Nearest,
+    )
+    let correction = coefficient.mul(
+      poch.mul(sample_power, work_p, Nearest),
+      work_p,
+      Nearest,
+    )
+    value = value.add(correction, work_p, Nearest)
+    if m > 3 && tiny_enough(correction.abs(work_p, Nearest), p + 24) {
+      converged = true
+      break
+    }
+    poch = poch
+      .mul_int(n + two_m - 1, work_p, Nearest)
+      .mul_int(n + two_m, work_p, Nearest)
+    sample_power = sample_power.mul(inverse_sample_squared, work_p, Nearest)
+    factorial_value = factorial_value
+      .mul_int(two_m + 1, 0, Down)
+      .mul_int(two_m + 2, 0, Down)
+  }
+  if !converged {
+    raise ConvergenceError(
+      "large-integer zeta Euler-Maclaurin did not converge",
+    )
+  }
+  value.rounded(p, Nearest)
 }
 
 ///|
@@ -365,10 +423,8 @@ pub fn zeta_integer(
   let p = wp(prec) + 16
   let z = if (n & 1) == 0 {
     zeta_even_via_bernoulli(n, p)
-  } else if n <= 7 || p >= 220 {
-    zeta_euler_maclaurin_real(@mpf.RawMpf::from_int(n), p)
   } else {
-    zeta_eta_series(n, p)
+    zeta_euler_maclaurin_real(@mpf.RawMpf::from_int(n), p)
   }
   z.rounded(prec, rnd)
 }
@@ -747,49 +803,41 @@ pub fn fibonacci(
 
 ///|
 fn zeta_eta_real(s : @mpf.RawMpf, p : Int) -> @mpf.RawMpf raise GammaZetaError {
-  let pole_dist = s.sub(@mpf.RawMpf::one(), p, Nearest).abs(p, Nearest)
-  let pole_bits = if pole_dist.is_zero() {
-    p + 16
-  } else {
-    let bits = -(pole_dist.exp + pole_dist.bc)
-    if bits > 0 {
-      bits
-    } else {
-      0
-    }
-  }
-  let mut max_terms = 96 + p * 3 + pole_bits * 4
-  if max_terms < 512 {
-    max_terms = 512
-  }
-  if max_terms > 4000000 {
-    max_terms = 4000000
-  }
-  let mut conv_bits = p + 10 + pole_bits
-  if conv_bits > p + 384 {
-    conv_bits = p + 384
+  let target_bits = p + 20
+  let term_count = target_bits + 48
+  let work_p = p + term_count + 32
+  let differences : Array[@mpf.RawMpf] = []
+  for k in 0..<=term_count {
+    differences.push(
+      mpf_div_checked(
+        @mpf.RawMpf::one(),
+        mpf_pow_checked(@mpf.RawMpf::from_int(k + 1), s, work_p, Nearest),
+        work_p,
+        Nearest,
+      ),
+    )
   }
   let mut eta = @mpf.RawMpf::zero()
-  let mut k = 1
-  while k < max_terms {
-    let term_abs = mpf_div_checked(
-      @mpf.RawMpf::one(),
-      mpf_pow_checked(@mpf.RawMpf::from_int(k), s, p, Nearest),
-      p,
-      Nearest,
-    )
-    let term = if (k & 1) == 1 {
-      term_abs
-    } else {
-      term_abs.negated(p, Nearest)
-    }
-    eta = eta.add(term, p, Nearest)
-    if tiny_enough(term_abs.abs(p, Nearest), conv_bits) && k > 24 {
+  let mut weight_exponent = -1
+  let mut active = differences.length()
+  let mut converged = false
+  for order in 0..<=term_count {
+    let term = differences[0].scale_pow2(weight_exponent)
+    eta = eta.add(term, work_p, Nearest)
+    if order > 8 && tiny_enough(term.abs(work_p, Nearest), target_bits) {
+      converged = true
       break
     }
-    k += 1
+    for k in 0..<(active - 1) {
+      differences[k] = differences[k].sub(differences[k + 1], work_p, Nearest)
+    }
+    active -= 1
+    weight_exponent -= 1
   }
-  eta
+  if !converged {
+    raise ConvergenceError("Euler-transformed eta series did not converge")
+  }
+  eta.rounded(p, Nearest)
 }
 
 ///|
@@ -813,15 +861,9 @@ fn zeta_euler_maclaurin_real(
   if n < 12 {
     n = 12
   }
-  if n > 4096 {
-    n = 4096
-  }
-  let mut terms = 6 + p / 10 + pole_bits / 2
+  let mut terms = 24 + p / 6 + pole_bits / 2
   if terms < 6 {
     terms = 6
-  }
-  if terms > 256 {
-    terms = 256
   }
   let n_mpf = @mpf.RawMpf::from_int(n)
   let mut sum = @mpf.RawMpf::zero()
@@ -850,28 +892,43 @@ fn zeta_euler_maclaurin_real(
     p,
     Nearest,
   )
+  let inverse_n = mpf_div_checked(@mpf.RawMpf::one(), n_mpf, p, Nearest)
+  let inverse_n_squared = inverse_n.mul(inverse_n, p, Nearest)
+  let mut poch = s
+  let mut n_power = n_neg_s.mul(inverse_n, p, Nearest)
+  let mut factorial_value = @mpf.RawMpf::two()
   let mut corr = @mpf.RawMpf::zero()
+  let mut previous = @mpf.RawMpf::infinity()
+  let mut converged = false
   for m in 1..<=terms {
     let two_m = 2 * m
-    let mut poch = @mpf.RawMpf::one()
-    for r in 0..<(two_m - 1) {
-      poch = poch.mul(s.add(@mpf.RawMpf::from_int(r), p, Nearest), p, Nearest)
-    }
     let coeff = mpf_div_checked(
       bernoulli(two_m, p, Nearest),
-      factorial(two_m, p, Nearest),
+      factorial_value,
       p,
       Nearest,
     )
-    let mut n_pow = n_neg_s
-    for _ in 0..<(two_m - 1) {
-      n_pow = mpf_div_checked(n_pow, n_mpf, p, Nearest)
-    }
-    let corr_term = coeff.mul(poch.mul(n_pow, p, Nearest), p, Nearest)
-    corr = corr.add(corr_term, p, Nearest)
-    if m >= 4 && tiny_enough(corr_term.abs(p, Nearest), p + 12 + pole_bits) {
+    let corr_term = coeff.mul(poch.mul(n_power, p, Nearest), p, Nearest)
+    let magnitude = corr_term.abs(p, Nearest)
+    if m > 4 && magnitude >= previous {
       break
     }
+    corr = corr.add(corr_term, p, Nearest)
+    if m >= 4 && tiny_enough(magnitude, p + 12 + pole_bits) {
+      converged = true
+      break
+    }
+    previous = magnitude
+    poch = poch
+      .mul(s.add(@mpf.RawMpf::from_int(two_m - 1), p, Nearest), p, Nearest)
+      .mul(s.add(@mpf.RawMpf::from_int(two_m), p, Nearest), p, Nearest)
+    n_power = n_power.mul(inverse_n_squared, p, Nearest)
+    factorial_value = factorial_value
+      .mul_int(two_m + 1, 0, Down)
+      .mul_int(two_m + 2, 0, Down)
+  }
+  if !converged {
+    raise ConvergenceError("zeta Euler-Maclaurin expansion did not converge")
   }
   sum.add(
     tail_integral.add(tail_half.add(corr, p, Nearest), p, Nearest),
@@ -1006,40 +1063,27 @@ pub fn zeta(
   }
   let p = wp(prec) + 24
   let pole_dist = s.sub(@mpf.RawMpf::one(), p, Nearest).abs(p, Nearest)
-  let half = @mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down)
-  if @mpf.RawMpf::zero() < s && (@mpf.RawMpf::one() < s || pole_dist < half) {
-    let pole_dist = s.sub(@mpf.RawMpf::one(), p, Nearest).abs(p, Nearest)
-    let pole_bits = if pole_dist.is_zero() {
-      p + 16
+  let pole_bits = if pole_dist.is_zero() {
+    p + 16
+  } else {
+    let bits = -(pole_dist.exp + pole_dist.bc)
+    if bits > 0 {
+      bits
     } else {
-      let bits = -(pole_dist.exp + pole_dist.bc)
-      if bits > 0 {
-        bits
-      } else {
-        0
-      }
+      0
     }
-    let mut p_work = p + 24 + pole_bits * 2
-    if p_work > p + 1024 {
-      p_work = p + 1024
-    }
-    let z = zeta_euler_maclaurin_real(s, p_work)
-    if alt {
-      return z
-        .mul(zeta_alt_factor(s, p_work), p_work, Nearest)
-        .rounded(prec, rnd)
-    }
-    return z.rounded(prec, rnd)
   }
-  let eta = zeta_eta_real(s, p)
+  if alt && pole_bits > 16 {
+    return zeta_eta_real(s, p).rounded(prec, rnd)
+  }
+  let p_work = p + 24 + pole_bits * 2
+  let value = zeta_euler_maclaurin_real(s, p_work)
   if alt {
-    return eta.rounded(prec, rnd)
+    return value
+      .mul(zeta_alt_factor(s, p_work), p_work, Nearest)
+      .rounded(prec, rnd)
   }
-  let denom = zeta_alt_factor(s, p)
-  if denom.is_zero() {
-    raise PoleError("zeta: pole at s=1")
-  }
-  mpf_div_checked(eta, denom, p, Nearest).rounded(prec, rnd)
+  value.rounded(prec, rnd)
 }
 
 ///|

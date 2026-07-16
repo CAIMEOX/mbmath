@@ -46,6 +46,7 @@ fn from_gammazeta_error(err : @gammazeta.GammaZetaError) -> LibHyperError {
     ValueError(msg) => ValueError(msg)
     DomainError(msg) => DomainError(msg)
     PoleError(msg) => PoleError(msg)
+    ConvergenceError(msg) => ConvergenceError(msg)
   }
 }
 
