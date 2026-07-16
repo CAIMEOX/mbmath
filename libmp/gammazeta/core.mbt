@@ -55,17 +55,6 @@ fn from_libelefun_error(err : @libelefun.LibElefunError) -> GammaZetaError {
 }
 
 ///|
-fn mpf_from_str_checked(
-  s : StringView,
-  prec~ : Int,
-  rnd~ : @mpf.RoundMode,
-) -> @mpf.RawMpf raise GammaZetaError {
-  @mpf.RawMpf::parse(s, prec~, rnd~) catch {
-    err => raise from_mpf_error(err)
-  }
-}
-
-///|
 fn mpf_div_checked(
   x : @mpf.RawMpf,
   y : @mpf.RawMpf,
@@ -107,6 +96,27 @@ fn mpf_log_checked(
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   @libelefun.log(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn mpf_log1p_checked(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
+  @libelefun.log1p(x, prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+fn mpf_ln2_checked(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
+  @libelefun.ln2(prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -1084,15 +1094,6 @@ pub fn zeta(
 }
 
 ///|
-fn const_str(
-  v : StringView,
-  prec : Int,
-  rnd : @mpf.RoundMode,
-) -> @mpf.RawMpf raise GammaZetaError {
-  mpf_from_str_checked(v, prec=if prec > 0 { prec + 8 } else { 64 }, rnd~)
-}
-
-///|
 pub fn eta(
   s : @mpf.RawMpf,
   prec : Int,
@@ -1502,13 +1503,93 @@ pub fn glaisher(
 }
 
 ///|
+fn zeta_integer_minus_one(n : Int, p : Int) -> @mpf.RawMpf raise GammaZetaError {
+  if n <= (p / 10).max(8) {
+    return zeta_integer(n, p, Nearest).sub(@mpf.RawMpf::one(), p, Nearest)
+  }
+  let mut sum = @mpf.RawMpf::zero()
+  let mut base = 2
+  while true {
+    let term = mpf_pow_int_checked(@mpf.RawMpf::from_int(base), -n, p, Nearest)
+    sum = sum.add(term, p, Nearest)
+    if tiny_enough(term, p + 16) {
+      break
+    }
+    base += 1
+  }
+  sum
+}
+
+///|
+fn binary_necklace_count(n : Int) -> BigInt {
+  let mut numerator = 0N
+  for divisor in 1..<=n {
+    if n % divisor == 0 {
+      let mobius = @intmath.moebius(BigInt::from_int(divisor))
+      if mobius != 0 {
+        numerator = numerator + BigInt::from_int(mobius) * (1N << (n / divisor))
+      }
+    }
+  }
+  numerator / BigInt::from_int(n)
+}
+
+///|
 pub fn khinchin(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  const_str(
-    "2.68545200106530644530971483548179569382038229399446295305115", prec, rnd,
+  let target = wp(prec) + 24
+  let p = target + 96
+  let mut logarithm_times_ln2 = @mpf.RawMpf::zero()
+  let mut alternating_harmonic = @mpf.RawMpf::one()
+  let max_n = (target + 64) / 2 + 16
+  let mut converged = false
+  for n in 1..<=max_n {
+    let zeta_minus_one = zeta_integer_minus_one(2 * n, p)
+    let term = mpf_div_checked(
+      zeta_minus_one.mul(alternating_harmonic, p, Nearest),
+      @mpf.RawMpf::from_int(n),
+      p,
+      Nearest,
+    )
+    logarithm_times_ln2 = logarithm_times_ln2.add(term, p, Nearest)
+    if n > 8 && tiny_enough(term.abs(p, Nearest), target + 24) {
+      converged = true
+      break
+    }
+    alternating_harmonic = alternating_harmonic
+      .add(
+        mpf_div_checked(
+          @mpf.RawMpf::one(),
+          @mpf.RawMpf::from_int(2 * n + 1),
+          p,
+          Nearest,
+        ),
+        p,
+        Nearest,
+      )
+      .sub(
+        mpf_div_checked(
+          @mpf.RawMpf::one(),
+          @mpf.RawMpf::from_int(2 * n),
+          p,
+          Nearest,
+        ),
+        p,
+        Nearest,
+      )
+  }
+  if !converged {
+    raise ConvergenceError("Khinchin zeta series did not converge")
+  }
+  let logarithm = mpf_div_checked(
+    logarithm_times_ln2,
+    mpf_ln2_checked(p, Nearest),
+    p,
+    Nearest,
   )
+  mpf_exp_checked(logarithm, p, Nearest).rounded(prec, rnd)
 }
 
 ///|
@@ -1516,9 +1597,35 @@ pub fn mertens(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  const_str(
-    "0.261497212847642783755426838608695859051566648261199206192064", prec, rnd,
-  )
+  let target = wp(prec) + 24
+  let p = target + 80
+  let mut value = euler(p, Nearest)
+  let mut converged = false
+  for n in 2..<=(target + 64) {
+    let zeta_minus_one = zeta_integer_minus_one(n, p)
+    if n > 8 && tiny_enough(zeta_minus_one, target + 32) {
+      converged = true
+      break
+    }
+    let mobius = @intmath.moebius(BigInt::from_int(n))
+    if mobius != 0 {
+      let term = mpf_div_checked(
+        mpf_log1p_checked(zeta_minus_one, p, Nearest).mul_int(
+          mobius,
+          p,
+          Nearest,
+        ),
+        @mpf.RawMpf::from_int(n),
+        p,
+        Nearest,
+      )
+      value = value.add(term, p, Nearest)
+    }
+  }
+  if !converged {
+    raise ConvergenceError("Meissel-Mertens series did not converge")
+  }
+  value.rounded(prec, rnd)
 }
 
 ///|
@@ -1526,8 +1633,58 @@ pub fn twin_prime_constant(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  const_str(
-    "0.660161815846869573927812110014555778432623360284733413319448", prec, rnd,
+  let target = wp(prec) + 24
+  let p = 2 * target + 96
+  let denominators = [2, 3, 5, 7]
+  let reciprocals : Array[@mpf.RawMpf] = []
+  let powers : Array[@mpf.RawMpf] = []
+  for denominator in denominators {
+    let reciprocal = mpf_div_checked(
+      @mpf.RawMpf::one(),
+      @mpf.RawMpf::from_int(denominator),
+      p,
+      Nearest,
+    )
+    reciprocals.push(reciprocal)
+    powers.push(reciprocal.mul(reciprocal, p, Nearest))
+  }
+  let mut logarithm = @mpf.RawMpf::zero()
+  let mut converged = false
+  for n in 2..<=(target + 64) {
+    let term_p = (target + (5 * n + 1) / 2 + 96).min(p)
+    let mut logarithm_a = mpf_log1p_checked(
+      zeta_integer_minus_one(n, term_p),
+      term_p,
+      Nearest,
+    )
+    for i in 0..<powers.length() {
+      logarithm_a = logarithm_a.add(
+        mpf_log1p_checked(powers[i].negated(term_p, Nearest), term_p, Nearest),
+        term_p,
+        Nearest,
+      )
+    }
+    let necklace = binary_necklace_count(n)
+    let correction = logarithm_a.mul(
+      @mpf.RawMpf::from_bigint(-necklace),
+      term_p,
+      Nearest,
+    )
+    logarithm = logarithm.add(correction, p, Nearest)
+    if n > 8 && tiny_enough(correction.abs(p, Nearest), target + 32) {
+      converged = true
+      break
+    }
+    for i in 0..<powers.length() {
+      powers[i] = powers[i].mul(reciprocals[i], p, Nearest)
+    }
+  }
+  if !converged {
+    raise ConvergenceError("twin-prime constant product did not converge")
+  }
+  let value = mpf_exp_checked(logarithm, p, Nearest).mul_int(1575, p, Nearest)
+  mpf_div_checked(value, @mpf.RawMpf::from_int(2304), p, Nearest).rounded(
+    prec, rnd,
   )
 }
 

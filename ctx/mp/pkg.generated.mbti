@@ -201,6 +201,7 @@ pub fn MPContext::integer_order_bessel_first_kind(Self, Int, @mpf.RawMpf) -> @mp
 pub fn MPContext::inverse(Self, MpfMatrix) -> MpfMatrix raise MPError
 pub fn MPContext::inverse_error_function(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::invertlaplace(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, algo? : StringView) -> @mpf.RawMpf raise
+pub fn MPContext::khinchin_constant(Self) -> @mpf.RawMpf raise MPError
 pub fn MPContext::lambert_w(Self, @mpf.RawMpf, branch? : Int) -> @mpf.RawMpf raise MPError
 pub fn MPContext::levin(Self, ArrayView[@mpf.RawMpf], algo? : StringView) -> (@mpf.RawMpf, @mpf.RawMpf) raise MPError
 pub fn MPContext::limit(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, direction? : Int, max_steps? : Int) -> @mpf.RawMpf raise
@@ -239,6 +240,7 @@ pub fn MPContext::matrix_sub_scalar(Self, MpfMatrix, @mpf.RawMpf) -> MpfMatrix r
 pub fn MPContext::matrix_sum(Self, MpfMatrix) -> @mpf.RawMpf
 pub fn MPContext::matrix_transpose(Self, MpfMatrix) -> MpfMatrix raise MPError
 pub fn MPContext::matrix_vec_mul(Self, MpfMatrix, ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] raise MPError
+pub fn MPContext::meissel_mertens_constant(Self) -> @mpf.RawMpf raise MPError
 pub fn MPContext::mnorm(Self, MpfMatrix, kind? : StringView) -> @mpf.RawMpf raise MPError
 pub fn MPContext::modulo(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::mul(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf
@@ -303,6 +305,7 @@ pub fn MPContext::taylor(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf,
 pub fn MPContext::to_degrees(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::to_radians(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::to_string(Self, @mpf.RawMpf, dps? : Int) -> String raise MPError
+pub fn MPContext::twin_prime_constant(Self) -> @mpf.RawMpf raise MPError
 pub fn MPContext::vector_norm(Self, ArrayView[@mpf.RawMpf], p? : Int, inf? : Bool) -> @mpf.RawMpf raise MPError
 pub fn MPContext::zeros(Self, Int, cols? : Int) -> MpfMatrix raise MPError
 pub fn MPContext::zeta(Self, @mpf.RawMpf, alt? : Bool) -> @mpf.RawMpf raise MPError
