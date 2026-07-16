@@ -3930,6 +3930,93 @@ pub fn RawMpc::gram_point(
 }
 
 ///|
+fn multiply_by_i(z : RawMpc, p : Int) -> RawMpc {
+  RawMpc::new(z.imag.negated(p, Nearest), z.real.rounded(p, Nearest))
+}
+
+///|
+/// Evaluate an arbitrary nonnegative derivative of the Hardy Riemann Z
+/// function at this real or complex argument.
+///
+/// Derivatives of `exp(i*theta(t))` are generated with the complete Bell
+/// recurrence and convolved analytically with derivatives of
+/// `zeta(1/2+i*t)`. No numerical differencing is used.
+pub fn RawMpc::hardy_z(
+  t : RawMpc,
+  order : Int,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  if order < 0 {
+    raise DomainError("Hardy Z derivative order must be nonnegative")
+  }
+  if t.real.is_nan() || t.imag.is_nan() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  if t.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  let p = ext_prec(prec) + 96 + order * int_bit_length(order + 2)
+  let theta_derivatives = Array::make(order + 1, RawMpc::zero())
+  for k in 0..<=order {
+    theta_derivatives[k] = multiply_by_i(
+      t.riemann_siegel_theta(k, p, Nearest),
+      p,
+    )
+  }
+  let phase_derivatives = Array::make(order + 1, RawMpc::zero())
+  phase_derivatives[0] = theta_derivatives[0].exp(p, Nearest)
+  for n in 1..<=order {
+    let binomials = derivative_binomial_coefficients(n - 1)
+    let mut derivative = RawMpc::zero()
+    for k in 1..<=n {
+      let term = theta_derivatives[k]
+        .mul(phase_derivatives[n - k], p, Nearest)
+        .mul_real(binomials[k - 1], p, Nearest)
+      derivative = derivative.add(term, p, Nearest)
+    }
+    phase_derivatives[n] = derivative
+  }
+  let zeta_argument = RawMpc::new(
+    @mpf.RawMpf::half().sub(t.imag, p, Nearest),
+    t.real.rounded(p, Nearest),
+  )
+  let positive_i = RawMpc::new(@mpf.RawMpf::zero(), @mpf.RawMpf::one())
+  let zeta_derivatives = Array::make(order + 1, RawMpc::zero())
+  for k in 0..<=order {
+    let derivative = if k == 0 {
+      zeta_argument.zeta(p, Nearest)
+    } else {
+      zeta_argument.zeta_derivative(k, p, Nearest)
+    }
+    zeta_derivatives[k] = derivative.mul(
+      positive_i.pow_int(k, p, Nearest),
+      p,
+      Nearest,
+    )
+  }
+  let binomials = derivative_binomial_coefficients(order)
+  let mut result = RawMpc::zero()
+  for k in 0..<=order {
+    let term = phase_derivatives[k]
+      .mul(zeta_derivatives[order - k], p, Nearest)
+      .mul_real(binomials[k], p, Nearest)
+    result = result.add(term, p, Nearest)
+  }
+  if t.imag.is_zero() {
+    let imaginary_residual = RawMpc::new(@mpf.RawMpf::zero(), result.imag)
+    if complex_relative_tiny(imaginary_residual, result, 24, prec + 24) ||
+      tiny_enough_mpc(imaginary_residual, 24, prec + 24) {
+      return RawMpc::new(result.real.rounded(prec, rnd), @mpf.RawMpf::zero())
+    }
+    raise ConvergenceError(
+      "Hardy Z real-axis symmetry lost requested precision",
+    )
+  }
+  result.rounded(prec, rnd)
+}
+
+///|
 fn prime_zeta_term_count(s : RawMpc, p : Int) -> Int raise MpcError {
   let threshold = @mpf.RawMpf::from_int(p + 64)
   let quotient = mpf_div_checked(threshold, s.real, p, Ceiling)
