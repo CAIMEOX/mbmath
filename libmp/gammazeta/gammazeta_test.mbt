@@ -127,33 +127,33 @@ test "mpf rgamma/loggamma/gamma_int subset" {
 test "mpf psi harmonic fibonacci zeta subset" {
   assert_close_numeric(
     digamma(@mpf.RawMpf::parse("3.5"), 140, Nearest),
-    "1.1031566404",
-    14,
+    "1.103156640645243187225690",
+    26,
   )
   assert_close_numeric(
     harmonic(@mpf.RawMpf::from_int(10), 140, Nearest),
-    "2.928968253968",
-    14,
+    "2.928968253968253968253968",
+    26,
   )
   assert_close_numeric(
     harmonic(@mpf.RawMpf::parse("2.5"), 140, Nearest),
-    "1.6803723053",
-    14,
+    "1.680372305546776047832202",
+    26,
   )
   assert_close_numeric(
     digamma(@mpf.RawMpf::parse("-0.5"), 140, Nearest),
-    "0.0364899738",
-    14,
+    "0.03648997397857652055902367",
+    26,
   )
   assert_close_numeric(
     harmonic(@mpf.RawMpf::parse("-0.5"), 140, Nearest),
-    "-1.3862943612",
-    14,
+    "-1.386294361119890618834464",
+    26,
   )
   assert_close_numeric(
     harmonic(@mpf.RawMpf::parse("-2.5"), 140, Nearest),
-    "1.2803723053",
-    14,
+    "1.280372305546776047832202",
+    26,
   )
   @debug.assert_eq(
     fibonacci(@mpf.RawMpf::from_int(10), 120, Nearest),
@@ -161,18 +161,18 @@ test "mpf psi harmonic fibonacci zeta subset" {
   )
   assert_close_numeric(
     fibonacci(@mpf.RawMpf::parse("0.5"), 140, Nearest),
-    "0.568864481005",
-    14,
+    "0.5688644810057831072783079",
+    26,
   )
   assert_close_numeric(
     zeta(@mpf.RawMpf::parse("2.5"), 140, Nearest),
-    "1.34148725",
-    14,
+    "1.341487257250917179756770",
+    26,
   )
   assert_close_numeric(
     zeta(@mpf.RawMpf::parse("2.5"), 140, Nearest, alt=true),
-    "0.86719988",
-    14,
+    "0.8671998890121841381913472",
+    26,
   )
 }
 

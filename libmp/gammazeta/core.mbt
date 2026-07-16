@@ -145,6 +145,16 @@ fn mpf_exp_checked(
 }
 
 ///|
+fn mpf_ln_sqrt_2pi_checked(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise GammaZetaError {
+  @libelefun.ln_sqrt_2pi(prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
 fn mpf_sin_checked(
   x : @mpf.RawMpf,
   prec : Int,
@@ -186,14 +196,6 @@ fn mpf_phi_checked(
     err => raise from_libelefun_error(err)
   }
 }
-
-///|
-let euler_gamma : @mpf.RawMpf = @mpf.RawMpf::from_mantissa_exponent(
-  254962950818844203052873526785993192115782030385265309526297679521529565N,
-  -238,
-  0,
-  Down,
-)
 
 ///|
 pub fn large_bernoulli(
@@ -266,7 +268,7 @@ pub fn bernoulli(
   if n >= 80 {
     return large_bernoulli(n, prec, rnd)
   }
-  let p = wp(prec)
+  let p = wp(prec) + 4 * n + 20
   let a = Array::make(n + 1, @mpf.RawMpf::zero())
   for m in 0..<=n {
     a[m] = mpf_div_checked(
@@ -395,52 +397,62 @@ fn maybe_integer(x : @mpf.RawMpf) -> Int? {
 }
 
 ///|
-fn gamma_lanczos_coeff(i : Int, p : Int) -> @mpf.RawMpf raise GammaZetaError {
-  match i {
-    0 => mpf_from_str_checked("0.99999999999980993", prec=p, rnd=Nearest)
-    1 => mpf_from_str_checked("676.5203681218851", prec=p, rnd=Nearest)
-    2 => mpf_from_str_checked("-1259.1392167224028", prec=p, rnd=Nearest)
-    3 => mpf_from_str_checked("771.32342877765313", prec=p, rnd=Nearest)
-    4 => mpf_from_str_checked("-176.61502916214059", prec=p, rnd=Nearest)
-    5 => mpf_from_str_checked("12.507343278686905", prec=p, rnd=Nearest)
-    6 => mpf_from_str_checked("-0.13857109526572012", prec=p, rnd=Nearest)
-    7 => mpf_from_str_checked("0.0000099843695780195716", prec=p, rnd=Nearest)
-    _ => mpf_from_str_checked("0.00000015056327351493116", prec=p, rnd=Nearest)
-  }
-}
-
-///|
-fn gamma_lanczos_positive(
+fn loggamma_stirling_positive(
   x : @mpf.RawMpf,
   p : Int,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  let z1 = x.sub(@mpf.RawMpf::one(), p, Nearest)
-  let mut series = gamma_lanczos_coeff(0, p)
-  for i in 1..<9 {
-    series = series.add(
-      mpf_div_checked(
-        gamma_lanczos_coeff(i, p),
-        z1.add(@mpf.RawMpf::from_int(i), p, Nearest),
-        p,
-        Nearest,
-      ),
+  let target = {
+    let value = p / 3 + 12
+    if value < 32 {
+      32
+    } else {
+      value
+    }
+  }
+  let mut y = x.rounded(p, Nearest)
+  let mut recurrence = @mpf.RawMpf::zero()
+  while y < @mpf.RawMpf::from_int(target) {
+    recurrence = recurrence.add(mpf_log_checked(y, p, Nearest), p, Nearest)
+    y = y.add(@mpf.RawMpf::one(), p, Nearest)
+  }
+  let log_y = mpf_log_checked(y, p, Nearest)
+  let half = @mpf.RawMpf::half()
+  let mut value = y
+    .sub(half, p, Nearest)
+    .mul(log_y, p, Nearest)
+    .sub(y, p, Nearest)
+    .add(mpf_ln_sqrt_2pi_checked(p, Nearest), p, Nearest)
+  let inv = mpf_div_checked(@mpf.RawMpf::one(), y, p, Nearest)
+  let inv2 = inv.mul(inv, p, Nearest)
+  let mut inv_power = inv
+  let mut previous = @mpf.RawMpf::infinity()
+  let max_terms = p / 2 + 16
+  for k in 1..<=max_terms {
+    let two_k = 2 * k
+    let denominator = @mpf.RawMpf::from_int(two_k * (two_k - 1))
+    let term = mpf_div_checked(
+      bernoulli(two_k, p, Nearest).mul(inv_power, p, Nearest),
+      denominator,
       p,
       Nearest,
     )
+    let magnitude = term.abs(p, Nearest)
+    if k > 4 && magnitude >= previous {
+      break
+    }
+    value = value.add(term, p, Nearest)
+    if k > 3 && tiny_enough(magnitude, p + 12) {
+      break
+    }
+    previous = magnitude
+    inv_power = inv_power.mul(inv2, p, Nearest)
   }
-  let t = z1.add(mpf_from_str_checked("7.5", prec=p, rnd=Nearest), p, Nearest)
-  let pow_term = mpf_pow_checked(
-    t,
-    z1.add(mpf_from_str_checked("0.5", prec=p, rnd=Nearest), p, Nearest),
-    p,
-    Nearest,
-  )
-  let exp_term = mpf_exp_checked(t.negated(p, Nearest), p, Nearest)
-  mpf_from_str_checked(
-    "2.5066282746310005024157652848110452",
-    prec=p,
-    rnd=Nearest,
-  ).mul(pow_term.mul(exp_term.mul(series, p, Nearest), p, Nearest), p, Nearest)
+  value.sub(recurrence, p, Nearest)
+}
+
+///|
+fn gamma_positive(x : @mpf.RawMpf, p : Int) -> @mpf.RawMpf raise GammaZetaError {
+  mpf_exp_checked(loggamma_stirling_positive(x, p), p, Nearest)
 }
 
 ///|
@@ -479,7 +491,7 @@ pub fn gamma(
   }
   if x.sign == 1 {
     let pi = mpf_pi_checked(p, Nearest)
-    let sin_term = mpf_sin_checked(pi.mul(x, p, Nearest), p, Nearest)
+    let (_, sin_term) = mpf_cos_sin_pi_checked(x, p, Nearest)
     if sin_term.is_zero() {
       raise PoleError("gamma: pole at non-positive integer")
     }
@@ -488,7 +500,7 @@ pub fn gamma(
       prec, rnd,
     )
   }
-  gamma_lanczos_positive(x, p).rounded(prec, rnd)
+  gamma_positive(x, p).rounded(prec, rnd)
 }
 
 ///|
@@ -497,6 +509,10 @@ pub fn rgamma(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
+  match maybe_integer(x) {
+    Some(n) => if n <= 0 { return @mpf.RawMpf::zero() }
+    None => ()
+  }
   let p = wp(prec) + 8
   let g = gamma(x, p, Nearest)
   mpf_div_checked(@mpf.RawMpf::one(), g, p, Nearest).rounded(prec, rnd)
@@ -508,9 +524,26 @@ pub fn loggamma(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
+  if x.is_nan() {
+    return @mpf.RawMpf::nan()
+  }
+  if x.is_infinite() {
+    if x.sign == 1 {
+      raise DomainError("loggamma: negative infinity has a complex value")
+    }
+    return @mpf.RawMpf::infinity()
+  }
+  if x.is_zero() {
+    raise PoleError("loggamma: pole at zero")
+  }
+  if x == @mpf.RawMpf::one() || x == @mpf.RawMpf::two() {
+    return @mpf.RawMpf::zero()
+  }
+  if x.sign == 1 {
+    raise DomainError("loggamma: negative input has a complex value")
+  }
   let p = wp(prec) + 8
-  let g = gamma(x, p, Nearest)
-  mpf_log_checked(g, p, Nearest).rounded(prec, rnd)
+  loggamma_stirling_positive(x, p).rounded(prec, rnd)
 }
 
 ///|
@@ -563,7 +596,7 @@ pub fn digamma(
       }
       let p = wp(prec) + 8
       return harmonic_int(n - 1, p)
-        .sub(euler_gamma.rounded(p, Nearest), p, Nearest)
+        .sub(euler(p, Nearest), p, Nearest)
         .rounded(prec, rnd)
     }
     None => ()
@@ -584,7 +617,15 @@ pub fn digamma(
   let p = wp(prec) + 40
   let mut y = x.rounded(p, Nearest)
   let mut acc = @mpf.RawMpf::zero()
-  while y < @mpf.RawMpf::from_int(8) {
+  let target = {
+    let value = p / 3 + 12
+    if value < 32 {
+      32
+    } else {
+      value
+    }
+  }
+  while y < @mpf.RawMpf::from_int(target) {
     acc = acc.sub(
       mpf_div_checked(@mpf.RawMpf::one(), y, p, Nearest),
       p,
@@ -594,29 +635,32 @@ pub fn digamma(
   }
   let inv = mpf_div_checked(@mpf.RawMpf::one(), y, p, Nearest)
   let inv2 = inv.mul(inv, p, Nearest)
-  let inv4 = inv2.mul(inv2, p, Nearest)
-  let inv6 = inv4.mul(inv2, p, Nearest)
-  let series = mpf_log_checked(y, p, Nearest).add(
-    inv
-    .scale_pow2(-1)
-    .negated(p, Nearest)
-    .sub(
-      mpf_div_checked(inv2, @mpf.RawMpf::from_int(12), p, Nearest),
-      p,
-      Nearest,
-    ),
+  let mut power = inv2
+  let mut series = mpf_log_checked(y, p, Nearest).sub(
+    inv.scale_pow2(-1),
     p,
     Nearest,
   )
-  let series = series.add(
-    mpf_div_checked(inv4, @mpf.RawMpf::from_int(120), p, Nearest).sub(
-      mpf_div_checked(inv6, @mpf.RawMpf::from_int(252), p, Nearest),
+  let mut previous = @mpf.RawMpf::infinity()
+  let max_terms = p / 2 + 16
+  for k in 1..<=max_terms {
+    let term = mpf_div_checked(
+      bernoulli(2 * k, p, Nearest).mul(power, p, Nearest),
+      @mpf.RawMpf::from_int(2 * k),
       p,
       Nearest,
-    ),
-    p,
-    Nearest,
-  )
+    )
+    let magnitude = term.abs(p, Nearest)
+    if k > 4 && magnitude >= previous {
+      break
+    }
+    series = series.sub(term, p, Nearest)
+    if k > 3 && tiny_enough(magnitude, p + 12) {
+      break
+    }
+    previous = magnitude
+    power = power.mul(inv2, p, Nearest)
+  }
   series.add(acc, p, Nearest).rounded(prec, rnd)
 }
 
@@ -647,7 +691,7 @@ pub fn harmonic(
   }
   let p = wp(prec) + 16
   let psi = digamma(x.add(@mpf.RawMpf::one(), p, Nearest), p, Nearest)
-  psi.add(euler_gamma.rounded(p, Nearest), p, Nearest).rounded(prec, rnd)
+  psi.add(euler(p, Nearest), p, Nearest).rounded(prec, rnd)
 }
 
 ///|
@@ -1034,19 +1078,21 @@ fn hurwitz_power_sum_em(
   s : Int,
   p : Int,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  let mut n = 12 + p / 8
-  if n < 12 {
-    n = 12
+  let n = {
+    let value = p / 2 + 16
+    if value < 32 {
+      32
+    } else {
+      value
+    }
   }
-  if n > 512 {
-    n = 512
-  }
-  let mut terms = 4 + p / 24
-  if terms < 4 {
-    terms = 4
-  }
-  if terms > 24 {
-    terms = 24
+  let terms = {
+    let value = p / 3 + 12
+    if value < 12 {
+      12
+    } else {
+      value
+    }
   }
   let mut sum = @mpf.RawMpf::zero()
   for k in 0..<n {
@@ -1195,9 +1241,51 @@ pub fn euler(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  const_str(
-    "0.577215664901532860606512090082402431042159335939923598805767", prec, rnd,
-  )
+  let p = wp(prec) + 24
+  let n = {
+    let value = p / 2 + 16
+    if value < 48 {
+      48
+    } else {
+      value
+    }
+  }
+  let n_mpf = @mpf.RawMpf::from_int(n)
+  let mut harmonic_sum = @mpf.RawMpf::zero()
+  for k in 1..<=n {
+    harmonic_sum = harmonic_sum.add(
+      mpf_div_checked(@mpf.RawMpf::one(), @mpf.RawMpf::from_int(k), p, Nearest),
+      p,
+      Nearest,
+    )
+  }
+  let inv_n = mpf_div_checked(@mpf.RawMpf::one(), n_mpf, p, Nearest)
+  let inv_n2 = inv_n.mul(inv_n, p, Nearest)
+  let mut power = inv_n2
+  let mut value = harmonic_sum
+    .sub(mpf_log_checked(n_mpf, p, Nearest), p, Nearest)
+    .sub(inv_n.scale_pow2(-1), p, Nearest)
+  let mut previous = @mpf.RawMpf::infinity()
+  let max_terms = p / 2 + 16
+  for k in 1..<=max_terms {
+    let term = mpf_div_checked(
+      bernoulli(2 * k, p, Nearest).mul(power, p, Nearest),
+      @mpf.RawMpf::from_int(2 * k),
+      p,
+      Nearest,
+    )
+    let magnitude = term.abs(p, Nearest)
+    if k > 4 && magnitude >= previous {
+      break
+    }
+    value = value.add(term, p, Nearest)
+    if k > 3 && tiny_enough(magnitude, p + 12) {
+      break
+    }
+    previous = magnitude
+    power = power.mul(inv_n2, p, Nearest)
+  }
+  value.rounded(prec, rnd)
 }
 
 ///|

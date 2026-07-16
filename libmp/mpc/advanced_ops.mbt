@@ -13,13 +13,6 @@ fn lift_real(x : @mpf.RawMpf) -> RawMpc {
 }
 
 ///|
-fn const_mpf_checked(v : StringView, p : Int) -> @mpf.RawMpf raise MpcError {
-  @mpf.RawMpf::parse(v, prec=if p > 0 { p + 24 } else { 72 }, rnd=Nearest) catch {
-    err => raise from_mpf_error(err)
-  }
-}
-
-///|
 fn format_mpf_checked(
   x : @mpf.RawMpf,
   dps? : Int = 15,
@@ -400,43 +393,79 @@ pub fn RawMpc::nthroot_fixed(
 }
 
 ///|
-fn lanczos_coeff(i : Int, p : Int) -> @mpf.RawMpf raise MpcError {
-  match i {
-    0 => const_mpf_checked("0.99999999999980993", p)
-    1 => const_mpf_checked("676.5203681218851", p)
-    2 => const_mpf_checked("-1259.1392167224028", p)
-    3 => const_mpf_checked("771.32342877765313", p)
-    4 => const_mpf_checked("-176.61502916214059", p)
-    5 => const_mpf_checked("12.507343278686905", p)
-    6 => const_mpf_checked("-0.13857109526572012", p)
-    7 => const_mpf_checked("0.0000099843695780195716", p)
-    _ => const_mpf_checked("0.00000015056327351493116", p)
+fn complex_loggamma_stirling_right(
+  z : RawMpc,
+  p : Int,
+) -> RawMpc raise MpcError {
+  let target = {
+    let value = p / 3 + 12
+    if value < 32 {
+      32
+    } else {
+      value
+    }
   }
+  let mut w = z.rounded(p, Nearest)
+  let mut recurrence = RawMpc::zero()
+  while w.real < @mpf.RawMpf::from_int(target) {
+    recurrence = recurrence.add(w.ln(p, Nearest), p, Nearest)
+    w = w.add_real(@mpf.RawMpf::one(), p, Nearest)
+  }
+  let log_w = w.ln(p, Nearest)
+  let half = @mpf.RawMpf::half()
+  let ln_sqrt_2pi = @libelefun.ln_sqrt_2pi(p, Nearest) catch {
+    err => raise from_libelefun_error(err)
+  }
+  let mut value = w
+    .sub_real(half, p, Nearest)
+    .mul(log_w, p, Nearest)
+    .sub(w, p, Nearest)
+    .add_real(ln_sqrt_2pi, p, Nearest)
+  let inv = w.reciprocal(p, Nearest)
+  let inv2 = inv.square(p, Nearest)
+  let mut inv_power = inv
+  let mut previous = @mpf.RawMpf::infinity()
+  let max_terms = p / 2 + 16
+  for k in 1..<=max_terms {
+    let two_k = 2 * k
+    let denominator = @mpf.RawMpf::from_int(two_k * (two_k - 1))
+    let coefficient = mpf_div_checked(
+      bernoulli_checked(two_k, p, Nearest),
+      denominator,
+      p,
+      Nearest,
+    )
+    let term = inv_power.mul_real(coefficient, p, Nearest)
+    let magnitude = term.abs(p, Nearest)
+    if k > 4 && magnitude >= previous {
+      break
+    }
+    value = value.add(term, p, Nearest)
+    if k > 3 && tiny_enough_mpc(term, p, p + 12) {
+      break
+    }
+    previous = magnitude
+    inv_power = inv_power.mul(inv2, p, Nearest)
+  }
+  value.sub(recurrence, p, Nearest)
 }
 
 ///|
-fn mpc_gamma_lanczos(z : RawMpc, p : Int) -> RawMpc raise MpcError {
-  let z1 = z.sub_real(@mpf.RawMpf::one(), p, Nearest)
-  let mut x = RawMpc::new(lanczos_coeff(0, p), @mpf.RawMpf::zero())
-  for i in 1..<9 {
-    let den = z1.add_real(@mpf.RawMpf::from_int(i), p, Nearest)
-    let add = den.real_divided_by(lanczos_coeff(i, p), p, Nearest)
-    x = x.add(add, p, Nearest)
+fn complex_loggamma_general(z : RawMpc, p : Int) -> RawMpc raise MpcError {
+  if z.real.sign == 0 {
+    return complex_loggamma_stirling_right(z, p)
   }
-  let t = z1.add_real(const_mpf_checked("7.5", p), p, Nearest)
-  let pow = mpc_pow_checked(
-    t,
-    z1.add_real(const_mpf_checked("0.5", p), p, Nearest),
-    p,
-    Nearest,
-  )
-  let exp_term = t.negated(p, Nearest).exp(p, Nearest)
-  let y = pow.mul(exp_term.mul(x, p, Nearest), p, Nearest)
-  y.mul_real(
-    const_mpf_checked("2.5066282746310005024157652848110452", p),
-    p,
-    Nearest,
-  )
+  let neg_z = z.negated(p, Nearest)
+  let mut value = complex_loggamma_stirling_right(neg_z, p)
+    .negated(p, Nearest)
+    .sub(neg_z.ln(p, Nearest), p, Nearest)
+  let pi = elefun_pi_checked(p, Nearest)
+  value = value.add_real(mpf_log_checked(pi, p, Nearest), p, Nearest)
+  let floor_re = z.real.floor(0, Down)
+  let fractional = z.sub_real(floor_re, p, Nearest)
+  value = value.sub(fractional.sin_pi(p, Nearest).ln(p, Nearest), p, Nearest)
+  let branch = pi.mul(floor_re, p, Nearest).mul_int(z.imag.signum(), p, Nearest)
+  value.add(RawMpc::new(@mpf.RawMpf::zero(), branch), p, Nearest)
 }
 
 ///|
@@ -1478,17 +1507,8 @@ pub fn RawMpc::gamma(
   if z.is_non_finite() {
     return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
   }
-  let p = ext_prec(prec) + 24
-  let half = @mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down)
-  if z.real < half {
-    let sin_pi_z = z.sin_pi(p, Nearest)
-    let g = RawMpc::one().sub(z, p, Nearest).gamma(p, Nearest)
-    let denom = sin_pi_z.mul(g, p, Nearest)
-    return denom
-      .real_divided_by(elefun_pi_checked(p, Nearest), p, Nearest)
-      .rounded(prec, rnd)
-  }
-  mpc_gamma_lanczos(z, p).rounded(prec, rnd)
+  let p = ext_prec(prec) + 40
+  complex_loggamma_general(z, p).exp(prec, rnd)
 }
 
 ///|
@@ -1500,10 +1520,11 @@ pub fn RawMpc::rgamma(
   if z.imag == @mpf.RawMpf::zero() {
     return lift_real(rgamma_real_checked(z.real, prec, rnd))
   }
-  z
-  .gamma(ext_prec(prec) + 16, Nearest)
-  .reciprocal(ext_prec(prec) + 16, Nearest)
-  .rounded(prec, rnd)
+  if z.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  let p = ext_prec(prec) + 40
+  complex_loggamma_general(z, p).negated(p, Nearest).exp(prec, rnd)
 }
 
 ///|
@@ -1513,10 +1534,26 @@ pub fn RawMpc::loggamma(
   rnd : @mpf.RoundMode,
 ) -> RawMpc raise MpcError {
   if z.imag == @mpf.RawMpf::zero() {
-    return lift_real(loggamma_real_checked(z.real, prec, rnd))
+    if z.real.sign == 0 {
+      return lift_real(loggamma_real_checked(z.real, prec, rnd))
+    }
+    if !z.real.is_finite() {
+      return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+    }
+    let p = ext_prec(prec) + 32
+    let gamma_value = gamma_real_checked(z.real, p, Nearest)
+    let real = mpf_log_checked(gamma_value.abs(p, Nearest), p, Nearest)
+    let imag = elefun_pi_checked(p, Nearest).mul(
+      z.real.floor(0, Down),
+      p,
+      Nearest,
+    )
+    return RawMpc::new(real, imag).rounded(prec, rnd)
   }
-  let p = ext_prec(prec) + 20
-  z.gamma(p, Nearest).ln(p, Nearest).rounded(prec, rnd)
+  if z.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  complex_loggamma_general(z, ext_prec(prec) + 40).rounded(prec, rnd)
 }
 
 ///|
@@ -1554,15 +1591,59 @@ pub fn RawMpc::digamma(
   if z.imag == @mpf.RawMpf::zero() {
     return lift_real(psi0_real_checked(z.real, prec, rnd))
   }
+  if z.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
   let p = ext_prec(prec) + 44
-  let shift = if prec > 0 { prec / 2 + 6 } else { 26 }
-  let h = @mpf.RawMpf::one().scale_pow2(-shift)
-  let zp = z.add_real(h, p, Nearest)
-  let zm = z.sub_real(h, p, Nearest)
-  let lgp = zp.loggamma(p, Nearest)
-  let lgm = zm.loggamma(p, Nearest)
-  let num = lgp.sub(lgm, p, Nearest)
-  num.div_real(h.mul_int(2, p, Nearest), p, Nearest).rounded(prec, rnd)
+  let half = @mpf.RawMpf::half()
+  if z.real < half {
+    let reflected = RawMpc::one().sub(z, p, Nearest).digamma(p, Nearest)
+    let (cosine, sine) = z.cos_sin_pi(p, Nearest)
+    let correction = cosine
+      .div(sine, p, Nearest)
+      .mul_real(elefun_pi_checked(p, Nearest), p, Nearest)
+    return reflected.sub(correction, p, Nearest).rounded(prec, rnd)
+  }
+  let target = {
+    let value = p / 3 + 12
+    if value < 32 {
+      32
+    } else {
+      value
+    }
+  }
+  let mut w = z.rounded(p, Nearest)
+  let mut recurrence = RawMpc::zero()
+  while w.real < @mpf.RawMpf::from_int(target) {
+    recurrence = recurrence.sub(w.reciprocal(p, Nearest), p, Nearest)
+    w = w.add_real(@mpf.RawMpf::one(), p, Nearest)
+  }
+  let inv = w.reciprocal(p, Nearest)
+  let inv2 = inv.square(p, Nearest)
+  let mut power = inv2
+  let mut value = w.ln(p, Nearest).sub(inv.scale_pow2(-1), p, Nearest)
+  let mut previous = @mpf.RawMpf::infinity()
+  let max_terms = p / 2 + 16
+  for k in 1..<=max_terms {
+    let coefficient = mpf_div_checked(
+      bernoulli_checked(2 * k, p, Nearest),
+      @mpf.RawMpf::from_int(2 * k),
+      p,
+      Nearest,
+    )
+    let term = power.mul_real(coefficient, p, Nearest)
+    let magnitude = term.abs(p, Nearest)
+    if k > 4 && magnitude >= previous {
+      break
+    }
+    value = value.sub(term, p, Nearest)
+    if k > 3 && tiny_enough_mpc(term, p, p + 12) {
+      break
+    }
+    previous = magnitude
+    power = power.mul(inv2, p, Nearest)
+  }
+  value.add(recurrence, p, Nearest).rounded(prec, rnd)
 }
 
 ///|
@@ -1663,14 +1744,22 @@ pub fn RawMpc::eta(
   if s.real.is_infinite() && s.real.sign == 0 && s.imag.is_finite() {
     return RawMpc::one()
   }
-  let p = ext_prec(prec) + 24
-  if s.real.sign == 1 {
-    let z = s.zeta(p, Nearest)
-    let factor = zeta_alt_factor_complex(s, p)
-    return z.mul(factor, p, Nearest).rounded(prec, rnd)
+  let base_p = ext_prec(prec) + 32
+  let pole_distance = s.sub(RawMpc::one(), base_p, Nearest).abs(24, Nearest)
+  let cancellation_bits = if pole_distance.is_zero() {
+    base_p
+  } else {
+    let bits = -(pole_distance.exp + pole_distance.bc)
+    if bits > 0 {
+      bits
+    } else {
+      0
+    }
   }
-  let terms = clamp_series_terms(p)
-  zeta_series_sum(s, p, 1, terms, true).rounded(prec, rnd)
+  let p = base_p + cancellation_bits + 16
+  let zeta_value = s.zeta(p, Nearest)
+  let factor = zeta_alt_factor_complex(s, p)
+  zeta_value.mul(factor, p, Nearest).rounded(prec, rnd)
 }
 
 ///|
