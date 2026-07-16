@@ -4,6 +4,7 @@ fn from_mpf_error(err : @mpf.MpfError) -> MpiError {
     ValueError(msg) => ValueError(msg)
     DomainError(msg) => DomainError(msg)
     DivisionByZero(msg) => DomainError(msg)
+    OverflowError(msg) => ValueError(msg)
     ParseError(msg) => ParseError(msg)
     FormatError(msg) => ValueError(msg)
     UnsupportedError(msg) => UnsupportedError(msg)

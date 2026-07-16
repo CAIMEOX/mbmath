@@ -7,12 +7,18 @@ import {
 }
 
 // Values
+pub fn decimal_digits_to_precision(Int) -> Int
+
+pub fn precision_to_decimal_digits(Int) -> Int
+
+pub fn representation_digits(Int) -> Int
 
 // Errors
 pub(all) suberror MpfError {
   ValueError(String)
   DomainError(String)
   DivisionByZero(String)
+  OverflowError(String)
   ParseError(String)
   FormatError(String)
   UnsupportedError(String)
@@ -36,9 +42,13 @@ pub fn RawMpf::format(Self, dps? : Int, base? : Int, binary_exp? : Bool) -> Stri
 pub fn RawMpf::format_spec(Self, StringView, dps? : Int) -> String raise MpfError
 pub fn RawMpf::fractional_part(Self, Int, RoundMode) -> Self
 pub fn RawMpf::frexp(Self) -> (Self, Int) raise MpfError
+pub fn RawMpf::from_bigint(@bigint.BigInt) -> Self
+pub fn RawMpf::from_double(Double, prec? : Int, rnd? : RoundMode) -> Self
 pub fn RawMpf::from_int(Int) -> Self
 pub fn RawMpf::from_mantissa_exponent(@bigint.BigInt, Int, Int, RoundMode) -> Self
+pub fn RawMpf::from_ratio(@bigint.BigInt, @bigint.BigInt, Int, RoundMode) -> Self raise MpfError
 pub fn RawMpf::from_raw_parts(Int, @bigint.BigInt, Int, Int, Int, RoundMode) -> Self
+pub fn RawMpf::half() -> Self
 pub fn RawMpf::hypot(Self, Self, Int, RoundMode) -> Self raise MpfError
 pub fn RawMpf::infinity() -> Self
 pub fn RawMpf::int_divided_by(Self, Int, Int, RoundMode) -> Self raise MpfError
@@ -46,6 +56,7 @@ pub fn RawMpf::is_finite(Self) -> Bool
 pub fn RawMpf::is_infinite(Self) -> Bool
 pub fn RawMpf::is_nan(Self) -> Bool
 pub fn RawMpf::is_zero(Self) -> Bool
+pub fn RawMpf::mantissa_exponent(Self, signed? : Bool) -> (@bigint.BigInt, Int) raise MpfError
 pub fn RawMpf::min_max(ArrayView[Self]) -> (Self, Self) raise MpfError
 pub fn RawMpf::modulo(Self, Self, Int, RoundMode) -> Self raise MpfError
 pub fn RawMpf::mul(Self, Self, Int, RoundMode) -> Self
@@ -68,7 +79,13 @@ pub fn RawMpf::sqrt(Self, Int, RoundMode) -> Self raise MpfError
 pub fn RawMpf::stable_hash(Self) -> Int
 pub fn RawMpf::sub(Self, Self, Int, RoundMode) -> Self
 pub fn RawMpf::sum(ArrayView[Self], Int, RoundMode, absolute? : Bool) -> Self
+pub fn RawMpf::ten() -> Self
+pub fn RawMpf::to_double(Self, rnd? : RoundMode, strict? : Bool) -> Double raise MpfError
+pub fn RawMpf::to_fixed(Self, Int) -> @bigint.BigInt raise MpfError
+pub fn RawMpf::to_integer(Self, rnd? : RoundMode) -> @bigint.BigInt raise MpfError
+pub fn RawMpf::to_ratio(Self) -> (@bigint.BigInt, @bigint.BigInt) raise MpfError
 pub fn RawMpf::to_string(Self) -> String raise MpfError
+pub fn RawMpf::two() -> Self
 pub fn RawMpf::zero() -> Self
 pub impl Compare for RawMpf
 pub impl Eq for RawMpf

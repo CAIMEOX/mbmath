@@ -13,6 +13,7 @@ fn from_mpf_error(err : @mpf.MpfError) -> MpcError {
     ValueError(msg) => ValueError(msg)
     DomainError(msg) => DomainError(msg)
     DivisionByZero(msg) => PoleError(msg)
+    OverflowError(msg) => ValueError(msg)
     ParseError(msg) => ValueError(msg)
     FormatError(msg) => ValueError(msg)
     UnsupportedError(msg) => ValueError(msg)

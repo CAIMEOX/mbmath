@@ -29,6 +29,7 @@ pub(all) suberror MpfError {
   ValueError(String)
   DomainError(String)
   DivisionByZero(String)
+  OverflowError(String)
   ParseError(String)
   FormatError(String)
   UnsupportedError(String)
