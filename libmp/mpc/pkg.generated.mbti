@@ -71,6 +71,7 @@ pub fn RawMpc::fresnel_sine_integral(Self, Int, @mpf.RoundMode) -> Self raise Mp
 pub fn RawMpc::gamma(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::harmonic(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::hurwitz_zeta(Self, Self, Int, @mpf.RoundMode) -> Self raise MpcError
+pub fn RawMpc::hurwitz_zeta_derivative(Self, Self, Int, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::hyperbolic_cosine_integral(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::hyperbolic_sine_integral(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::hyperfactorial(Self, Int, @mpf.RoundMode) -> Self raise MpcError
@@ -116,6 +117,7 @@ pub fn RawMpc::tan(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::tanh(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::zero() -> Self
 pub fn RawMpc::zeta(Self, Int, @mpf.RoundMode, alt? : Bool) -> Self raise MpcError
+pub fn RawMpc::zeta_derivative(Self, Int, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::zeta_sum(Self, Int, @mpf.RoundMode, start? : Int, terms? : Int) -> Self raise MpcError
 pub impl Hash for RawMpc
 pub impl Neg for RawMpc

@@ -3224,6 +3224,258 @@ fn hurwitz_power(
 }
 
 ///|
+fn exact_factorial(n : Int) -> BigInt {
+  let mut result = 1N
+  for k in 2..<=n {
+    result *= BigInt::from_int(k)
+  }
+  result
+}
+
+///|
+fn derivative_binomial_coefficients(order : Int) -> Array[@mpf.RawMpf] {
+  let result = Array::make(order + 1, @mpf.RawMpf::zero())
+  let mut coefficient = 1N
+  for k in 0..<=order {
+    result[k] = @mpf.RawMpf::from_bigint(coefficient)
+    if k < order {
+      coefficient = coefficient *
+        BigInt::from_int(order - k) /
+        BigInt::from_int(k + 1)
+    }
+  }
+  result
+}
+
+///|
+fn signed_logarithm_powers(
+  logarithm : RawMpc,
+  order : Int,
+  p : Int,
+) -> Array[RawMpc] {
+  let powers = Array::make(order + 1, RawMpc::zero())
+  powers[0] = RawMpc::one()
+  let negative_logarithm = logarithm.negated(p, Nearest)
+  for k in 1..<=order {
+    powers[k] = powers[k - 1].mul(negative_logarithm, p, Nearest)
+  }
+  powers
+}
+
+///|
+fn multiply_derivative_jet_by_linear(
+  derivatives : Array[RawMpc],
+  factor : RawMpc,
+  p : Int,
+) -> Array[RawMpc] {
+  let order = derivatives.length() - 1
+  let result = Array::make(order + 1, RawMpc::zero())
+  result[0] = derivatives[0].mul(factor, p, Nearest)
+  for k in 1..<=order {
+    result[k] = derivatives[k]
+      .mul(factor, p, Nearest)
+      .add(
+        derivatives[k - 1].mul_real(@mpf.RawMpf::from_int(k), p, Nearest),
+        p,
+        Nearest,
+      )
+  }
+  result
+}
+
+///|
+fn hurwitz_summand_derivative(
+  base : RawMpc,
+  minus_s : RawMpc,
+  integer_exponent : Int?,
+  order : Int,
+  p : Int,
+) -> RawMpc raise MpcError {
+  let value = hurwitz_power(base, minus_s, integer_exponent, p)
+  if order == 0 {
+    return value
+  }
+  if base == RawMpc::zero() {
+    raise DomainError("Hurwitz zeta derivatives are singular at parameter zero")
+  }
+  let logarithm = base.log(p, Nearest)
+  value.mul(logarithm.pow_int(order, p, Nearest), p, Nearest)
+  |> fn(term) { if (order & 1) == 1 { term.negated(p, Nearest) } else { term } }
+}
+
+///|
+fn hurwitz_integral_tail_derivative(
+  s : RawMpc,
+  endpoint : RawMpc,
+  endpoint_negative_s : RawMpc,
+  endpoint_logarithm : RawMpc,
+  order : Int,
+  p : Int,
+) -> RawMpc raise MpcError {
+  let denominator = s.sub(RawMpc::one(), p, Nearest)
+  let denominator_inverse = denominator.reciprocal(p, Nearest)
+  let exponential = endpoint_negative_s.mul(endpoint, p, Nearest)
+  let mut logarithm_power = RawMpc::one()
+  let mut falling_factorial = exact_factorial(order)
+  let mut sum = RawMpc::zero()
+  for k in 0..<=order {
+    let denominator_power = denominator_inverse.pow_int(
+      order - k + 1,
+      p,
+      Nearest,
+    )
+    let term = logarithm_power
+      .mul(denominator_power, p, Nearest)
+      .mul_real(@mpf.RawMpf::from_bigint(falling_factorial), p, Nearest)
+    sum = sum.add(term, p, Nearest)
+    if k < order {
+      logarithm_power = logarithm_power.mul(endpoint_logarithm, p, Nearest)
+      falling_factorial /= BigInt::from_int(k + 1)
+    }
+  }
+  let result = exponential.mul(sum, p, Nearest)
+  if (order & 1) == 1 {
+    result.negated(p, Nearest)
+  } else {
+    result
+  }
+}
+
+///|
+fn hurwitz_euler_maclaurin_derivative(
+  s : RawMpc,
+  parameter : RawMpc,
+  order : Int,
+  target_p : Int,
+) -> RawMpc raise MpcError {
+  let order_guard = order * int_bit_length(order + 2)
+  let p = ext_prec(target_p) + 96 + order_guard
+  let imaginary_size = nonnegative_ceiling_to_int(s.imag)
+  let real_size = nonnegative_ceiling_to_int(s.real)
+  let negative_shift = if parameter.real.sign == 1 {
+    nonnegative_ceiling_to_int(parameter.real) + 2
+  } else {
+    0
+  }
+  let sample_count = (24 +
+  p / 3 +
+  imaginary_size +
+  real_size +
+  negative_shift +
+  2 * order).max(48)
+  let minus_s = s.negated(p, Nearest)
+  let integer_exponent = match exact_complex_integer(s) {
+    Some(value) => Some(-value)
+    None => None
+  }
+  let mut sum = RawMpc::zero()
+  for k in 0..<sample_count {
+    let base = parameter.add_real(@mpf.RawMpf::from_int(k), p, Nearest)
+    sum = sum.add(
+      hurwitz_summand_derivative(base, minus_s, integer_exponent, order, p),
+      p,
+      Nearest,
+    )
+  }
+  let endpoint = parameter.add_real(
+    @mpf.RawMpf::from_int(sample_count),
+    p,
+    Nearest,
+  )
+  let endpoint_logarithm = endpoint.log(p, Nearest)
+  let endpoint_negative_s = hurwitz_power(
+    endpoint, minus_s, integer_exponent, p,
+  )
+  sum = sum.add(
+    hurwitz_integral_tail_derivative(
+      s, endpoint, endpoint_negative_s, endpoint_logarithm, order, p,
+    ),
+    p,
+    Nearest,
+  )
+  let logarithm_powers = signed_logarithm_powers(endpoint_logarithm, order, p)
+  sum = sum.add(
+    endpoint_negative_s.mul(logarithm_powers[order], p, Nearest).scale_pow2(-1),
+    p,
+    Nearest,
+  )
+  let binomials = derivative_binomial_coefficients(order)
+  let inverse_endpoint = endpoint.reciprocal(p, Nearest)
+  let inverse_endpoint_squared = inverse_endpoint.square(p, Nearest)
+  let mut power = endpoint_negative_s.mul(inverse_endpoint, p, Nearest)
+  let mut rising_derivatives = Array::make(order + 1, RawMpc::zero())
+  rising_derivatives[0] = s.rounded(p, Nearest)
+  if order > 0 {
+    rising_derivatives[1] = RawMpc::one()
+  }
+  let mut factorial_value = @mpf.RawMpf::two()
+  let max_terms = p / 2 +
+    4 * int_bit_length(imaginary_size + real_size + 2) +
+    2 * order +
+    32
+  let mut previous = @mpf.RawMpf::infinity()
+  let mut tiny_streak = 0
+  let mut converged = false
+  for k in 1..<=max_terms {
+    let coefficient = mpf_div_checked(
+      bernoulli_checked(2 * k, p, Nearest),
+      factorial_value,
+      p,
+      Nearest,
+    )
+    let mut derivative = RawMpc::zero()
+    for j in 0..<=order {
+      let component = rising_derivatives[j]
+        .mul(logarithm_powers[order - j], p, Nearest)
+        .mul_real(binomials[j], p, Nearest)
+      derivative = derivative.add(component, p, Nearest)
+    }
+    let term = derivative
+      .mul(power, p, Nearest)
+      .mul_real(coefficient, p, Nearest)
+    let magnitude = term.abs(24, Nearest)
+    if k > 4 && !previous.is_zero() && magnitude >= previous {
+      break
+    }
+    sum = sum.add(term, p, Nearest)
+    if k > 3 &&
+      (
+        complex_relative_tiny(term, sum, 24, target_p + 40) ||
+        tiny_enough_mpc(term, 24, target_p + 40)
+      ) {
+      tiny_streak += 1
+      if tiny_streak >= 2 {
+        converged = true
+        break
+      }
+    } else {
+      tiny_streak = 0
+    }
+    previous = magnitude
+    power = power.mul(inverse_endpoint_squared, p, Nearest)
+    rising_derivatives = multiply_derivative_jet_by_linear(
+      rising_derivatives,
+      s.add_real(@mpf.RawMpf::from_int(2 * k - 1), p, Nearest),
+      p,
+    )
+    rising_derivatives = multiply_derivative_jet_by_linear(
+      rising_derivatives,
+      s.add_real(@mpf.RawMpf::from_int(2 * k), p, Nearest),
+      p,
+    )
+    factorial_value = factorial_value
+      .mul_int(2 * k + 1, 0, Down)
+      .mul_int(2 * k + 2, 0, Down)
+  }
+  if !converged {
+    raise ConvergenceError(
+      "Hurwitz zeta derivative Euler-Maclaurin expansion did not converge",
+    )
+  }
+  sum.rounded(target_p, Nearest)
+}
+
+///|
 fn hurwitz_euler_maclaurin(
   s : RawMpc,
   parameter : RawMpc,
@@ -3341,6 +3593,71 @@ pub fn RawMpc::hurwitz_zeta(
     return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
   }
   hurwitz_euler_maclaurin(s, parameter, prec).rounded(prec, rnd)
+}
+
+///|
+/// Evaluate an arbitrary nonnegative derivative of the principal Hurwitz zeta
+/// function with respect to `s`.
+///
+/// The finite sum and every Euler-Maclaurin tail component are differentiated
+/// analytically. Negative noninteger parameters use principal logarithms;
+/// negative integer and zero parameters are singular for derivatives.
+pub fn RawMpc::hurwitz_zeta_derivative(
+  s : RawMpc,
+  parameter : RawMpc,
+  order : Int,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  if order < 0 {
+    raise DomainError("Hurwitz zeta derivative order must be nonnegative")
+  }
+  if order == 0 {
+    return s.hurwitz_zeta(parameter, prec, rnd)
+  }
+  if s.real.is_nan() ||
+    s.imag.is_nan() ||
+    parameter.real.is_nan() ||
+    parameter.imag.is_nan() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  if s.imag.is_zero() && s.real == @mpf.RawMpf::one() {
+    return RawMpc::new(@mpf.RawMpf::infinity(), @mpf.RawMpf::zero())
+  }
+  if parameter.imag.is_zero() &&
+    parameter.real.sign == 1 &&
+    parameter.real.exp >= 0 {
+    raise DomainError("Hurwitz zeta is singular at negative integer parameters")
+  }
+  if parameter == RawMpc::zero() {
+    raise DomainError("Hurwitz zeta derivatives are singular at parameter zero")
+  }
+  if s.is_non_finite() || parameter.is_non_finite() {
+    if s.imag.is_zero() &&
+      s.real.is_infinite() &&
+      s.real.sign == 0 &&
+      parameter == RawMpc::one() {
+      return RawMpc::zero()
+    }
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  hurwitz_euler_maclaurin_derivative(s, parameter, order, prec).rounded(
+    prec, rnd,
+  )
+}
+
+///|
+/// Evaluate an arbitrary nonnegative derivative of the Riemann zeta function.
+pub fn RawMpc::zeta_derivative(
+  s : RawMpc,
+  order : Int,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  if order == 0 {
+    return s.zeta(prec, rnd)
+  }
+  s.hurwitz_zeta_derivative(RawMpc::one(), order, prec, rnd)
 }
 
 ///|

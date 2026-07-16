@@ -102,6 +102,7 @@ pub fn MPContext::complex_gamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_gamma_product(Self, ArrayView[@mpc.RawMpc], ArrayView[@mpc.RawMpc]) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_harmonic(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_hurwitz_zeta(Self, @mpc.RawMpc, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_hurwitz_zeta_derivative(Self, @mpc.RawMpc, @mpc.RawMpc, Int) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_hyperbolic_cosine_integral(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_hyperbolic_sine_integral(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_hyperfactorial(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
@@ -128,6 +129,7 @@ pub fn MPContext::complex_superfactorial(Self, @mpc.RawMpc) -> @mpc.RawMpc raise
 pub fn MPContext::complex_tan(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_tanh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_zeta(Self, @mpc.RawMpc, alt? : Bool) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_zeta_derivative(Self, @mpc.RawMpc, Int) -> @mpc.RawMpc raise MPError
 pub fn MPContext::cond(Self, MpfMatrix, norm? : StringView) -> @mpf.RawMpf raise MPError
 pub fn MPContext::cos(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::cos_pi(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
@@ -193,6 +195,7 @@ pub fn MPContext::harmonic(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::hessenberg(Self, MpfMatrix, tol? : @mpf.RawMpf) -> (MpfMatrix, MpfMatrix) raise MPError
 pub fn MPContext::hilbert(Self, Int) -> MpfMatrix raise MPError
 pub fn MPContext::hurwitz_zeta(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
+pub fn MPContext::hurwitz_zeta_derivative(Self, @mpf.RawMpf, @mpf.RawMpf, Int) -> @mpf.RawMpf raise MPError
 pub fn MPContext::hyperbolic_cosine_integral(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::hyperbolic_sine_integral(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::hyperfactorial(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
@@ -311,6 +314,7 @@ pub fn MPContext::twin_prime_constant(Self) -> @mpf.RawMpf raise MPError
 pub fn MPContext::vector_norm(Self, ArrayView[@mpf.RawMpf], p? : Int, inf? : Bool) -> @mpf.RawMpf raise MPError
 pub fn MPContext::zeros(Self, Int, cols? : Int) -> MpfMatrix raise MPError
 pub fn MPContext::zeta(Self, @mpf.RawMpf, alt? : Bool) -> @mpf.RawMpf raise MPError
+pub fn MPContext::zeta_derivative(Self, @mpf.RawMpf, Int) -> @mpf.RawMpf raise MPError
 
 pub struct MpfMatrix {
   rows : Int
