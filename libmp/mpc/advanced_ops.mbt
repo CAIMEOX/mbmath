@@ -886,6 +886,12 @@ pub fn RawMpc::asinh(
   rnd : @mpf.RoundMode,
 ) -> RawMpc raise MpcError {
   let p = ext_prec(prec) + 10
+  let reflect = (!z.real.is_nan() && z.real.sign == 1) ||
+    (z.real.is_zero() && !z.imag.is_nan() && z.imag.sign == 1)
+  if reflect {
+    let reflected = z.negated(p, Nearest).asinh(p, Nearest)
+    return reflected.negated(p, Nearest).rounded(prec, rnd)
+  }
   let inside = z.square(p, Nearest).add(RawMpc::one(), p, Nearest)
   let root = inside.sqrt(p, Nearest)
   z.add(root, p, Nearest).ln(prec, rnd)
@@ -1064,7 +1070,7 @@ pub fn RawMpc::nthroot(
 ) -> RawMpc raise MpcError {
   if n < 2 {
     if n == 0 {
-      return RawMpc::one()
+      raise ValueError("RawMpc::nthroot: root index must be non-zero")
     }
     if n == 1 {
       return z.rounded(prec, rnd)

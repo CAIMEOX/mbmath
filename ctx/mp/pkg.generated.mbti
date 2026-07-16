@@ -52,10 +52,34 @@ pub fn MPContext::cholesky_solve(Self, MpfMatrix, ArrayView[@mpf.RawMpf], tol? :
 pub fn MPContext::cli_eval_division(Self, Int, Int, dps? : Int) -> String raise MPError
 pub fn MPContext::cli_eval_literal(Self, StringView, dps? : Int) -> String raise MPError
 pub fn MPContext::complex(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpc.RawMpc
+pub fn MPContext::complex_abs(Self, @mpc.RawMpc) -> @mpf.RawMpf raise MPError
+pub fn MPContext::complex_acos(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_acosh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_arg(Self, @mpc.RawMpc) -> @mpf.RawMpf raise MPError
+pub fn MPContext::complex_asin(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_asinh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_atan(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_atanh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_cbrt(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_conjugate(Self, @mpc.RawMpc) -> @mpc.RawMpc
+pub fn MPContext::complex_cos(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_cos_pi(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_cos_sin(Self, @mpc.RawMpc) -> (@mpc.RawMpc, @mpc.RawMpc) raise MPError
+pub fn MPContext::complex_cos_sin_pi(Self, @mpc.RawMpc) -> (@mpc.RawMpc, @mpc.RawMpc) raise MPError
+pub fn MPContext::complex_cosh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_exp(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_exp_i(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_exp_i_pi(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_gamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_log(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_nthroot(Self, @mpc.RawMpc, Int) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_pow(Self, @mpc.RawMpc, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_sin(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_sin_pi(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_sinh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sqrt(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_tan(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_tanh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_zeta(Self, @mpc.RawMpc, alt? : Bool) -> @mpc.RawMpc raise MPError
 pub fn MPContext::cond(Self, MpfMatrix, norm? : StringView) -> @mpf.RawMpf raise MPError
 pub fn MPContext::cos(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
