@@ -3735,6 +3735,81 @@ pub fn RawMpc::stieltjes_constant(
 }
 
 ///|
+/// Evaluate an arbitrary nonnegative derivative of the Riemann-Siegel theta
+/// function at this argument.
+///
+/// The zero-order value is formed from the analytic log-gamma difference.
+/// Positive orders use the corresponding complex polygamma values directly,
+/// so no finite-difference approximation is involved.
+pub fn RawMpc::riemann_siegel_theta(
+  t : RawMpc,
+  order : Int,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  if order < 0 {
+    raise DomainError(
+      "Riemann-Siegel theta derivative order must be nonnegative",
+    )
+  }
+  if t.real.is_nan() || t.imag.is_nan() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  if t.imag.is_zero() && t.real.is_infinite() {
+    if order >= 2 {
+      return RawMpc::zero()
+    }
+    if order == 0 && t.real.sign == 1 {
+      return RawMpc::new(@mpf.RawMpf::negative_infinity(), @mpf.RawMpf::zero())
+    }
+    return RawMpc::new(@mpf.RawMpf::infinity(), @mpf.RawMpf::zero())
+  }
+  if t.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  if order == 0 && t == RawMpc::zero() {
+    return RawMpc::zero()
+  }
+  let p = ext_prec(prec) + 48 + order * int_bit_length(order + 2)
+  let quarter = @mpf.RawMpf::one().scale_pow2(-2)
+  let half_i_t = RawMpc::new(
+    t.imag.negated(p, Nearest).scale_pow2(-1),
+    t.real.scale_pow2(-1),
+  )
+  let plus_argument = half_i_t.add_real(quarter, p, Nearest)
+  let minus_argument = half_i_t
+    .negated(p, Nearest)
+    .add_real(quarter, p, Nearest)
+  let logarithm_pi = mpf_log_checked(elefun_pi_checked(p, Nearest), p, Nearest)
+  if order == 0 {
+    let difference = plus_argument
+      .loggamma(p, Nearest)
+      .sub(minus_argument.loggamma(p, Nearest), p, Nearest)
+    let gamma_part = RawMpc::new(
+      difference.imag.scale_pow2(-1),
+      difference.real.negated(p, Nearest).scale_pow2(-1),
+    )
+    return gamma_part
+      .sub(t.mul_real(logarithm_pi.scale_pow2(-1), p, Nearest), p, Nearest)
+      .rounded(prec, rnd)
+  }
+  let derivative_order = order - 1
+  let positive_half_i = RawMpc::new(@mpf.RawMpf::zero(), @mpf.RawMpf::half())
+  let negative_half_i = positive_half_i.negated(p, Nearest)
+  let left = negative_half_i
+    .pow_int(derivative_order, p, Nearest)
+    .mul(minus_argument.polygamma(derivative_order, p, Nearest), p, Nearest)
+  let right = positive_half_i
+    .pow_int(derivative_order, p, Nearest)
+    .mul(plus_argument.polygamma(derivative_order, p, Nearest), p, Nearest)
+  let mut result = left.add(right, p, Nearest).scale_pow2(-2)
+  if order == 1 {
+    result = result.sub_real(logarithm_pi.scale_pow2(-1), p, Nearest)
+  }
+  result.rounded(prec, rnd)
+}
+
+///|
 fn prime_zeta_term_count(s : RawMpc, p : Int) -> Int raise MpcError {
   let threshold = @mpf.RawMpf::from_int(p + 64)
   let quotient = mpf_div_checked(threshold, s.real, p, Ceiling)

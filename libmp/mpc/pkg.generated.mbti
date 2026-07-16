@@ -101,6 +101,7 @@ pub fn RawMpc::prime_zeta(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::real_divided_by(Self, @mpf.RawMpf, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::reciprocal(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::rgamma(Self, Int, @mpf.RoundMode) -> Self raise MpcError
+pub fn RawMpc::riemann_siegel_theta(Self, Int, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::rounded(Self, Int, @mpf.RoundMode) -> Self
 pub fn RawMpc::scale_pow2(Self, Int) -> Self
 pub fn RawMpc::si(Self, Int, @mpf.RoundMode) -> Self raise MpcError

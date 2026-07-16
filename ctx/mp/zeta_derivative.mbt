@@ -1,5 +1,5 @@
 ///|
-fn require_real_zeta_derivative(
+fn require_real_special_value(
   value : @mpc.RawMpc,
   name : StringView,
 ) -> @mpf.RawMpf raise MPError {
@@ -31,7 +31,7 @@ pub fn MPContext::zeta_derivative(
   ) catch {
     err => raise from_mpc_error(err)
   }
-  require_real_zeta_derivative(value, "zeta_derivative")
+  require_real_special_value(value, "zeta_derivative")
 }
 
 ///|
@@ -78,7 +78,7 @@ pub fn MPContext::hurwitz_zeta_derivative(
   ) catch {
     err => raise from_mpc_error(err)
   }
-  require_real_zeta_derivative(value, "hurwitz_zeta_derivative")
+  require_real_special_value(value, "hurwitz_zeta_derivative")
 }
 
 ///|

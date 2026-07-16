@@ -119,6 +119,7 @@ pub fn MPContext::complex_polygamma(Self, Int, @mpc.RawMpc) -> @mpc.RawMpc raise
 pub fn MPContext::complex_pow(Self, @mpc.RawMpc, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_prime_zeta(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_reciprocal_gamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_riemann_siegel_theta(Self, @mpc.RawMpc, order? : Int) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_rising_factorial(Self, @mpc.RawMpc, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sin(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sin_pi(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
@@ -284,6 +285,7 @@ pub fn MPContext::quadts(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf,
 pub fn MPContext::randmatrix(Self, Int, cols? : Int) -> MpfMatrix raise MPError
 pub fn MPContext::rank(Self, MpfMatrix, tol? : @mpf.RawMpf) -> Int raise MPError
 pub fn MPContext::reciprocal_gamma(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
+pub fn MPContext::riemann_siegel_theta(Self, @mpf.RawMpf, order? : Int) -> @mpf.RawMpf raise MPError
 pub fn MPContext::rising_factorial(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::round_mode(Self) -> @mpf.RoundMode
 pub fn MPContext::scalar_abs(Self, @mpf.RawMpf) -> @mpf.RawMpf
