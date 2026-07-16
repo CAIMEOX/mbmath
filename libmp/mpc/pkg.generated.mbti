@@ -70,6 +70,7 @@ pub fn RawMpc::fresnel_integrals(Self, Int, @mpf.RoundMode) -> (Self, Self) rais
 pub fn RawMpc::fresnel_sine_integral(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::gamma(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::harmonic(Self, Int, @mpf.RoundMode) -> Self raise MpcError
+pub fn RawMpc::hurwitz_zeta(Self, Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::hyperbolic_cosine_integral(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::hyperbolic_sine_integral(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::hyperfactorial(Self, Int, @mpf.RoundMode) -> Self raise MpcError

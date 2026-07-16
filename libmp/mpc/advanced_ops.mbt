@@ -3195,6 +3195,155 @@ pub fn RawMpc::zeta(
 }
 
 ///|
+fn exact_complex_integer(z : RawMpc) -> Int? {
+  if !z.imag.is_zero() || !z.real.is_finite() || z.real.exp < 0 {
+    return None
+  }
+  if z.real.is_zero() {
+    return Some(0)
+  }
+  let magnitude = z.real.man << z.real.exp
+  if magnitude.bit_length() > 60 {
+    return None
+  }
+  let value = magnitude.to_int()
+  Some(if z.real.sign == 1 { -value } else { value })
+}
+
+///|
+fn hurwitz_power(
+  base : RawMpc,
+  exponent : RawMpc,
+  integer_exponent : Int?,
+  p : Int,
+) -> RawMpc raise MpcError {
+  match integer_exponent {
+    Some(value) => base.pow_int(value, p, Nearest)
+    None => mpc_pow_checked(base, exponent, p, Nearest)
+  }
+}
+
+///|
+fn hurwitz_euler_maclaurin(
+  s : RawMpc,
+  parameter : RawMpc,
+  target_p : Int,
+) -> RawMpc raise MpcError {
+  let p = ext_prec(target_p) + 80
+  let imaginary_size = nonnegative_ceiling_to_int(s.imag)
+  let negative_shift = if parameter.real.sign == 1 {
+    nonnegative_ceiling_to_int(parameter.real) + 2
+  } else {
+    0
+  }
+  let sample_count = (24 + p / 3 + imaginary_size + negative_shift).max(48)
+  let minus_s = s.negated(p, Nearest)
+  let integer_exponent = match exact_complex_integer(s) {
+    Some(value) => Some(-value)
+    None => None
+  }
+  let mut sum = RawMpc::zero()
+  for k in 0..<sample_count {
+    let base = parameter.add_real(@mpf.RawMpf::from_int(k), p, Nearest)
+    sum = sum.add(hurwitz_power(base, minus_s, integer_exponent, p), p, Nearest)
+  }
+  let endpoint = parameter.add_real(
+    @mpf.RawMpf::from_int(sample_count),
+    p,
+    Nearest,
+  )
+  let endpoint_negative_s = hurwitz_power(
+    endpoint, minus_s, integer_exponent, p,
+  )
+  let integral_tail = endpoint_negative_s
+    .mul(endpoint, p, Nearest)
+    .div(s.sub(RawMpc::one(), p, Nearest), p, Nearest)
+  sum = sum
+    .add(integral_tail, p, Nearest)
+    .add(endpoint_negative_s.scale_pow2(-1), p, Nearest)
+  let inverse_endpoint = endpoint.reciprocal(p, Nearest)
+  let inverse_endpoint_squared = inverse_endpoint.square(p, Nearest)
+  let mut power = endpoint_negative_s.mul(inverse_endpoint, p, Nearest)
+  let mut rising = s.rounded(p, Nearest)
+  let mut factorial_value = @mpf.RawMpf::two()
+  let max_terms = p / 2 + 4 * int_bit_length(imaginary_size + 2) + 32
+  let mut previous = @mpf.RawMpf::infinity()
+  let mut converged = false
+  for k in 1..<=max_terms {
+    let coefficient = mpf_div_checked(
+      bernoulli_checked(2 * k, p, Nearest),
+      factorial_value,
+      p,
+      Nearest,
+    )
+    let term = rising.mul(power, p, Nearest).mul_real(coefficient, p, Nearest)
+    let magnitude = term.abs(24, Nearest)
+    if k > 4 && magnitude >= previous {
+      break
+    }
+    sum = sum.add(term, p, Nearest)
+    if k > 3 && complex_relative_tiny(term, sum, 24, target_p + 32) {
+      converged = true
+      break
+    }
+    previous = magnitude
+    power = power.mul(inverse_endpoint_squared, p, Nearest)
+    rising = rising
+      .mul(s.add_real(@mpf.RawMpf::from_int(2 * k - 1), p, Nearest), p, Nearest)
+      .mul(s.add_real(@mpf.RawMpf::from_int(2 * k), p, Nearest), p, Nearest)
+    factorial_value = factorial_value
+      .mul_int(2 * k + 1, 0, Down)
+      .mul_int(2 * k + 2, 0, Down)
+  }
+  if !converged {
+    raise ConvergenceError(
+      "Hurwitz zeta Euler-Maclaurin expansion did not converge",
+    )
+  }
+  sum.rounded(target_p, Nearest)
+}
+
+///|
+/// Evaluate the principal Hurwitz zeta function `zeta(s, a)`.
+///
+/// Negative noninteger parameters use principal complex powers. Negative
+/// integer parameters are singular in the mpmath convention and raise a domain
+/// error. The meromorphic pole at `s=1` is represented by positive infinity.
+pub fn RawMpc::hurwitz_zeta(
+  s : RawMpc,
+  parameter : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  if s.real.is_nan() ||
+    s.imag.is_nan() ||
+    parameter.real.is_nan() ||
+    parameter.imag.is_nan() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  if s.imag.is_zero() && s.real == @mpf.RawMpf::one() {
+    return RawMpc::new(@mpf.RawMpf::infinity(), @mpf.RawMpf::zero())
+  }
+  if s.real.is_zero() && s.imag.is_zero() {
+    return RawMpc::new(@mpf.RawMpf::half(), @mpf.RawMpf::zero()).sub(
+      parameter, prec, rnd,
+    )
+  }
+  if parameter == RawMpc::one() {
+    return s.zeta(prec, rnd)
+  }
+  if parameter.imag.is_zero() &&
+    parameter.real.sign == 1 &&
+    parameter.real.exp >= 0 {
+    raise DomainError("Hurwitz zeta is singular at negative integer parameters")
+  }
+  if s.is_non_finite() || parameter.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  hurwitz_euler_maclaurin(s, parameter, prec).rounded(prec, rnd)
+}
+
+///|
 fn prime_zeta_term_count(s : RawMpc, p : Int) -> Int raise MpcError {
   let threshold = @mpf.RawMpf::from_int(p + 64)
   let quotient = mpf_div_checked(threshold, s.real, p, Ceiling)
