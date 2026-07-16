@@ -502,22 +502,6 @@ fn complex_loggamma_general(z : RawMpc, p : Int) -> RawMpc raise MpcError {
 }
 
 ///|
-fn clamp_series_terms(prec : Int) -> Int {
-  if prec <= 0 {
-    256
-  } else {
-    let n = prec * 4
-    if n < 256 {
-      256
-    } else if n > 8000 {
-      8000
-    } else {
-      n
-    }
-  }
-}
-
-///|
 fn error_series_work_precision(z : RawMpc, base_p : Int) -> Int {
   let magnitude = mpc_mag_bound(z)
   let exponent = 2 * magnitude + 2
@@ -1689,6 +1673,93 @@ pub fn RawMpc::si(
 }
 
 ///|
+fn complex_bessel_j_asymptotic(
+  order : Int,
+  z : RawMpc,
+  base_p : Int,
+) -> RawMpc raise MpcError {
+  let p = base_p + 64
+  let inverse = z.reciprocal(p, Nearest)
+  let order_mpf = @mpf.RawMpf::from_int(order)
+  let mu = order_mpf.mul(order_mpf, p, Nearest).mul_int(4, p, Nearest)
+  let mut term = RawMpc::one()
+  let mut cosine_series = term
+  let mut sine_series = RawMpc::zero()
+  let mut previous = @mpf.RawMpf::infinity()
+  let mut converged = false
+  let max_terms = 2 * base_p + 128
+  for k in 1..<=max_terms {
+    let odd = 2 * k - 1
+    let coefficient = mu.sub(
+      @mpf.RawMpf::from_int(odd).mul_int(odd, p, Nearest),
+      p,
+      Nearest,
+    )
+    term = term
+      .mul_real(coefficient, p, Nearest)
+      .mul(inverse, p, Nearest)
+      .div_real(@mpf.RawMpf::from_int(8 * k), p, Nearest)
+    let magnitude = term.abs(p, Nearest)
+    if k > 4 && magnitude >= previous {
+      break
+    }
+    if (k & 1) == 0 {
+      let signed = if ((k / 2) & 1) == 1 {
+        term.negated(p, Nearest)
+      } else {
+        term
+      }
+      cosine_series = cosine_series.add(signed, p, Nearest)
+    } else {
+      let signed = if (((k - 1) / 2) & 1) == 1 {
+        term.negated(p, Nearest)
+      } else {
+        term
+      }
+      sine_series = sine_series.add(signed, p, Nearest)
+    }
+    let scale = {
+      let a = cosine_series.abs(p, Nearest)
+      let b = sine_series.abs(p, Nearest)
+      let largest = if a > b { a } else { b }
+      if largest < @mpf.RawMpf::one() {
+        @mpf.RawMpf::one()
+      } else {
+        largest
+      }
+    }
+    if k > 4 && magnitude <= scale.scale_pow2(-(base_p + 24)) {
+      converged = true
+      break
+    }
+    previous = magnitude
+  }
+  if !converged {
+    raise ConvergenceError("complex Bessel asymptotic series did not converge")
+  }
+  let pi = elefun_pi_checked(p, Nearest)
+  let phase_shift = pi
+    .mul_int(order, p, Nearest)
+    .scale_pow2(-1)
+    .add(pi.scale_pow2(-2), p, Nearest)
+  let phase = z.sub_real(phase_shift, p, Nearest)
+  let (cosine, sine) = phase.cos_sin(p, Nearest)
+  let denominator = z.mul_real(pi, p, Nearest)
+  let amplitude = denominator
+    .real_divided_by(@mpf.RawMpf::two(), p, Nearest)
+    .sqrt(p, Nearest)
+  amplitude.mul(
+    cosine
+    .mul(cosine_series, p, Nearest)
+    .sub(sine.mul(sine_series, p, Nearest), p, Nearest),
+    p,
+    Nearest,
+  )
+}
+
+///|
+/// Evaluate the first-kind Bessel function for an integer order and complex
+/// argument.
 pub fn RawMpc::bessel_j(
   z : RawMpc,
   n : Int,
@@ -1701,42 +1772,72 @@ pub fn RawMpc::bessel_j(
   if z.is_non_finite() {
     return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
   }
-  let mut m = n
+  let mut order = n
   let mut negate = false
-  if m < 0 {
-    m = -m
-    negate = (m & 1) == 1
+  if order < 0 {
+    order = -order
+    negate = (order & 1) == 1
   }
   if z == RawMpc::zero() {
-    return if m == 0 { RawMpc::one() } else { RawMpc::zero() }
+    return if order == 0 { RawMpc::one() } else { RawMpc::zero() }
   }
-  let p = ext_prec(prec) + 24 + int_bit_length(m)
-  let half_z = z.scale_pow2(-1)
-  let z2 = half_z.mul(half_z, p, Nearest)
-  let mut term = if m == 0 {
-    RawMpc::one()
-  } else {
-    let num = half_z.pow_int(m, p, Nearest)
-    num.div_real(factorial_mpf_small(m, p), p, Nearest)
-  }
-  let mut sum = term
-  let mut k = 0
-  let max_terms = clamp_series_terms(p)
-  while k < max_terms {
-    term = term.mul(z2, p, Nearest)
-    term = term.negated(p, Nearest)
-    term = term.div_real(@mpf.RawMpf::from_int(k + 1), p, Nearest)
-    term = term.div_real(@mpf.RawMpf::from_int(k + m + 1), p, Nearest)
-    sum = sum.add(term, p, Nearest)
-    if tiny_enough_mpc(term, p, p + 6) && k > 4 {
-      break
+  let base_p = ext_prec(prec) + 40 + int_bit_length(order)
+  let mut argument = z.rounded(base_p, Nearest)
+  if argument.real.sign == 1 {
+    argument = argument.negated(base_p, Nearest)
+    if (order & 1) == 1 {
+      negate = !negate
     }
-    k += 1
+  }
+  let order_mpf = @mpf.RawMpf::from_int(order)
+  let threshold = order_mpf
+    .mul(order_mpf, 32, Nearest)
+    .add(@mpf.RawMpf::from_int(base_p + 64), 32, Nearest)
+  let use_asymptotic = complex_norm_squared(argument, 32) >
+    threshold.mul(threshold, 32, Nearest)
+  let mut value = if use_asymptotic {
+    complex_bessel_j_asymptotic(order, argument, base_p)
+  } else {
+    let p = error_series_work_precision(argument, base_p) + 64
+    let half_z = argument.scale_pow2(-1)
+    let z2 = half_z.square(p, Nearest)
+    let mut term = if order == 0 {
+      RawMpc::one()
+    } else {
+      half_z
+      .pow_int(order, p, Nearest)
+      .div_real(factorial_mpf_small(order, p), p, Nearest)
+    }
+    let mut sum = term
+    let mut converged = false
+    let max_terms = 6 * p + 128
+    for k in 0..<max_terms {
+      term = term
+        .mul(z2, p, Nearest)
+        .negated(p, Nearest)
+        .div_real(@mpf.RawMpf::from_int(k + 1), p, Nearest)
+        .div_real(@mpf.RawMpf::from_int(k + order + 1), p, Nearest)
+      sum = sum.add(term, p, Nearest)
+      let abs_sum = sum.abs(p, Nearest)
+      let scale = if abs_sum < @mpf.RawMpf::one() {
+        @mpf.RawMpf::one()
+      } else {
+        abs_sum
+      }
+      if k > 4 && term.abs(p, Nearest) <= scale.scale_pow2(-(base_p + 32)) {
+        converged = true
+        break
+      }
+    }
+    if !converged {
+      raise ConvergenceError("complex Bessel power series did not converge")
+    }
+    sum
   }
   if negate {
-    sum = sum.negated(p, Nearest)
+    value = value.negated(base_p, Nearest)
   }
-  sum.rounded(prec, rnd)
+  value.rounded(prec, rnd)
 }
 
 ///|

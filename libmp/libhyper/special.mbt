@@ -963,6 +963,90 @@ pub fn exponential_integral(
 }
 
 ///|
+fn bessel_j_asymptotic_positive(
+  order : Int,
+  x : @mpf.RawMpf,
+  base_p : Int,
+) -> @mpf.RawMpf raise LibHyperError {
+  let p = base_p + 64
+  let inverse = div_checked(@mpf.RawMpf::one(), x, p, Nearest)
+  let order_mpf = @mpf.RawMpf::from_int(order)
+  let mu = order_mpf.mul(order_mpf, p, Nearest).mul_int(4, p, Nearest)
+  let mut term = @mpf.RawMpf::one()
+  let mut cosine_series = term
+  let mut sine_series = @mpf.RawMpf::zero()
+  let mut previous = @mpf.RawMpf::infinity()
+  let mut converged = false
+  let max_terms = 2 * base_p + 128
+  for k in 1..<=max_terms {
+    let odd = 2 * k - 1
+    let numerator = mu.sub(
+      @mpf.RawMpf::from_int(odd).mul_int(odd, p, Nearest),
+      p,
+      Nearest,
+    )
+    term = term.mul(numerator, p, Nearest).mul(inverse, p, Nearest)
+    term = div_checked(term, @mpf.RawMpf::from_int(8 * k), p, Nearest)
+    let magnitude = term.abs(p, Nearest)
+    if k > 4 && magnitude >= previous {
+      break
+    }
+    if (k & 1) == 0 {
+      let signed = if ((k / 2) & 1) == 1 {
+        term.negated(p, Nearest)
+      } else {
+        term
+      }
+      cosine_series = cosine_series.add(signed, p, Nearest)
+    } else {
+      let signed = if (((k - 1) / 2) & 1) == 1 {
+        term.negated(p, Nearest)
+      } else {
+        term
+      }
+      sine_series = sine_series.add(signed, p, Nearest)
+    }
+    let scale = {
+      let a = cosine_series.abs(p, Nearest)
+      let b = sine_series.abs(p, Nearest)
+      let largest = if a > b { a } else { b }
+      if largest < @mpf.RawMpf::one() {
+        @mpf.RawMpf::one()
+      } else {
+        largest
+      }
+    }
+    if k > 4 && magnitude <= scale.scale_pow2(-(base_p + 24)) {
+      converged = true
+      break
+    }
+    previous = magnitude
+  }
+  if !converged {
+    raise ConvergenceError("real Bessel asymptotic series did not converge")
+  }
+  let pi = pi_checked(p, Nearest)
+  let phase = x
+    .sub(pi.mul_int(order, p, Nearest).scale_pow2(-1), p, Nearest)
+    .sub(pi.scale_pow2(-2), p, Nearest)
+  let (cosine, sine) = cos_sin_checked(phase, p, Nearest)
+  let amplitude = sqrt_checked(
+    div_checked(@mpf.RawMpf::two(), pi.mul(x, p, Nearest), p, Nearest),
+    p,
+    Nearest,
+  )
+  amplitude.mul(
+    cosine
+    .mul(cosine_series, p, Nearest)
+    .sub(sine.mul(sine_series, p, Nearest), p, Nearest),
+    p,
+    Nearest,
+  )
+}
+
+///|
+/// Evaluate the first-kind Bessel function for an integer order and real
+/// argument.
 pub fn bessel_j(
   n : Int,
   x : @mpf.RawMpf,
@@ -975,43 +1059,66 @@ pub fn bessel_j(
   if x.is_infinite() {
     return @mpf.RawMpf::zero()
   }
-  let p = wp(prec) + 24
-  let mut m = n
-  let mut sign = 0
-  if m < 0 {
-    m = -m
-    if (m & 1) == 1 {
-      sign = 1
-    }
+  let mut order = n
+  let mut negate = false
+  if order < 0 {
+    order = -order
+    negate = (order & 1) == 1
   }
-  let half_x = x.scale_pow2(-1)
-  let x2_over4 = half_x.mul(half_x, p, Nearest)
-  let mut term = pow_real_checked(
-    half_x.abs(p, Nearest),
-    @mpf.RawMpf::from_int(m),
-    p,
-    Nearest,
-  )
-  term = div_checked(term, factorial_mpf(m, p), p, Nearest)
-  let mut sum = term
-  let mut k = 0
-  while k < 20000 {
-    term = term.mul(x2_over4, p, Nearest)
-    term = term.mul_int(-1, p, Nearest)
-    term = div_checked(term, @mpf.RawMpf::from_int(k + 1), p, Nearest)
-    term = div_checked(term, @mpf.RawMpf::from_int(k + m + 1), p, Nearest)
-    sum = sum.add(term, p, Nearest)
-    if tiny_enough(term.abs(p, Nearest), p + 12) && k > 4 {
-      break
-    }
-    k += 1
+  if x.is_zero() {
+    return if order == 0 { @mpf.RawMpf::one() } else { @mpf.RawMpf::zero() }
   }
-  if x.sign == 1 && (m & 1) == 1 {
-    sign = 1 - sign
+  if x.sign == 1 && (order & 1) == 1 {
+    negate = !negate
   }
-  if sign == 1 {
-    sum.negated(prec, rnd)
+  let base_p = wp(prec) + 40
+  let magnitude = x.abs(base_p, Nearest)
+  let order_mpf = @mpf.RawMpf::from_int(order)
+  let threshold = order_mpf
+    .mul(order_mpf, 32, Nearest)
+    .add(@mpf.RawMpf::from_int(base_p + 64), 32, Nearest)
+  let mut value = if magnitude > threshold {
+    bessel_j_asymptotic_positive(order, magnitude, base_p)
   } else {
-    sum.rounded(prec, rnd)
+    let mag = magnitude.exp + magnitude.bc
+    let p = base_p + cancellation_guard(mag, base_p) + 128
+    let half_x = magnitude.scale_pow2(-1)
+    let x2_over4 = half_x.mul(half_x, p, Nearest)
+    let mut term = pow_real_checked(
+      half_x,
+      @mpf.RawMpf::from_int(order),
+      p,
+      Nearest,
+    )
+    term = div_checked(term, factorial_mpf(order, p), p, Nearest)
+    let mut sum = term
+    let mut converged = false
+    let max_terms = 6 * p + 128
+    for k in 0..<max_terms {
+      term = term.mul(x2_over4, p, Nearest).mul_int(-1, p, Nearest)
+      term = div_checked(term, @mpf.RawMpf::from_int(k + 1), p, Nearest)
+      term = div_checked(term, @mpf.RawMpf::from_int(k + order + 1), p, Nearest)
+      sum = sum.add(term, p, Nearest)
+      let scale = {
+        let abs_sum = sum.abs(p, Nearest)
+        if abs_sum < @mpf.RawMpf::one() {
+          @mpf.RawMpf::one()
+        } else {
+          abs_sum
+        }
+      }
+      if k > 4 && term.abs(p, Nearest) <= scale.scale_pow2(-(base_p + 32)) {
+        converged = true
+        break
+      }
+    }
+    if !converged {
+      raise ConvergenceError("real Bessel power series did not converge")
+    }
+    sum
   }
+  if negate {
+    value = value.negated(base_p, Nearest)
+  }
+  value.rounded(prec, rnd)
 }
