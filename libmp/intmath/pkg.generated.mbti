@@ -7,6 +7,14 @@ import {
 }
 
 // Values
+pub fn double_factorial(Int) -> @bigint.BigInt raise IntMathError
+
+pub fn euler_number(Int) -> @bigint.BigInt raise IntMathError
+
+pub fn factorial(Int) -> @bigint.BigInt raise IntMathError
+
+pub fn fibonacci(Int) -> @bigint.BigInt
+
 pub fn format_radix(@bigint.BigInt, base? : Int) -> String raise IntMathError
 
 pub fn gcd(@bigint.BigInt, @bigint.BigInt) -> @bigint.BigInt
@@ -15,7 +23,21 @@ pub fn integer_sqrt(@bigint.BigInt) -> @bigint.BigInt raise IntMathError
 
 pub fn integer_sqrt_rem(@bigint.BigInt) -> (@bigint.BigInt, @bigint.BigInt) raise IntMathError
 
+pub fn is_prime(@bigint.BigInt) -> Bool
+
+pub fn moebius(@bigint.BigInt) -> Int
+
+pub fn precision_steps(Int, Int, order? : Int) -> Array[Int] raise IntMathError
+
+pub fn primes_up_to(Int) -> Array[Int]
+
 pub fn scale_binary_to_radix(@bigint.BigInt, Int, Int, Int) -> @bigint.BigInt raise IntMathError
+
+pub fn scaled_integer_sqrt(@bigint.BigInt, Int) -> @bigint.BigInt raise IntMathError
+
+pub fn stirling_first(Int, Int) -> @bigint.BigInt raise IntMathError
+
+pub fn stirling_second(Int, Int) -> @bigint.BigInt raise IntMathError
 
 // Errors
 pub(all) suberror IntMathError {

@@ -845,7 +845,7 @@ fn identify_by_basis(
 pub fn MPContext::identify(
   self : MPContext,
   x : @mpf.RawMpf,
-  constants? : Map[String, @mpf.RawMpf] = {},
+  constants? : Map[String, @mpf.RawMpf] = Map([]),
 ) -> String raise MPError {
   let p = identify_work_prec(self.prec)
   let tol = identify_tol(self.prec)
