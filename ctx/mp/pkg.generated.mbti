@@ -12,10 +12,6 @@ pub fn cli_version() -> String
 
 pub let mbmath_version : String
 
-pub fn new(Int, @mpf.RoundMode) -> MPContext
-
-pub fn plot_axes() -> PlotAxes
-
 // Errors
 pub(all) suberror MPError {
   ValueError(String)
@@ -38,24 +34,24 @@ pub fn MPContext::chebyfit(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, (@mpf.RawM
 pub fn MPContext::cholesky(Self, MpfMatrix, tol? : @mpf.RawMpf) -> MpfMatrix raise MPError
 pub fn MPContext::cholesky_solve(Self, MpfMatrix, ArrayView[@mpf.RawMpf], tol? : @mpf.RawMpf) -> Array[@mpf.RawMpf] raise MPError
 pub fn MPContext::cli_eval_division(Self, Int, Int, dps? : Int) -> String raise MPError
-pub fn MPContext::cli_eval_literal(Self, String, dps? : Int) -> String raise MPError
+pub fn MPContext::cli_eval_literal(Self, StringView, dps? : Int) -> String raise MPError
+pub fn MPContext::complex(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpc.RawMpc
 pub fn MPContext::complex_gamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_log(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_pow(Self, @mpc.RawMpc, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sqrt(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
-pub fn MPContext::complex_to_string(Self, @mpc.RawMpc, dps? : Int) -> String raise MPError
 pub fn MPContext::complex_zeta(Self, @mpc.RawMpc, alt? : Bool) -> @mpc.RawMpc raise MPError
-pub fn MPContext::cond(Self, MpfMatrix, norm? : String) -> @mpf.RawMpf raise MPError
+pub fn MPContext::cond(Self, MpfMatrix, norm? : StringView) -> @mpf.RawMpf raise MPError
 pub fn MPContext::cos(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::cosm(Self, MpfMatrix, max_terms? : Int) -> MpfMatrix raise MPError
 pub fn MPContext::cplot(Self, (@mpc.RawMpc) -> @mpc.RawMpc raise?, (@mpf.RawMpf, @mpf.RawMpf), (@mpf.RawMpf, @mpf.RawMpf), PlotAxes, samples? : Int) -> Array[(@mpc.RawMpc, @mpc.RawMpc)] raise
 pub fn MPContext::det(Self, MpfMatrix) -> @mpf.RawMpf raise MPError
 pub fn MPContext::diag(Self, ArrayView[@mpf.RawMpf]) -> MpfMatrix raise MPError
-pub fn MPContext::diff(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, n? : Int, direction? : Int, algo? : String) -> @mpf.RawMpf raise
-pub fn MPContext::diff_partial3(Self, (@mpf.RawMpf, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise?, (@mpf.RawMpf, @mpf.RawMpf, @mpf.RawMpf), (Int, Int, Int), algo? : String) -> @mpf.RawMpf raise
+pub fn MPContext::diff(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, n? : Int, direction? : Int, algo? : StringView) -> @mpf.RawMpf raise
+pub fn MPContext::diff_partial3(Self, (@mpf.RawMpf, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise?, (@mpf.RawMpf, @mpf.RawMpf, @mpf.RawMpf), (Int, Int, Int), algo? : StringView) -> @mpf.RawMpf raise
 pub fn MPContext::differint(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise
-pub fn MPContext::diffs(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, n? : Int, algo? : String) -> Array[@mpf.RawMpf] raise
-pub fn MPContext::diffun(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, n? : Int, algo? : String) -> (@mpf.RawMpf) -> @mpf.RawMpf raise
+pub fn MPContext::diffs(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, n? : Int, algo? : StringView) -> Array[@mpf.RawMpf] raise
+pub fn MPContext::diffun(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, n? : Int, algo? : StringView) -> (@mpf.RawMpf) -> @mpf.RawMpf raise
 pub fn MPContext::div(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::e1(Self, @mpf.RawMpf) -> @mpc.RawMpc raise MPError
 pub fn MPContext::e1_real(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
@@ -63,30 +59,29 @@ pub fn MPContext::eig(Self, MpfMatrix, tol? : @mpf.RawMpf, max_steps? : Int) -> 
 pub fn MPContext::eighe(Self, MpfMatrix, tol? : @mpf.RawMpf, max_steps? : Int) -> (Array[@mpf.RawMpf], MpfMatrix) raise MPError
 pub fn MPContext::eigsy(Self, MpfMatrix, tol? : @mpf.RawMpf, max_steps? : Int) -> (Array[@mpf.RawMpf], MpfMatrix) raise MPError
 pub fn MPContext::exp(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
-pub fn MPContext::expint(Self, Int, @mpf.RawMpf, gamma? : Bool) -> @mpc.RawMpc raise MPError
 pub fn MPContext::expm(Self, MpfMatrix, max_terms? : Int) -> MpfMatrix raise MPError
+pub fn MPContext::exponential_integral(Self, Int, @mpf.RawMpf, gamma? : Bool) -> @mpc.RawMpc raise MPError
 pub fn MPContext::eye(Self, Int) -> MpfMatrix raise MPError
-pub fn MPContext::findroot(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, x1? : @mpf.RawMpf, tol? : @mpf.RawMpf, max_steps? : Int, solver? : String) -> @mpf.RawMpf raise
+pub fn MPContext::findroot(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, x1? : @mpf.RawMpf, tol? : @mpf.RawMpf, max_steps? : Int, solver? : StringView) -> @mpf.RawMpf raise
 pub fn MPContext::findroot2(Self, (@mpf.RawMpf, @mpf.RawMpf) -> (@mpf.RawMpf, @mpf.RawMpf) raise?, @mpf.RawMpf, @mpf.RawMpf, tol? : @mpf.RawMpf, max_steps? : Int) -> (@mpf.RawMpf, @mpf.RawMpf) raise
 pub fn MPContext::findroot_interval(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, @mpf.RawMpf, tol? : @mpf.RawMpf, max_steps? : Int) -> @mpf.RawMpf raise
-pub fn MPContext::format(Self, @mpf.RawMpf, String, dps? : Int) -> String raise MPError
+pub fn MPContext::format(Self, @mpf.RawMpf, StringView, dps? : Int) -> String raise MPError
+pub fn MPContext::format_complex(Self, @mpc.RawMpc, dps? : Int) -> String raise MPError
 pub fn MPContext::fourier(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, (@mpf.RawMpf, @mpf.RawMpf), Int) -> (Array[@mpf.RawMpf], Array[@mpf.RawMpf]) raise
 pub fn MPContext::fourierval(Self, (Array[@mpf.RawMpf], Array[@mpf.RawMpf]), (@mpf.RawMpf, @mpf.RawMpf), @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::fprod(Self, ArrayView[@mpf.RawMpf]) -> @mpf.RawMpf
+pub fn MPContext::from_int(Self, Int) -> @mpf.RawMpf
 pub fn MPContext::fsum(Self, ArrayView[@mpf.RawMpf], absolute? : Bool, squared? : Bool) -> @mpf.RawMpf
 pub fn MPContext::gamma(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::hessenberg(Self, MpfMatrix, tol? : @mpf.RawMpf) -> (MpfMatrix, MpfMatrix) raise MPError
 pub fn MPContext::hilbert(Self, Int) -> MpfMatrix raise MPError
 pub fn MPContext::identify(Self, @mpf.RawMpf, constants? : Map[String, @mpf.RawMpf]) -> String raise MPError
 pub fn MPContext::inverse(Self, MpfMatrix) -> MpfMatrix raise MPError
-pub fn MPContext::invertlaplace(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, algo? : String) -> @mpf.RawMpf raise
-pub fn MPContext::levin(Self, ArrayView[@mpf.RawMpf], algo? : String) -> (@mpf.RawMpf, @mpf.RawMpf) raise MPError
+pub fn MPContext::invertlaplace(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, algo? : StringView) -> @mpf.RawMpf raise
+pub fn MPContext::levin(Self, ArrayView[@mpf.RawMpf], algo? : StringView) -> (@mpf.RawMpf, @mpf.RawMpf) raise MPError
 pub fn MPContext::limit(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, direction? : Int, max_steps? : Int) -> @mpf.RawMpf raise
 pub fn MPContext::ln(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::lu_solve(Self, MpfMatrix, ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] raise MPError
-pub fn MPContext::make_complex(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpc.RawMpc
-pub fn MPContext::make_float(Self, String) -> @mpf.RawMpf raise MPError
-pub fn MPContext::make_int(Self, Int) -> @mpf.RawMpf
 pub fn MPContext::matrix(Self, Int, Int, fill? : @mpf.RawMpf) -> MpfMatrix raise MPError
 pub fn MPContext::matrix_add(Self, MpfMatrix, MpfMatrix) -> MpfMatrix raise MPError
 pub fn MPContext::matrix_add_scalar(Self, MpfMatrix, @mpf.RawMpf) -> MpfMatrix raise MPError
@@ -110,16 +105,18 @@ pub fn MPContext::matrix_sub_scalar(Self, MpfMatrix, @mpf.RawMpf) -> MpfMatrix r
 pub fn MPContext::matrix_sum(Self, MpfMatrix) -> @mpf.RawMpf
 pub fn MPContext::matrix_transpose(Self, MpfMatrix) -> MpfMatrix raise MPError
 pub fn MPContext::matrix_vec_mul(Self, MpfMatrix, ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] raise MPError
-pub fn MPContext::mnorm(Self, MpfMatrix, kind? : String) -> @mpf.RawMpf raise MPError
+pub fn MPContext::mnorm(Self, MpfMatrix, kind? : StringView) -> @mpf.RawMpf raise MPError
 pub fn MPContext::mul(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf
 pub fn MPContext::neg(Self, @mpf.RawMpf) -> @mpf.RawMpf
-pub fn MPContext::nprod(Self, (Int) -> @mpf.RawMpf raise?, Int, stop? : Int, algo? : String, tol? : @mpf.RawMpf, max_terms? : Int) -> @mpf.RawMpf raise
-pub fn MPContext::nsum(Self, (Int) -> @mpf.RawMpf raise?, Int, stop? : Int, algo? : String, tol? : @mpf.RawMpf, max_terms? : Int) -> @mpf.RawMpf raise
+pub fn MPContext::new(Int, @mpf.RoundMode) -> Self
+pub fn MPContext::nprod(Self, (Int) -> @mpf.RawMpf raise?, Int, stop? : Int, algo? : StringView, tol? : @mpf.RawMpf, max_terms? : Int) -> @mpf.RawMpf raise
+pub fn MPContext::nsum(Self, (Int) -> @mpf.RawMpf raise?, Int, stop? : Int, algo? : StringView, tol? : @mpf.RawMpf, max_terms? : Int) -> @mpf.RawMpf raise
 pub fn MPContext::ode_solve(Self, (@mpf.RawMpf, ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] raise?, @mpf.RawMpf, ArrayView[@mpf.RawMpf], @mpf.RawMpf, steps? : Int) -> Array[@mpf.RawMpf] raise
 pub fn MPContext::ode_solve_grid(Self, (@mpf.RawMpf, ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] raise?, @mpf.RawMpf, ArrayView[@mpf.RawMpf], ArrayView[@mpf.RawMpf], steps_per_interval? : Int) -> Array[Array[@mpf.RawMpf]] raise
 pub fn MPContext::ode_step_rk4(Self, (@mpf.RawMpf, ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] raise?, @mpf.RawMpf, ArrayView[@mpf.RawMpf], @mpf.RawMpf) -> Array[@mpf.RawMpf] raise
 pub fn MPContext::ones(Self, Int, cols? : Int) -> MpfMatrix raise MPError
 pub fn MPContext::pade(Self, ArrayView[@mpf.RawMpf], Int, Int) -> (Array[@mpf.RawMpf], Array[@mpf.RawMpf]) raise MPError
+pub fn MPContext::parse(Self, StringView) -> @mpf.RawMpf raise MPError
 pub fn MPContext::plot(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, (@mpf.RawMpf, @mpf.RawMpf), PlotAxes, samples? : Int) -> Array[(@mpf.RawMpf, @mpf.RawMpf)] raise
 pub fn MPContext::polyroots(Self, ArrayView[@mpf.RawMpf], asc? : Bool, max_steps? : Int, cleanup? : Bool, extraprec? : Int) -> Array[@mpc.RawMpc] raise MPError
 pub fn MPContext::polyroots_error(Self, ArrayView[@mpf.RawMpf], asc? : Bool, max_steps? : Int, cleanup? : Bool, extraprec? : Int) -> (Array[@mpc.RawMpc], @mpf.RawMpf) raise MPError
@@ -146,7 +143,7 @@ pub fn MPContext::summation(Self, (Int) -> @mpf.RawMpf raise?, Int, Int, step? :
 pub fn MPContext::svd(Self, MpfMatrix, full? : Bool, tol? : @mpf.RawMpf) -> (MpfMatrix, Array[@mpf.RawMpf], MpfMatrix) raise MPError
 pub fn MPContext::swap_row(Self, MpfMatrix, Int, Int) -> Unit raise MPError
 pub fn MPContext::tan(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
-pub fn MPContext::taylor(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, Int, algo? : String) -> Array[@mpf.RawMpf] raise
+pub fn MPContext::taylor(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, @mpf.RawMpf, Int, algo? : StringView) -> Array[@mpf.RawMpf] raise
 pub fn MPContext::to_string(Self, @mpf.RawMpf, dps? : Int) -> String raise MPError
 pub fn MPContext::vector_norm(Self, ArrayView[@mpf.RawMpf], p? : Int, inf? : Bool) -> @mpf.RawMpf raise MPError
 pub fn MPContext::zeros(Self, Int, cols? : Int) -> MpfMatrix raise MPError
@@ -163,7 +160,7 @@ pub fn MpfMatrix::get_at(Self, Int, Int) -> @mpf.RawMpf raise MPError
 pub fn MpfMatrix::len(Self) -> Int
 pub fn MpfMatrix::set(Self, Int, Int, @mpf.RawMpf) -> Unit raise MPError
 pub fn MpfMatrix::set_at(Self, Int, Int, @mpf.RawMpf) -> Unit raise MPError
-pub fn MpfMatrix::tolist(Self) -> Array[Array[@mpf.RawMpf]]
+pub fn MpfMatrix::to_rows(Self) -> Array[Array[@mpf.RawMpf]]
 pub fn MpfMatrix::vget(Self, Int) -> @mpf.RawMpf raise MPError
 pub fn MpfMatrix::vset(Self, Int, @mpf.RawMpf) -> Unit raise MPError
 
@@ -171,6 +168,7 @@ pub struct PlotAxes {
   mut xlabel : String
   mut ylabel : String
 } derive(Eq, @debug.Debug)
+pub fn PlotAxes::new() -> Self
 
 // Type aliases
 

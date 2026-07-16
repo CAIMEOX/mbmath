@@ -2,7 +2,7 @@
 fn normalize_matrix_index(
   idx : Int,
   n : Int,
-  name : String,
+  name : StringView,
 ) -> Int raise MPError {
   let k0 = if idx < 0 { idx + n } else { idx }
   if k0 < 0 || k0 >= n {
@@ -16,7 +16,7 @@ fn normalize_matrix_slice_bound(
   idx : Int?,
   n : Int,
   is_end : Bool,
-  name : String,
+  name : StringView,
 ) -> Int raise MPError {
   let v = match idx {
     Some(x) => if x < 0 { x + n } else { x }
@@ -33,7 +33,7 @@ fn normalize_matrix_slice(
   start : Int?,
   end : Int?,
   n : Int,
-  name : String,
+  name : StringView,
 ) -> (Int, Int) raise MPError {
   let s = normalize_matrix_slice_bound(start, n, false, name)
   let e = normalize_matrix_slice_bound(end, n, true, name)
@@ -60,7 +60,7 @@ pub fn MPContext::ones(
   cols? : Int = -1,
 ) -> MpfMatrix raise MPError {
   let c = if cols < 0 { rows } else { cols }
-  self.matrix(rows, c, fill=@mpf.fone)
+  self.matrix(rows, c, fill=@mpf.RawMpf::one())
 }
 
 ///|
@@ -70,8 +70,7 @@ pub fn MPContext::matrix_from_vector(
 ) -> MpfMatrix raise MPError {
   let out = self.matrix(xs.length(), 1)
   for i in 0..<xs.length() {
-    out.data[matrix_offset(1, i, 0)] = @mpf.mpf_pos(
-      xs[i],
+    out.data[matrix_offset(1, i, 0)] = xs[i].rounded(
       self.precision(),
       self.round_mode(),
     )
@@ -91,7 +90,7 @@ pub fn MPContext::matrix_pos(self : MPContext, a : MpfMatrix) -> MpfMatrix {
 }
 
 ///|
-pub fn MpfMatrix::tolist(self : MpfMatrix) -> Array[Array[@mpf.RawMpf]] {
+pub fn MpfMatrix::to_rows(self : MpfMatrix) -> Array[Array[@mpf.RawMpf]] {
   let out : Array[Array[@mpf.RawMpf]] = []
   for i in 0..<self.rows {
     let row : Array[@mpf.RawMpf] = []
@@ -277,7 +276,7 @@ pub fn MPContext::matrix_set_slice_scalar(
     a.cols,
     "matrix_set_slice_scalar",
   )
-  let vv = @mpf.mpf_pos(value, self.precision(), self.round_mode())
+  let vv = value.rounded(self.precision(), self.round_mode())
   for i in rs..<re {
     for j in cs..<ce {
       a.data[matrix_offset(a.cols, i, j)] = vv
@@ -293,8 +292,7 @@ pub fn MPContext::diag(
   let n = xs.length()
   let out = self.matrix(n, n)
   for i in 0..<n {
-    out.data[matrix_offset(n, i, i)] = @mpf.mpf_pos(
-      xs[i],
+    out.data[matrix_offset(n, i, i)] = xs[i].rounded(
       self.precision(),
       self.round_mode(),
     )
@@ -334,8 +332,7 @@ pub fn MPContext::augment(
           j,
         )]
     }
-    out.data[matrix_offset(out.cols, i, a.cols)] = @mpf.mpf_pos(
-      rhs[i],
+    out.data[matrix_offset(out.cols, i, a.cols)] = rhs[i].rounded(
       self.precision(),
       self.round_mode(),
     )
@@ -352,11 +349,9 @@ pub fn MPContext::matrix_scale(
   let p = self.working_precision()
   let out = self.matrix(a.rows, a.cols)
   for i in 0..<(a.rows * a.cols) {
-    out.data[i] = @mpf.mpf_pos(
-      @mpf.mpf_mul(a.data[i], c, p, @mpf.round_nearest),
-      self.precision(),
-      self.round_mode(),
-    )
+    out.data[i] = a.data[i]
+      .mul(c, p, Nearest)
+      .rounded(self.precision(), self.round_mode())
   }
   out
 }
@@ -370,11 +365,9 @@ pub fn MPContext::matrix_add_scalar(
   let p = self.working_precision()
   let out = self.matrix(a.rows, a.cols)
   for i in 0..<(a.rows * a.cols) {
-    out.data[i] = @mpf.mpf_pos(
-      @mpf.mpf_add(a.data[i], c, p, @mpf.round_nearest),
-      self.precision(),
-      self.round_mode(),
-    )
+    out.data[i] = a.data[i]
+      .add(c, p, Nearest)
+      .rounded(self.precision(), self.round_mode())
   }
   out
 }
@@ -388,11 +381,9 @@ pub fn MPContext::matrix_sub_scalar(
   let p = self.working_precision()
   let out = self.matrix(a.rows, a.cols)
   for i in 0..<(a.rows * a.cols) {
-    out.data[i] = @mpf.mpf_pos(
-      @mpf.mpf_sub(a.data[i], c, p, @mpf.round_nearest),
-      self.precision(),
-      self.round_mode(),
-    )
+    out.data[i] = a.data[i]
+      .sub(c, p, Nearest)
+      .rounded(self.precision(), self.round_mode())
   }
   out
 }
@@ -406,11 +397,9 @@ pub fn MPContext::matrix_rsub_scalar(
   let p = self.working_precision()
   let out = self.matrix(a.rows, a.cols)
   for i in 0..<(a.rows * a.cols) {
-    out.data[i] = @mpf.mpf_pos(
-      @mpf.mpf_sub(c, a.data[i], p, @mpf.round_nearest),
-      self.precision(),
-      self.round_mode(),
-    )
+    out.data[i] = c
+      .sub(a.data[i], p, Nearest)
+      .rounded(self.precision(), self.round_mode())
   }
   out
 }
@@ -424,13 +413,9 @@ pub fn MPContext::matrix_div_scalar(
   let p = self.working_precision()
   let out = self.matrix(a.rows, a.cols)
   for i in 0..<(a.rows * a.cols) {
-    out.data[i] = @mpf.mpf_pos(
-      @mpf.mpf_div(a.data[i], c, p, @mpf.round_nearest) catch {
-        err => raise from_mpf_error(err)
-      },
-      self.precision(),
-      self.round_mode(),
-    )
+    out.data[i] = (a.data[i].div(c, p, Nearest) catch {
+      err => raise from_mpf_error(err)
+    }).rounded(self.precision(), self.round_mode())
   }
   out
 }
@@ -438,11 +423,11 @@ pub fn MPContext::matrix_div_scalar(
 ///|
 pub fn MPContext::matrix_sum(self : MPContext, a : MpfMatrix) -> @mpf.RawMpf {
   let p = self.working_precision()
-  let mut s = @mpf.fzero
+  let mut s = @mpf.RawMpf::zero()
   for x in a.data {
-    s = @mpf.mpf_add(s, x, p, @mpf.round_nearest)
+    s = s.add(x, p, Nearest)
   }
-  @mpf.mpf_pos(s, self.precision(), self.round_mode())
+  s.rounded(self.precision(), self.round_mode())
 }
 
 ///|
@@ -486,14 +471,14 @@ pub fn MPContext::hilbert(self : MPContext, n : Int) -> MpfMatrix raise MPError 
   let out = self.matrix(n, n)
   for i in 0..<n {
     for j in 0..<n {
-      let denom = @mpf.from_int(i + j + 1)
-      out.data[matrix_offset(n, i, j)] = @mpf.mpf_pos(
-        @mpf.mpf_div(@mpf.fone, denom, p, @mpf.round_nearest) catch {
-          err => raise from_mpf_error(err)
-        },
-        self.precision(),
-        self.round_mode(),
-      )
+      let denom = @mpf.RawMpf::from_int(i + j + 1)
+      out.data[matrix_offset(n, i, j)] = (@mpf.RawMpf::one().div(
+        denom,
+        p,
+        Nearest,
+      ) catch {
+        err => raise from_mpf_error(err)
+      }).rounded(self.precision(), self.round_mode())
     }
   }
   out
@@ -509,8 +494,7 @@ pub fn MPContext::randmatrix(
   validate_matrix_dimensions(rows, c, "randmatrix")
   let out = self.matrix(rows, c)
   for i in 0..<(rows * c) {
-    out.data[i] = @mpf.mpf_pos(
-      @mpf.mpf_rand(self.precision()),
+    out.data[i] = @mpf.RawMpf::random(self.precision()).rounded(
       self.precision(),
       self.round_mode(),
     )
@@ -522,7 +506,7 @@ pub fn MPContext::randmatrix(
 pub fn MPContext::mnorm(
   self : MPContext,
   a : MpfMatrix,
-  kind? : String = "inf",
+  kind? : StringView = "inf",
 ) -> @mpf.RawMpf raise MPError {
   let k = kind.to_lower()
   match k {
@@ -536,7 +520,7 @@ pub fn MPContext::mnorm(
 
 ///|
 pub fn MPContext::scalar_abs(self : MPContext, x : @mpf.RawMpf) -> @mpf.RawMpf {
-  @mpf.mpf_abs(x, self.precision(), self.round_mode())
+  x.abs(self.precision(), self.round_mode())
 }
 
 ///|
@@ -548,62 +532,52 @@ pub fn MPContext::vector_norm(
 ) -> @mpf.RawMpf raise MPError {
   let wp = self.working_precision()
   if xs.length() == 0 {
-    return @mpf.fzero
+    return @mpf.RawMpf::zero()
   }
   if inf {
-    let mut best = @mpf.fzero
+    let mut best = @mpf.RawMpf::zero()
     for x in xs {
-      let a = @mpf.mpf_abs(x, wp, @mpf.round_nearest)
-      if @mpf.mpf_gt(a, best) {
+      let a = x.abs(wp, Nearest)
+      if a > best {
         best = a
       }
     }
-    return @mpf.mpf_pos(best, self.precision(), self.round_mode())
+    return best.rounded(self.precision(), self.round_mode())
   }
   if p <= 0 {
     raise ValueError("vector_norm: p must be positive")
   }
   if p == 1 {
-    let mut s = @mpf.fzero
+    let mut s = @mpf.RawMpf::zero()
     for x in xs {
-      s = @mpf.mpf_add(
-        s,
-        @mpf.mpf_abs(x, wp, @mpf.round_nearest),
-        wp,
-        @mpf.round_nearest,
-      )
+      s = s.add(x.abs(wp, Nearest), wp, Nearest)
     }
-    return @mpf.mpf_pos(s, self.precision(), self.round_mode())
+    return s.rounded(self.precision(), self.round_mode())
   }
   if p == 2 {
-    let mut s = @mpf.fzero
+    let mut s = @mpf.RawMpf::zero()
     for x in xs {
-      let a = @mpf.mpf_abs(x, wp, @mpf.round_nearest)
-      s = @mpf.mpf_add(
-        s,
-        @mpf.mpf_mul(a, a, wp, @mpf.round_nearest),
-        wp,
-        @mpf.round_nearest,
-      )
+      let a = x.abs(wp, Nearest)
+      s = s.add(a.mul(a, wp, Nearest), wp, Nearest)
     }
-    return @mpf.mpf_sqrt(s, self.precision(), self.round_mode()) catch {
+    return s.sqrt(self.precision(), self.round_mode()) catch {
       err => raise from_mpf_error(err)
     }
   }
   fn pow_nonneg(x : @mpf.RawMpf, n : Int, prec : Int) -> @mpf.RawMpf {
-    let mut out = @mpf.fone
+    let mut out = @mpf.RawMpf::one()
     for _ in 0..<n {
-      out = @mpf.mpf_mul(out, x, prec, @mpf.round_nearest)
+      out = out.mul(x, prec, Nearest)
     }
     out
   }
-  let mut s = @mpf.fzero
+  let mut s = @mpf.RawMpf::zero()
   for x in xs {
-    let a = @mpf.mpf_abs(x, wp, @mpf.round_nearest)
-    s = @mpf.mpf_add(s, pow_nonneg(a, p, wp), wp, @mpf.round_nearest)
+    let a = x.abs(wp, Nearest)
+    s = s.add(pow_nonneg(a, p, wp), wp, Nearest)
   }
-  let out = @libelefun.mpf_nthroot(s, p, wp, @mpf.round_nearest) catch {
+  let out = @libelefun.nthroot(s, p, wp, Nearest) catch {
     err => raise from_libelefun_error(err)
   }
-  @mpf.mpf_pos(out, self.precision(), self.round_mode())
+  out.rounded(self.precision(), self.round_mode())
 }

@@ -5,7 +5,7 @@
 /// - Ceiling: towards +inf
 /// - Up: away from zero
 /// - Down: towards zero
-pub enum RoundMode {
+pub(all) enum RoundMode {
   Nearest
   Floor
   Ceiling
@@ -22,7 +22,7 @@ pub struct RawMpf {
   man : BigInt
   exp : Int
   bc : Int
-} derive(Debug, Eq)
+} derive(Debug)
 
 ///|
 pub(all) suberror MpfError {
@@ -36,44 +36,56 @@ pub(all) suberror MpfError {
 
 ///|
 /// Canonical positive zero.
-pub let fzero : RawMpf = { sign: 0, man: 0N, exp: 0, bc: 0 }
+let zero_value : RawMpf = { sign: 0, man: 0N, exp: 0, bc: 0 }
+
+///|
+pub fn RawMpf::zero() -> RawMpf {
+  zero_value
+}
 
 ///|
 /// Canonical positive one.
-pub let fone : RawMpf = { sign: 0, man: 1N, exp: 0, bc: 1 }
+let one_value : RawMpf = { sign: 0, man: 1N, exp: 0, bc: 1 }
+
+///|
+pub fn RawMpf::one() -> RawMpf {
+  one_value
+}
 
 ///|
 /// Canonical negative one.
-pub let fnone : RawMpf = { sign: 1, man: 1N, exp: 0, bc: 1 }
+let negative_one_value : RawMpf = { sign: 1, man: 1N, exp: 0, bc: 1 }
+
+///|
+pub fn RawMpf::negative_one() -> RawMpf {
+  negative_one_value
+}
 
 ///|
 /// Canonical NaN sentinel.
-pub let fnan : RawMpf = { sign: 0, man: 0N, exp: -123, bc: -1 }
+let nan_value : RawMpf = { sign: 0, man: 0N, exp: -123, bc: -1 }
+
+///|
+pub fn RawMpf::nan() -> RawMpf {
+  nan_value
+}
 
 ///|
 /// Canonical positive infinity.
-pub let finf : RawMpf = { sign: 0, man: 0N, exp: -456, bc: -2 }
+let infinity_value : RawMpf = { sign: 0, man: 0N, exp: -456, bc: -2 }
+
+///|
+pub fn RawMpf::infinity() -> RawMpf {
+  infinity_value
+}
 
 ///|
 /// Canonical negative infinity.
-pub let fninf : RawMpf = { sign: 1, man: 0N, exp: -789, bc: -3 }
+let negative_infinity_value : RawMpf = { sign: 1, man: 0N, exp: -789, bc: -3 }
 
 ///|
-/// Rounding mode alias: nearest (tie-to-even).
-pub let round_nearest : RoundMode = Nearest
 
 ///|
-/// Rounding mode alias: toward negative infinity.
-pub let round_floor : RoundMode = Floor
-
-///|
-/// Rounding mode alias: toward positive infinity.
-pub let round_ceiling : RoundMode = Ceiling
-
-///|
-/// Rounding mode alias: away from zero.
-pub let round_up : RoundMode = Up
-
-///|
-/// Rounding mode alias: toward zero.
-pub let round_down : RoundMode = Down
+pub fn RawMpf::negative_infinity() -> RawMpf {
+  negative_infinity_value
+}

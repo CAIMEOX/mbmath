@@ -1,18 +1,18 @@
 ///|
 fn reciprocal_round(rnd : RoundMode) -> RoundMode {
   match rnd {
-    Down => round_up
-    Up => round_down
-    Floor => round_ceiling
-    Ceiling => round_floor
-    Nearest => round_nearest
+    Down => Up
+    Up => Down
+    Floor => Ceiling
+    Ceiling => Floor
+    Nearest => Nearest
   }
 }
 
 ///|
 fn big_pow(base : BigInt, n : Int) -> BigInt raise MpfError {
   if n < 0 {
-    raise ValueError("mpf_pow_int: exponent must be non-negative")
+    raise ValueError("RawMpf::pow_int: exponent must be non-negative")
   }
   let mut result = 1N
   let mut b = base
@@ -52,70 +52,70 @@ fn bigint_isqrt_rem(n : BigInt) -> (BigInt, BigInt) {
 }
 
 ///|
-pub fn mpf_pow_int(
+pub fn RawMpf::pow_int(
   x : RawMpf,
   n : Int,
   prec : Int,
   rnd : RoundMode,
 ) -> RawMpf raise MpfError {
-  if is_inf(x) {
+  if x.is_infinite() {
     if n > 0 {
       if x.sign == 1 && (n & 1) == 1 {
-        return fninf
+        return RawMpf::negative_infinity()
       }
-      return finf
+      return RawMpf::infinity()
     } else if n == 0 {
-      return fone
+      return RawMpf::one()
     } else {
-      return fzero
+      return RawMpf::zero()
     }
   }
-  if is_nan(x) {
+  if x.is_nan() {
     if n == 0 {
-      return fone
+      return RawMpf::one()
     }
-    return fnan
+    return RawMpf::nan()
   }
   if n == 0 {
-    return fone
+    return RawMpf::one()
   }
   if n == 1 {
-    return normalize(x.sign, x.man, x.exp, x.bc, prec, rnd)
+    return RawMpf::from_raw_parts(x.sign, x.man, x.exp, x.bc, prec, rnd)
   }
   if n == -1 {
-    return mpf_div(fone, x, prec, rnd)
+    return RawMpf::one().div(x, prec, rnd)
   }
   if n < 0 {
-    let inverse = mpf_pow_int(x, -n, prec + 5, reciprocal_round(rnd))
-    return mpf_div(fone, inverse, prec, rnd)
+    let inverse = x.pow_int(-n, prec + 5, reciprocal_round(rnd))
+    return RawMpf::one().div(inverse, prec, rnd)
   }
-  if is_zero(x) {
-    return fzero
+  if x.is_zero() {
+    return RawMpf::zero()
   }
   let sign = if x.sign == 1 && (n & 1) == 1 { 1 } else { 0 }
   let man = big_pow(x.man, n)
-  normalize(sign, man, x.exp * n, man.bit_length(), prec, rnd)
+  RawMpf::from_raw_parts(sign, man, x.exp * n, man.bit_length(), prec, rnd)
 }
 
 ///|
-pub fn mpf_sqrt(
+pub fn RawMpf::sqrt(
   x : RawMpf,
   prec : Int,
   rnd : RoundMode,
 ) -> RawMpf raise MpfError {
-  if is_nan(x) {
-    return fnan
+  if x.is_nan() {
+    return RawMpf::nan()
   }
-  if is_inf(x) {
+  if x.is_infinite() {
     if x.sign == 1 {
-      raise DomainError("mpf_sqrt: square root of a negative number")
+      raise DomainError("RawMpf::sqrt: square root of a negative number")
     }
-    return finf
+    return RawMpf::infinity()
   }
   if x.sign == 1 {
-    raise DomainError("mpf_sqrt: square root of a negative number")
+    raise DomainError("RawMpf::sqrt: square root of a negative number")
   }
-  if is_zero(x) {
+  if x.is_zero() {
     return x
   }
   let mut man = x.man
@@ -126,7 +126,7 @@ pub fn mpf_sqrt(
     man = man << 1
     bc += 1
   } else if man == 1N {
-    return normalize(0, man, exp / 2, bc, prec, rnd)
+    return RawMpf::from_raw_parts(0, man, exp / 2, bc, prec, rnd)
   }
   let target_prec = if prec > 0 { prec } else { bc }
   let mut shift = 2 * target_prec - bc + 4
@@ -139,9 +139,9 @@ pub fn mpf_sqrt(
   let scaled = man << shift
   let (root0, rem) = bigint_isqrt_rem(scaled)
   let mut root = root0
-  if rnd != round_floor && rnd != round_down && rem != 0N {
+  if rnd != Floor && rnd != Down && rem != 0N {
     root = (root << 1) + 1N
     shift += 2
   }
-  from_man_exp(root, (exp - shift) / 2, target_prec, rnd)
+  RawMpf::from_mantissa_exponent(root, (exp - shift) / 2, target_prec, rnd)
 }

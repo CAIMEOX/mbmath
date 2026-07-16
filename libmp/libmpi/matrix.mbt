@@ -21,7 +21,7 @@ fn mpi_matrix_idx(cols : Int, r : Int, c : Int) -> Int {
 fn mpi_matrix_check_dims(
   rows : Int,
   cols : Int,
-  name : String,
+  name : StringView,
 ) -> Unit raise MpiError {
   if rows < 0 || cols < 0 {
     raise ValueError("\{name}: dimensions must be non-negative")
@@ -68,7 +68,7 @@ fn mpci_matrix_filled(rows : Int, cols : Int, fill : RawMpci) -> Array[RawMpci] 
 fn mpi_matrix_norm_index(
   idx : Int,
   n : Int,
-  name : String,
+  name : StringView,
 ) -> Int raise MpiError {
   if idx < 0 || idx >= n {
     raise ValueError("\{name}: index out of range")
@@ -77,49 +77,55 @@ fn mpi_matrix_norm_index(
 }
 
 ///|
-pub fn mpi_matrix(
+pub fn RawMpiMatrix::new(
   rows : Int,
   cols? : Int = -1,
-  fill? : RawMpi = mpi_zero,
+  fill? : RawMpi = RawMpi::zero(),
 ) -> RawMpiMatrix raise MpiError {
   let c = if cols < 0 { rows } else { cols }
-  mpi_matrix_check_dims(rows, c, "mpi_matrix")
+  mpi_matrix_check_dims(rows, c, "RawMpiMatrix::new")
   { rows, cols: c, data: mpi_matrix_filled(rows, c, fill) }
 }
 
 ///|
-pub fn mpci_matrix(
+pub fn RawMpciMatrix::new(
   rows : Int,
   cols? : Int = -1,
-  fill? : RawMpci = mpci_zero,
+  fill? : RawMpci = RawMpci::zero(),
 ) -> RawMpciMatrix raise MpiError {
   let c = if cols < 0 { rows } else { cols }
-  mpi_matrix_check_dims(rows, c, "mpci_matrix")
+  mpi_matrix_check_dims(rows, c, "RawMpciMatrix::new")
   { rows, cols: c, data: mpci_matrix_filled(rows, c, fill) }
 }
 
 ///|
-pub fn mpi_zeros(rows : Int, cols? : Int = -1) -> RawMpiMatrix raise MpiError {
-  mpi_matrix(rows, cols~)
+pub fn RawMpiMatrix::zeros(
+  rows : Int,
+  cols? : Int = -1,
+) -> RawMpiMatrix raise MpiError {
+  RawMpiMatrix::new(rows, cols~)
 }
 
 ///|
-pub fn mpi_ones(rows : Int, cols? : Int = -1) -> RawMpiMatrix raise MpiError {
-  mpi_matrix(rows, cols~, fill=mpi_one)
+pub fn RawMpiMatrix::ones(
+  rows : Int,
+  cols? : Int = -1,
+) -> RawMpiMatrix raise MpiError {
+  RawMpiMatrix::new(rows, cols~, fill=RawMpi::one())
 }
 
 ///|
-pub fn mpi_eye(n : Int) -> RawMpiMatrix raise MpiError {
-  mpi_matrix_check_dims(n, n, "mpi_eye")
-  let out = mpi_matrix(n, cols=n)
+pub fn RawMpiMatrix::identity(n : Int) -> RawMpiMatrix raise MpiError {
+  mpi_matrix_check_dims(n, n, "RawMpiMatrix::identity")
+  let out = RawMpiMatrix::new(n, cols=n)
   for i in 0..<n {
-    out.data[mpi_matrix_idx(n, i, i)] = mpi_one
+    out.data[mpi_matrix_idx(n, i, i)] = RawMpi::one()
   }
   out
 }
 
 ///|
-pub fn mpi_matrix_from_rows(
+pub fn RawMpiMatrix::from_rows(
   rows_data : ArrayView[Array[RawMpi]],
 ) -> RawMpiMatrix raise MpiError {
   if rows_data.length() == 0 {
@@ -131,7 +137,7 @@ pub fn mpi_matrix_from_rows(
   for i in 0..<rows {
     let row = rows_data[i]
     if row.length() != cols {
-      raise ValueError("mpi_matrix_from_rows: ragged rows")
+      raise ValueError("RawMpiMatrix::from_rows: ragged rows")
     }
     for x in row {
       data.push(x)
@@ -141,7 +147,7 @@ pub fn mpi_matrix_from_rows(
 }
 
 ///|
-pub fn mpi_matrix_from_mpf_rows(
+pub fn RawMpiMatrix::from_real_rows(
   rows_data : ArrayView[Array[@mpf.RawMpf]],
 ) -> RawMpiMatrix raise MpiError {
   if rows_data.length() == 0 {
@@ -153,27 +159,27 @@ pub fn mpi_matrix_from_mpf_rows(
   for i in 0..<rows {
     let row = rows_data[i]
     if row.length() != cols {
-      raise ValueError("mpi_matrix_from_mpf_rows: ragged rows")
+      raise ValueError("RawMpiMatrix::from_real_rows: ragged rows")
     }
     for x in row {
-      data.push(mpi_from_mpf(x))
+      data.push(RawMpi::point(x))
     }
   }
   { rows, cols, data }
 }
 
 ///|
-pub fn mpi_matrix_from_scalar(x : RawMpi) -> RawMpiMatrix {
+pub fn RawMpiMatrix::from_scalar(x : RawMpi) -> RawMpiMatrix {
   { rows: 1, cols: 1, data: [x] }
 }
 
 ///|
-pub fn mpi_matrix_copy(a : RawMpiMatrix) -> RawMpiMatrix {
+pub fn RawMpiMatrix::copy(a : RawMpiMatrix) -> RawMpiMatrix {
   { rows: a.rows, cols: a.cols, data: mpi_matrix_copy_data(a.data) }
 }
 
 ///|
-pub fn RawMpiMatrix::tolist(self : RawMpiMatrix) -> Array[Array[RawMpi]] {
+pub fn RawMpiMatrix::to_rows(self : RawMpiMatrix) -> Array[Array[RawMpi]] {
   let out : Array[Array[RawMpi]] = []
   for i in 0..<self.rows {
     let row : Array[RawMpi] = []
@@ -209,108 +215,98 @@ pub fn RawMpiMatrix::set(
 }
 
 ///|
-pub fn mpi_matrix_add(
+pub fn RawMpiMatrix::add(
   a : RawMpiMatrix,
   b : RawMpiMatrix,
   prec? : Int = 0,
 ) -> RawMpiMatrix raise MpiError {
   if a.rows != b.rows || a.cols != b.cols {
-    raise ValueError("mpi_matrix_add: incompatible dimensions")
+    raise ValueError("RawMpiMatrix::add: incompatible dimensions")
   }
-  let out = mpi_matrix(a.rows, cols=a.cols)
+  let out = RawMpiMatrix::new(a.rows, cols=a.cols)
   for i in 0..<(a.rows * a.cols) {
-    out.data[i] = mpi_add(a.data[i], b.data[i], prec~)
+    out.data[i] = a.data[i].add(b.data[i], prec~)
   }
   out
 }
 
 ///|
-pub fn mpi_matrix_add_scalar(
+pub fn RawMpiMatrix::add_interval(
   a : RawMpiMatrix,
   s : RawMpi,
   prec? : Int = 0,
 ) -> RawMpiMatrix raise MpiError {
-  let out = mpi_matrix(a.rows, cols=a.cols)
+  let out = RawMpiMatrix::new(a.rows, cols=a.cols)
   for i in 0..<(a.rows * a.cols) {
-    out.data[i] = mpi_add(a.data[i], s, prec~)
+    out.data[i] = a.data[i].add(s, prec~)
   }
   out
 }
 
 ///|
-pub fn mpi_matrix_mul_scalar(
+pub fn RawMpiMatrix::scale(
   a : RawMpiMatrix,
   s : RawMpi,
   prec? : Int = 0,
 ) -> RawMpiMatrix raise MpiError {
   let wp = if prec > 0 { prec } else { 0 }
-  let out = mpi_matrix(a.rows, cols=a.cols)
+  let out = RawMpiMatrix::new(a.rows, cols=a.cols)
   for i in 0..<(a.rows * a.cols) {
-    out.data[i] = mpi_mul(a.data[i], s, prec=wp)
+    out.data[i] = a.data[i].mul(s, prec=wp)
   }
   out
 }
 
 ///|
-pub fn mpi_scalar_mul_matrix(
-  s : RawMpi,
-  a : RawMpiMatrix,
-  prec? : Int = 0,
-) -> RawMpiMatrix raise MpiError {
-  mpi_matrix_mul_scalar(a, s, prec~)
-}
-
-///|
-pub fn mpi_matrix_mul(
+pub fn RawMpiMatrix::mul(
   a : RawMpiMatrix,
   b : RawMpiMatrix,
   prec? : Int = 0,
 ) -> RawMpiMatrix raise MpiError {
   if a.cols != b.rows {
-    raise ValueError("mpi_matrix_mul: incompatible dimensions")
+    raise ValueError("RawMpiMatrix::mul: incompatible dimensions")
   }
   let wp = if prec > 0 { prec + 20 } else { 80 }
   let out_p = if prec > 0 { prec } else { wp }
-  let out = mpi_matrix(a.rows, cols=b.cols)
+  let out = RawMpiMatrix::new(a.rows, cols=b.cols)
   for i in 0..<a.rows {
     for j in 0..<b.cols {
-      let mut acc = mpi_zero
+      let mut acc = RawMpi::zero()
       for k in 0..<a.cols {
-        let t = mpi_mul(
-          a.data[mpi_matrix_idx(a.cols, i, k)],
+        let t = a.data[mpi_matrix_idx(a.cols, i, k)].mul(
           b.data[mpi_matrix_idx(b.cols, k, j)],
           prec=wp,
         )
-        acc = mpi_add(acc, t, prec=wp)
+        acc = acc.add(t, prec=wp)
       }
-      out.data[mpi_matrix_idx(out.cols, i, j)] = mpi_pos(acc, out_p)
+      out.data[mpi_matrix_idx(out.cols, i, j)] = acc.rounded(out_p)
     }
   }
   out
 }
 
 ///|
-pub fn mpci_from_mpc(z : @mpc.RawMpc) -> RawMpci {
-  { real: mpi_from_mpf(z.real), imag: mpi_from_mpf(z.imag) }
+pub fn RawMpci::point(z : @mpc.RawMpc) -> RawMpci {
+  { real: RawMpi::point(z.real), imag: RawMpi::point(z.imag) }
 }
 
 ///|
 fn mpci_from_mpi_scalar(x : RawMpi) -> RawMpci {
-  { real: x, imag: mpi_zero }
+  { real: x, imag: RawMpi::zero() }
 }
 
 ///|
-pub fn mpci_matrix_from_scalar(z : RawMpci) -> RawMpciMatrix {
+pub fn RawMpciMatrix::from_scalar(z : RawMpci) -> RawMpciMatrix {
   { rows: 1, cols: 1, data: [z] }
 }
 
 ///|
-pub fn mpci_matrix_from_mpc_scalar(z : @mpc.RawMpc) -> RawMpciMatrix {
-  mpci_matrix_from_scalar(mpci_from_mpc(z))
+pub fn RawMpciMatrix::from_complex_scalar(z : @mpc.RawMpc) -> RawMpciMatrix {
+  RawMpciMatrix::from_scalar(RawMpci::point(z))
 }
 
 ///|
-pub fn mpci_matrix_from_mpi_matrix(a : RawMpiMatrix) -> RawMpciMatrix {
+pub fn RawMpciMatrix::from_real_matrix(a : RawMpiMatrix) -> RawMpciMatrix {
   let data : Array[RawMpci] = []
   for x in a.data {
     data.push(mpci_from_mpi_scalar(x))
@@ -319,7 +315,7 @@ pub fn mpci_matrix_from_mpi_matrix(a : RawMpiMatrix) -> RawMpciMatrix {
 }
 
 ///|
-pub fn mpci_matrix_copy(a : RawMpciMatrix) -> RawMpciMatrix {
+pub fn RawMpciMatrix::copy(a : RawMpciMatrix) -> RawMpciMatrix {
   { rows: a.rows, cols: a.cols, data: mpci_matrix_copy_data(a.data) }
 }
 
@@ -335,78 +331,42 @@ pub fn RawMpciMatrix::get(
 }
 
 ///|
-pub fn mpci_matrix_mul_scalar(
+pub fn RawMpciMatrix::scale(
   a : RawMpciMatrix,
   s : RawMpci,
   prec? : Int = 0,
 ) -> RawMpciMatrix raise MpiError {
   let wp = if prec > 0 { prec } else { 80 }
-  let out = mpci_matrix(a.rows, cols=a.cols)
+  let out = RawMpciMatrix::new(a.rows, cols=a.cols)
   for i in 0..<(a.rows * a.cols) {
-    out.data[i] = mpci_mul(a.data[i], s, wp)
+    out.data[i] = a.data[i].mul(s, wp)
   }
   out
 }
 
 ///|
-pub fn mpci_scalar_mul_matrix(
-  s : RawMpci,
-  a : RawMpciMatrix,
-  prec? : Int = 0,
-) -> RawMpciMatrix raise MpiError {
-  mpci_matrix_mul_scalar(a, s, prec~)
-}
-
-///|
-pub fn mpi_matrix_mul_mpci_scalar(
+pub fn RawMpiMatrix::scale_complex_interval(
   a : RawMpiMatrix,
   s : RawMpci,
   prec? : Int = 0,
 ) -> RawMpciMatrix raise MpiError {
-  mpci_matrix_mul_scalar(mpci_matrix_from_mpi_matrix(a), s, prec~)
+  RawMpciMatrix::from_real_matrix(a).scale(s, prec~)
 }
 
 ///|
-pub fn mpci_scalar_mul_mpi_matrix(
-  s : RawMpci,
-  a : RawMpiMatrix,
-  prec? : Int = 0,
-) -> RawMpciMatrix raise MpiError {
-  mpci_scalar_mul_matrix(s, mpci_matrix_from_mpi_matrix(a), prec~)
-}
-
-///|
-pub fn mpi_matrix_mul_mpc_scalar(
+pub fn RawMpiMatrix::scale_complex(
   a : RawMpiMatrix,
   s : @mpc.RawMpc,
   prec? : Int = 0,
 ) -> RawMpciMatrix raise MpiError {
-  mpi_matrix_mul_mpci_scalar(a, mpci_from_mpc(s), prec~)
+  a.scale_complex_interval(RawMpci::point(s), prec~)
 }
 
 ///|
-pub fn mpc_scalar_mul_mpi_matrix(
-  s : @mpc.RawMpc,
-  a : RawMpiMatrix,
-  prec? : Int = 0,
-) -> RawMpciMatrix raise MpiError {
-  mpci_scalar_mul_mpi_matrix(mpci_from_mpc(s), a, prec~)
-}
-
-///|
-pub fn mpi_matrix_mul_mpf_scalar(
+pub fn RawMpiMatrix::scale_real(
   a : RawMpiMatrix,
   s : @mpf.RawMpf,
   prec? : Int = 0,
 ) -> RawMpiMatrix raise MpiError {
-  mpi_matrix_mul_scalar(a, mpi_from_mpf(s), prec~)
-}
-
-///|
-pub fn mpf_scalar_mul_mpi_matrix(
-  s : @mpf.RawMpf,
-  a : RawMpiMatrix,
-  prec? : Int = 0,
-) -> RawMpiMatrix raise MpiError {
-  mpi_scalar_mul_matrix(mpi_from_mpf(s), a, prec~)
+  a.scale(RawMpi::point(s), prec~)
 }

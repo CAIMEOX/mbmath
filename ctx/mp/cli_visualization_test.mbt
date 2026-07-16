@@ -1,6 +1,6 @@
 ///|
 fn plot_square(x : @mpf.RawMpf) -> @mpf.RawMpf {
-  @mpf.mpf_mul(x, x, 260, @mpf.round_nearest)
+  x.mul(x, 260, Nearest)
 }
 
 ///|
@@ -15,32 +15,24 @@ fn cli_text_matches(
   dps : Int,
 ) -> Bool raise {
   let p = if dps > 0 { dps * 5 + 80 } else { 160 }
-  let got = @mpf.from_str(got_text, prec=p, rnd=@mpf.round_nearest)
-  let expected = @mpf.from_str(expected_text, prec=p, rnd=@mpf.round_nearest)
-  let err = @mpf.mpf_abs(
-    @mpf.mpf_sub(got, expected, p, @mpf.round_nearest),
-    p,
-    @mpf.round_nearest,
-  )
+  let got = @mpf.RawMpf::parse(got_text, prec=p, rnd=Nearest)
+  let expected = @mpf.RawMpf::parse(expected_text, prec=p, rnd=Nearest)
+  let err = got.sub(expected, p, Nearest).abs(p, Nearest)
   let rel_digits = if dps > 2 { dps - 2 } else { 1 }
-  let rel_tol = @mpf.from_str(
-    "1e-\{rel_digits}",
-    prec=p,
-    rnd=@mpf.round_nearest,
-  )
-  let abs_expected = @mpf.mpf_abs(expected, p, @mpf.round_nearest)
-  let scale = if @mpf.mpf_gt(abs_expected, @mpf.fone) {
+  let rel_tol = @mpf.RawMpf::parse("1e-\{rel_digits}", prec=p, rnd=Nearest)
+  let abs_expected = expected.abs(p, Nearest)
+  let scale = if abs_expected > @mpf.RawMpf::one() {
     abs_expected
   } else {
-    @mpf.fone
+    @mpf.RawMpf::one()
   }
-  let tol = @mpf.mpf_mul(scale, rel_tol, p, @mpf.round_nearest)
-  @mpf.mpf_le(err, tol)
+  let tol = scale.mul(rel_tol, p, Nearest)
+  err <= tol
 }
 
 ///|
 test "cli literal/version subset from mpmath test_cli" {
-  let ctx = new(100, @mpf.round_nearest)
+  let ctx = MPContext::new(100, Nearest)
   let version = cli_version()
   let parts : Array[String] = []
   for part in version.split(".") {
@@ -61,11 +53,11 @@ test "cli literal/version subset from mpmath test_cli" {
 
 ///|
 test "visualization plot axes subset from mpmath test_visualization" {
-  let ctx = new(220, @mpf.round_nearest)
-  let axes = plot_axes()
+  let ctx = MPContext::new(220, Nearest)
+  let axes = PlotAxes::new()
   let points = ctx.plot(
     plot_square,
-    (ctx.make_int(0), ctx.make_int(3)),
+    (ctx.from_int(0), ctx.from_int(3)),
     axes,
     samples=9,
   )
@@ -73,21 +65,21 @@ test "visualization plot axes subset from mpmath test_visualization" {
   @debug.assert_eq(axes.ylabel, "f(x)")
   @debug.assert_eq(points.length(), 9)
   let (x0, y0) = points[0]
-  assert_true(@mpf.mpf_eq(x0, @mpf.fzero))
-  assert_true(@mpf.mpf_eq(y0, @mpf.fzero))
+  assert_true(x0 == @mpf.RawMpf::zero())
+  assert_true(y0 == @mpf.RawMpf::zero())
   let (xn, yn) = points[points.length() - 1]
-  assert_true(@mpf.mpf_eq(xn, @mpf.from_int(3)))
-  assert_true(@mpf.mpf_eq(yn, @mpf.from_int(9)))
+  assert_true(xn == @mpf.RawMpf::from_int(3))
+  assert_true(yn == @mpf.RawMpf::from_int(9))
 }
 
 ///|
 test "visualization cplot axes subset from mpmath test_visualization" {
-  let ctx = new(220, @mpf.round_nearest)
-  let axes = plot_axes()
+  let ctx = MPContext::new(220, Nearest)
+  let axes = PlotAxes::new()
   let values = ctx.cplot(
     plot_identity,
-    (ctx.make_int(-2), ctx.make_int(2)),
-    (ctx.make_int(-10), ctx.make_int(10)),
+    (ctx.from_int(-2), ctx.from_int(2)),
+    (ctx.from_int(-10), ctx.from_int(10)),
     axes,
     samples=5,
   )

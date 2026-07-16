@@ -4,7 +4,7 @@ fn assert_matrix_equal(a : MpfMatrix, b : MpfMatrix) -> Unit raise {
   @debug.assert_eq(a.cols, b.cols)
   for i in 0..<a.rows {
     for j in 0..<a.cols {
-      assert_true(@mpf.mpf_eq(a.get(i, j), b.get(i, j)))
+      assert_true(a.get(i, j) == b.get(i, j))
     }
   }
 }
@@ -17,17 +17,17 @@ fn assert_matrix_close(
   tol : String,
 ) -> Unit raise {
   let err = ctx.matrix_norm_inf(ctx.matrix_sub(a, b))
-  assert_true(@mpf.mpf_lt(err, @mpf.from_str(tol)))
+  assert_true(err < @mpf.RawMpf::parse(tol))
 }
 
 ///|
 fn matrix_integer(ctx : MPContext, n : Int) -> @mpf.RawMpf {
-  ctx.make_int(n)
+  ctx.from_int(n)
 }
 
 ///|
 test "matrices basic + matmul subset from mpmath test_matrices" {
-  let ctx = new(260, @mpf.round_nearest)
+  let ctx = MPContext::new(260, Nearest)
 
   let a1 = ctx.matrix(3, 3)
   for i in 0..<3 {
@@ -47,11 +47,11 @@ test "matrices basic + matmul subset from mpmath test_matrices" {
   ])
   let flat = a3.flat()
   for i in 0..<9 {
-    assert_true(@mpf.mpf_eq(flat[i], matrix_integer(ctx, i + 1)))
+    assert_true(flat[i] == matrix_integer(ctx, i + 1))
   }
 
-  a3.set(1, 1, @mpf.fzero)
-  assert_true(@mpf.mpf_eq(a3.get(1, 1), @mpf.fzero))
+  a3.set(1, 1, @mpf.RawMpf::zero())
+  assert_true(a3.get(1, 1) == @mpf.RawMpf::zero())
 
   let a4 = ctx.matrix_from_rows([
     [matrix_integer(ctx, 1), matrix_integer(ctx, 2), matrix_integer(ctx, 3)],
@@ -83,7 +83,7 @@ test "matrices basic + matmul subset from mpmath test_matrices" {
     [matrix_integer(ctx, 70), matrix_integer(ctx, 80), matrix_integer(ctx, 90)],
   ]
   let a6 = ctx.matrix_from_rows(l)
-  @debug.assert_eq(a6.tolist(), l)
+  @debug.assert_eq(a6.to_rows(), l)
   assert_matrix_equal(ctx.matrix_scale(a3, matrix_integer(ctx, 10)), a6)
 
   let a7 = ctx.matrix_from_rows([
@@ -111,7 +111,7 @@ test "matrices basic + matmul subset from mpmath test_matrices" {
     ctx.matrix_add_scalar(a8, matrix_integer(ctx, 1)),
     ctx.matrix_rsub_scalar(matrix_integer(ctx, 2), ctx.zeros(5)),
   )
-  assert_true(@mpf.mpf_eq(ctx.matrix_sum(lhs), @mpf.fzero))
+  assert_true(ctx.matrix_sum(lhs) == @mpf.RawMpf::zero())
 
   assert_matrix_equal(
     ctx.matrix_sub(
@@ -142,18 +142,18 @@ test "matrices basic + matmul subset from mpmath test_matrices" {
     [matrix_integer(ctx, 3), matrix_integer(ctx, 4)],
     [matrix_integer(ctx, 5), matrix_integer(ctx, 6)],
   ])
-  assert_true(@mpf.mpf_eq(ix.get_at(0, -1), matrix_integer(ctx, 2)))
-  assert_true(@mpf.mpf_eq(ix.get_at(-1, -1), matrix_integer(ctx, 6)))
-  assert_true(@mpf.mpf_eq(ix.get_at(1, -2), matrix_integer(ctx, 3)))
-  assert_true(@mpf.mpf_eq(ix.get_at(-3, -2), matrix_integer(ctx, 1)))
+  assert_true(ix.get_at(0, -1) == matrix_integer(ctx, 2))
+  assert_true(ix.get_at(-1, -1) == matrix_integer(ctx, 6))
+  assert_true(ix.get_at(1, -2) == matrix_integer(ctx, 3))
+  assert_true(ix.get_at(-3, -2) == matrix_integer(ctx, 1))
   ix.set_at(0, -1, matrix_integer(ctx, 3))
   ix.set_at(-1, -1, matrix_integer(ctx, 4))
   ix.set_at(1, -2, matrix_integer(ctx, 5))
   ix.set_at(-3, -2, matrix_integer(ctx, 1))
-  assert_true(@mpf.mpf_eq(ix.get_at(0, -1), matrix_integer(ctx, 3)))
-  assert_true(@mpf.mpf_eq(ix.get_at(-1, -1), matrix_integer(ctx, 4)))
-  assert_true(@mpf.mpf_eq(ix.get_at(1, -2), matrix_integer(ctx, 5)))
-  assert_true(@mpf.mpf_eq(ix.get_at(-3, -2), matrix_integer(ctx, 1)))
+  assert_true(ix.get_at(0, -1) == matrix_integer(ctx, 3))
+  assert_true(ix.get_at(-1, -1) == matrix_integer(ctx, 4))
+  assert_true(ix.get_at(1, -2) == matrix_integer(ctx, 5))
+  assert_true(ix.get_at(-3, -2) == matrix_integer(ctx, 1))
 
   try ctx.zeros(-2) catch {
     ValueError(_) => ()
@@ -165,7 +165,7 @@ test "matrices basic + matmul subset from mpmath test_matrices" {
 
 ///|
 test "matrices slice subset from mpmath test_matrices::test_matrix_slices" {
-  let ctx = new(260, @mpf.round_nearest)
+  let ctx = MPContext::new(260, Nearest)
   let a = ctx.matrix_from_rows([
     [matrix_integer(ctx, 1), matrix_integer(ctx, 2), matrix_integer(ctx, 3)],
     [matrix_integer(ctx, 4), matrix_integer(ctx, 5), matrix_integer(ctx, 6)],
@@ -371,7 +371,7 @@ test "matrices slice subset from mpmath test_matrices::test_matrix_slices" {
 
 ///|
 test "matrices power/transform/creation/norm/vector/copy subset" {
-  let ctx = new(280, @mpf.round_nearest)
+  let ctx = MPContext::new(280, Nearest)
 
   let a = ctx.matrix_from_rows([
     [matrix_integer(ctx, 1), matrix_integer(ctx, 2)],
@@ -457,25 +457,21 @@ test "matrices power/transform/creation/norm/vector/copy subset" {
     [matrix_integer(ctx, -3), matrix_integer(ctx, -1)],
     [matrix_integer(ctx, 2), matrix_integer(ctx, 1)],
   ])
-  assert_true(@mpf.mpf_eq(ctx.mnorm(nmat, kind="1"), matrix_integer(ctx, 6)))
-  assert_true(@mpf.mpf_eq(ctx.mnorm(nmat, kind="inf"), matrix_integer(ctx, 4)))
+  assert_true(ctx.mnorm(nmat, kind="1") == matrix_integer(ctx, 6))
+  assert_true(ctx.mnorm(nmat, kind="inf") == matrix_integer(ctx, 4))
   assert_close_mpf_str(ctx.mnorm(nmat, kind="F"), "4.472135954999579", "1e-14")
 
-  assert_true(
-    @mpf.mpf_eq(ctx.scalar_abs(matrix_integer(ctx, -3)), matrix_integer(ctx, 3)),
-  )
+  assert_true(ctx.scalar_abs(matrix_integer(ctx, -3)) == matrix_integer(ctx, 3))
   let xv = [
     matrix_integer(ctx, 1),
     matrix_integer(ctx, -2),
     matrix_integer(ctx, 7),
     matrix_integer(ctx, -12),
   ]
-  assert_true(@mpf.mpf_eq(ctx.vector_norm(xv, p=1), matrix_integer(ctx, 22)))
+  assert_true(ctx.vector_norm(xv, p=1) == matrix_integer(ctx, 22))
   assert_close_mpf_str(ctx.vector_norm(xv, p=2), "14.071247279470288", "1e-12")
   assert_close_mpf_str(ctx.vector_norm(xv, p=10), "12.005463372729799", "1e-10")
-  assert_true(
-    @mpf.mpf_eq(ctx.vector_norm(xv, inf=true), matrix_integer(ctx, 12)),
-  )
+  assert_true(ctx.vector_norm(xv, inf=true) == matrix_integer(ctx, 12))
 
   let v = ctx.matrix_from_vector([
     matrix_integer(ctx, 0),
@@ -484,7 +480,7 @@ test "matrices power/transform/creation/norm/vector/copy subset" {
     matrix_integer(ctx, 3),
     matrix_integer(ctx, 4),
   ])
-  assert_true(@mpf.mpf_eq(v.vget(3), matrix_integer(ctx, 3)))
+  assert_true(v.vget(3) == matrix_integer(ctx, 3))
   v.vset(0, matrix_integer(ctx, -10))
   v.vset(4, matrix_integer(ctx, 0))
   @debug.assert_eq(v.len(), 5)
@@ -498,7 +494,7 @@ test "matrices power/transform/creation/norm/vector/copy subset" {
   let c = ctx.matrix_pos(base)
   assert_matrix_equal(base, b)
   assert_matrix_equal(base, c)
-  b.set(0, 0, @mpf.fzero)
+  b.set(0, 0, @mpf.RawMpf::zero())
   c.set(0, 0, matrix_integer(ctx, 42))
   assert_true(base != b)
   assert_true(base != c)
@@ -507,25 +503,37 @@ test "matrices power/transform/creation/norm/vector/copy subset" {
 ///|
 test "matrix conjugate subset from mpmath test_matrices::test_matrix_conjugate" {
   let p = 220
-  let i = @mpf.from_int(1)
-  let z00 = @mpc.from_parts(i, i)
-  let z01 = @mpc.zero()
-  let z10 = @mpc.from_parts(@mpf.from_int(2), @mpf.fzero)
-  let z11 = @mpc.from_parts(@mpf.fzero, i)
+  let i = @mpf.RawMpf::from_int(1)
+  let z00 = @mpc.RawMpc::new(i, i)
+  let z01 = @mpc.RawMpc::zero()
+  let z10 = @mpc.RawMpc::new(@mpf.RawMpf::from_int(2), @mpf.RawMpf::zero())
+  let z11 = @mpc.RawMpc::new(@mpf.RawMpf::zero(), i)
 
-  let c00 = @mpc.mpc_conjugate(z00, p, @mpf.round_nearest)
-  let c01 = @mpc.mpc_conjugate(z01, p, @mpf.round_nearest)
-  let c10 = @mpc.mpc_conjugate(z10, p, @mpf.round_nearest)
-  let c11 = @mpc.mpc_conjugate(z11, p, @mpf.round_nearest)
+  let c00 = z00.conjugate(p, Nearest)
+  let c01 = z01.conjugate(p, Nearest)
+  let c10 = z10.conjugate(p, Nearest)
+  let c11 = z11.conjugate(p, Nearest)
 
-  @debug.assert_eq(c00, @mpc.from_parts(i, @mpf.from_int(-1)))
-  @debug.assert_eq(c01, @mpc.zero())
-  @debug.assert_eq(c10, @mpc.from_parts(@mpf.from_int(2), @mpf.fzero))
-  @debug.assert_eq(c11, @mpc.from_parts(@mpf.fzero, @mpf.from_int(-1)))
+  @debug.assert_eq(c00, @mpc.RawMpc::new(i, @mpf.RawMpf::from_int(-1)))
+  @debug.assert_eq(c01, @mpc.RawMpc::zero())
+  @debug.assert_eq(
+    c10,
+    @mpc.RawMpc::new(@mpf.RawMpf::from_int(2), @mpf.RawMpf::zero()),
+  )
+  @debug.assert_eq(
+    c11,
+    @mpc.RawMpc::new(@mpf.RawMpf::zero(), @mpf.RawMpf::from_int(-1)),
+  )
 
   // Hermitian transpose layout check.
-  @debug.assert_eq(c00, @mpc.from_parts(i, @mpf.from_int(-1)))
-  @debug.assert_eq(c10, @mpc.from_parts(@mpf.from_int(2), @mpf.fzero))
-  @debug.assert_eq(c01, @mpc.zero())
-  @debug.assert_eq(c11, @mpc.from_parts(@mpf.fzero, @mpf.from_int(-1)))
+  @debug.assert_eq(c00, @mpc.RawMpc::new(i, @mpf.RawMpf::from_int(-1)))
+  @debug.assert_eq(
+    c10,
+    @mpc.RawMpc::new(@mpf.RawMpf::from_int(2), @mpf.RawMpf::zero()),
+  )
+  @debug.assert_eq(c01, @mpc.RawMpc::zero())
+  @debug.assert_eq(
+    c11,
+    @mpc.RawMpc::new(@mpf.RawMpf::zero(), @mpf.RawMpf::from_int(-1)),
+  )
 }

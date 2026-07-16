@@ -12,32 +12,32 @@ let gamma_kind_loggamma = 3
 
 ///|
 fn gamma_min_a() -> @mpf.RawMpf raise MpiError {
-  @mpf.from_str("1.46163214496", prec=96, rnd=@mpf.round_nearest) catch {
+  @mpf.RawMpf::parse("1.46163214496", prec=96, rnd=Nearest) catch {
     err => raise from_mpf_error(err)
   }
 }
 
 ///|
 fn gamma_min_b() -> @mpf.RawMpf raise MpiError {
-  @mpf.from_str("1.46163214497", prec=96, rnd=@mpf.round_nearest) catch {
+  @mpf.RawMpf::parse("1.46163214497", prec=96, rnd=Nearest) catch {
     err => raise from_mpf_error(err)
   }
 }
 
 ///|
 fn gamma_mono_imag() -> RawMpi raise MpiError {
-  let lo = @mpf.from_str("-1.1", prec=96, rnd=@mpf.round_nearest) catch {
+  let lo = @mpf.RawMpf::parse("-1.1", prec=96, rnd=Nearest) catch {
     err => raise from_mpf_error(err)
   }
-  let hi = @mpf.from_str("1.1", prec=96, rnd=@mpf.round_nearest) catch {
+  let hi = @mpf.RawMpf::parse("1.1", prec=96, rnd=Nearest) catch {
     err => raise from_mpf_error(err)
   }
-  mpi_make(lo, hi)
+  RawMpi::new(lo, hi)
 }
 
 ///|
 fn lift_real_interval(x : RawMpi) -> RawMpci {
-  { real: x, imag: mpi_zero }
+  { real: x, imag: RawMpi::zero() }
 }
 
 ///|
@@ -47,7 +47,7 @@ fn mpc_loggamma_point(
   p : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpc.RawMpc raise MpiError {
-  @mpc.mpc_loggamma(@mpc.from_parts(re, im), p, rnd) catch {
+  @mpc.RawMpc::new(re, im).loggamma(p, rnd) catch {
     err => raise from_mpc_error(err)
   }
 }
@@ -60,42 +60,34 @@ fn mpc_gamma_kind_point(
   rnd : @mpf.RoundMode,
 ) -> @mpc.RawMpc raise MpiError {
   if kind == gamma_kind_gamma {
-    @mpc.mpc_gamma(z, p, rnd) catch {
+    z.gamma(p, rnd) catch {
       err => raise from_mpc_error(err)
     }
   } else if kind == gamma_kind_rgamma {
-    @mpc.mpc_rgamma(z, p, rnd) catch {
+    z.rgamma(p, rnd) catch {
       err => raise from_mpc_error(err)
     }
   } else if kind == gamma_kind_loggamma {
-    @mpc.mpc_loggamma(z, p, rnd) catch {
+    z.loggamma(p, rnd) catch {
       err => raise from_mpc_error(err)
     }
   } else if kind == gamma_kind_factorial {
-    @mpc.mpc_factorial(z, p, rnd) catch {
+    z.factorial(p, rnd) catch {
       err => raise from_mpc_error(err)
     }
   } else {
-    raise UnsupportedError("mpc_gamma_kind_point: unknown kind")
+    raise UnsupportedError("complex gamma interval evaluation: unknown kind")
   }
 }
 
 ///|
 fn widen_mpi_with_value(x : RawMpi, v : @mpf.RawMpf, p : Int) -> RawMpi {
-  if @mpf.is_nan(v) {
+  if v.is_nan() {
     x
   } else {
-    let lo = if @mpf.mpf_lt(v, x.lo) {
-      @mpf.mpf_pos(v, p, @mpf.round_floor)
-    } else {
-      x.lo
-    }
-    let hi = if @mpf.mpf_gt(v, x.hi) {
-      @mpf.mpf_pos(v, p, @mpf.round_ceiling)
-    } else {
-      x.hi
-    }
-    mpi_make(lo, hi)
+    let lo = if v < x.lo { v.rounded(p, Floor) } else { x.lo }
+    let hi = if v > x.hi { v.rounded(p, Ceiling) } else { x.hi }
+    RawMpi::new(lo, hi)
   }
 }
 
@@ -114,95 +106,95 @@ fn mpi_gamma_kind(z : RawMpi, prec : Int, kind : Int) -> RawMpi raise MpiError {
   let min_a = gamma_min_a()
   let min_b = gamma_min_b()
   if kind == gamma_kind_factorial {
-    return mpi_gamma_kind(mpi_add(z, mpi_one, prec=wp), p, gamma_kind_gamma)
+    return mpi_gamma_kind(z.add(RawMpi::one(), prec=wp), p, gamma_kind_gamma)
   }
-  if @mpf.mpf_gt(z.lo, min_b) {
+  if z.lo > min_b {
     if kind == gamma_kind_gamma {
-      let lo = @gammazeta.mpf_gamma(z.lo, p, @mpf.round_floor) catch {
+      let lo = @gammazeta.gamma(z.lo, p, Floor) catch {
         err => raise from_gammazeta_error(err)
       }
-      let hi = @gammazeta.mpf_gamma(z.hi, p, @mpf.round_ceiling) catch {
+      let hi = @gammazeta.gamma(z.hi, p, Ceiling) catch {
         err => raise from_gammazeta_error(err)
       }
-      return mpi_make(lo, hi)
+      return RawMpi::new(lo, hi)
     } else if kind == gamma_kind_rgamma {
-      let lo = @gammazeta.mpf_rgamma(z.hi, p, @mpf.round_floor) catch {
+      let lo = @gammazeta.rgamma(z.hi, p, Floor) catch {
         err => raise from_gammazeta_error(err)
       }
-      let hi = @gammazeta.mpf_rgamma(z.lo, p, @mpf.round_ceiling) catch {
+      let hi = @gammazeta.rgamma(z.lo, p, Ceiling) catch {
         err => raise from_gammazeta_error(err)
       }
-      return mpi_make(lo, hi)
+      return RawMpi::new(lo, hi)
     } else if kind == gamma_kind_loggamma {
-      let lo = @gammazeta.mpf_loggamma(z.lo, p, @mpf.round_floor) catch {
+      let lo = @gammazeta.loggamma(z.lo, p, Floor) catch {
         err => raise from_gammazeta_error(err)
       }
-      let hi = @gammazeta.mpf_loggamma(z.hi, p, @mpf.round_ceiling) catch {
+      let hi = @gammazeta.loggamma(z.hi, p, Ceiling) catch {
         err => raise from_gammazeta_error(err)
       }
-      return mpi_make(lo, hi)
+      return RawMpi::new(lo, hi)
     } else {
-      raise UnsupportedError("mpi_gamma_kind: unknown kind")
+      raise UnsupportedError("gamma interval evaluation: unknown kind")
     }
   }
-  if @mpf.mpf_gt(z.lo, @mpf.fzero) && @mpf.mpf_lt(z.hi, min_a) {
+  if z.lo > @mpf.RawMpf::zero() && z.hi < min_a {
     if kind == gamma_kind_gamma {
-      let lo = @gammazeta.mpf_gamma(z.hi, p, @mpf.round_floor) catch {
+      let lo = @gammazeta.gamma(z.hi, p, Floor) catch {
         err => raise from_gammazeta_error(err)
       }
-      let hi = @gammazeta.mpf_gamma(z.lo, p, @mpf.round_ceiling) catch {
+      let hi = @gammazeta.gamma(z.lo, p, Ceiling) catch {
         err => raise from_gammazeta_error(err)
       }
-      return mpi_make(lo, hi)
+      return RawMpi::new(lo, hi)
     } else if kind == gamma_kind_rgamma {
-      let lo = @gammazeta.mpf_rgamma(z.lo, p, @mpf.round_floor) catch {
+      let lo = @gammazeta.rgamma(z.lo, p, Floor) catch {
         err => raise from_gammazeta_error(err)
       }
-      let hi = @gammazeta.mpf_rgamma(z.hi, p, @mpf.round_ceiling) catch {
+      let hi = @gammazeta.rgamma(z.hi, p, Ceiling) catch {
         err => raise from_gammazeta_error(err)
       }
-      return mpi_make(lo, hi)
+      return RawMpi::new(lo, hi)
     } else if kind == gamma_kind_loggamma {
-      let lo = @gammazeta.mpf_loggamma(z.hi, p, @mpf.round_floor) catch {
+      let lo = @gammazeta.loggamma(z.hi, p, Floor) catch {
         err => raise from_gammazeta_error(err)
       }
-      let hi = @gammazeta.mpf_loggamma(z.lo, p, @mpf.round_ceiling) catch {
+      let hi = @gammazeta.loggamma(z.lo, p, Ceiling) catch {
         err => raise from_gammazeta_error(err)
       }
-      return mpi_make(lo, hi)
+      return RawMpi::new(lo, hi)
     } else {
-      raise UnsupportedError("mpi_gamma_kind: unknown kind")
+      raise UnsupportedError("gamma interval evaluation: unknown kind")
     }
   }
-  let znew = mpi_add(z, mpi_one, prec=wp)
+  let znew = z.add(RawMpi::one(), prec=wp)
   if kind == gamma_kind_gamma {
-    mpi_div(mpi_gamma_kind(znew, p + 2, kind), z, p)
+    mpi_gamma_kind(znew, p + 2, kind).div(z, p)
   } else if kind == gamma_kind_rgamma {
-    mpi_mul(mpi_gamma_kind(znew, p + 2, kind), z, prec=p)
+    mpi_gamma_kind(znew, p + 2, kind).mul(z, prec=p)
   } else if kind == gamma_kind_loggamma {
-    mpi_sub(mpi_gamma_kind(znew, p + 2, kind), mpi_log(z, p + 2), prec=p)
+    mpi_gamma_kind(znew, p + 2, kind).sub(z.log(p + 2), prec=p)
   } else {
-    raise UnsupportedError("mpi_gamma_kind: unknown kind")
+    raise UnsupportedError("gamma interval evaluation: unknown kind")
   }
 }
 
 ///|
-pub fn mpi_gamma(z : RawMpi, prec : Int) -> RawMpi raise MpiError {
+pub fn RawMpi::gamma(z : RawMpi, prec : Int) -> RawMpi raise MpiError {
   mpi_gamma_kind(z, prec, gamma_kind_gamma)
 }
 
 ///|
-pub fn mpi_loggamma(z : RawMpi, prec : Int) -> RawMpi raise MpiError {
+pub fn RawMpi::loggamma(z : RawMpi, prec : Int) -> RawMpi raise MpiError {
   mpi_gamma_kind(z, prec, gamma_kind_loggamma)
 }
 
 ///|
-pub fn mpi_rgamma(z : RawMpi, prec : Int) -> RawMpi raise MpiError {
+pub fn RawMpi::rgamma(z : RawMpi, prec : Int) -> RawMpi raise MpiError {
   mpi_gamma_kind(z, prec, gamma_kind_rgamma)
 }
 
 ///|
-pub fn mpi_factorial(z : RawMpi, prec : Int) -> RawMpi raise MpiError {
+pub fn RawMpi::factorial(z : RawMpi, prec : Int) -> RawMpi raise MpiError {
   mpi_gamma_kind(z, prec, gamma_kind_factorial)
 }
 
@@ -215,28 +207,28 @@ fn mpci_gamma_kind(
   let p = default_prec(prec)
   let min_b = gamma_min_b()
   let mono_imag = gamma_mono_imag()
-  if @mpf.mpf_eq(z.real.lo, z.real.hi) && @mpf.mpf_eq(z.imag.lo, z.imag.hi) {
+  if z.real.lo == z.real.hi && z.imag.lo == z.imag.hi {
     let wp = p + 24
-    let z0 = @mpc.from_parts(z.real.lo, z.imag.lo)
-    let lo = mpc_gamma_kind_point(z0, wp, kind, @mpf.round_floor)
-    let hi = mpc_gamma_kind_point(z0, wp, kind, @mpf.round_ceiling)
-    return mpci_pos(
-      mpci_make(mpi_make(lo.real, hi.real), mpi_make(lo.imag, hi.imag)),
-      p,
-    )
+    let z0 = @mpc.RawMpc::new(z.real.lo, z.imag.lo)
+    let lo = mpc_gamma_kind_point(z0, wp, kind, Floor)
+    let hi = mpc_gamma_kind_point(z0, wp, kind, Ceiling)
+    return RawMpci::new(
+      RawMpi::new(lo.real, hi.real),
+      RawMpi::new(lo.imag, hi.imag),
+    ).rounded(p)
   }
-  if z.imag == mpi_zero &&
-    (kind != gamma_kind_loggamma || @mpf.mpf_gt(z.real.lo, @mpf.fzero)) {
+  if z.imag == RawMpi::zero() &&
+    (kind != gamma_kind_loggamma || z.real.lo > @mpf.RawMpf::zero()) {
     return lift_real_interval(mpi_gamma_kind(z.real, p, kind))
   }
   let mut wp = p + 20
   if kind != gamma_kind_loggamma {
-    let amag = if @mpf.is_finite(z.real.hi) {
+    let amag = if z.real.hi.is_finite() {
       z.real.hi.exp + z.real.hi.bc
     } else {
       0
     }
-    let bmag = if @mpf.is_finite(z.imag.hi) {
+    let bmag = if z.imag.hi.is_finite() {
       z.imag.hi.exp + z.imag.hi.bc
     } else {
       0
@@ -249,119 +241,110 @@ fn mpci_gamma_kind(
   let mut z0 = z
   let mut k = kind
   if kind == gamma_kind_factorial {
-    z0 = mpci_add(z, mpci_one, wp)
+    z0 = z.add(RawMpci::one(), wp)
     k = gamma_kind_gamma
   }
-  if @mpf.mpf_lt(z0.real.lo, min_b) && mpi_overlap(z0.imag, mono_imag) {
-    let znew = mpci_add(z0, mpci_one, wp)
+  if z0.real.lo < min_b && z0.imag.overlaps(mono_imag) {
+    let znew = z0.add(RawMpci::one(), wp)
     if k == gamma_kind_gamma {
-      return mpci_div(mpci_gamma_kind(znew, p + 2, k), z0, p)
+      return mpci_gamma_kind(znew, p + 2, k).div(z0, p)
     } else if k == gamma_kind_rgamma {
-      return mpci_mul(mpci_gamma_kind(znew, p + 2, k), z0, p)
+      return mpci_gamma_kind(znew, p + 2, k).mul(z0, p)
     } else if k == gamma_kind_loggamma {
-      return mpci_sub(mpci_gamma_kind(znew, p + 2, k), mpci_log(z0, p + 2), p)
+      return mpci_gamma_kind(znew, p + 2, k).sub(z0.log(p + 2), p)
     } else {
-      raise UnsupportedError("mpci_gamma_kind: unknown kind")
+      raise UnsupportedError("complex gamma interval evaluation: unknown kind")
     }
   }
-  let (minre, maxre, minim, maxim) = if @mpf.mpf_ge(z0.imag.lo, @mpf.fzero) {
+  let (minre, maxre, minim, maxim) = if z0.imag.lo >= @mpf.RawMpf::zero() {
     (
-      mpc_loggamma_point(z0.real.lo, z0.imag.hi, wp, @mpf.round_floor),
-      mpc_loggamma_point(z0.real.hi, z0.imag.lo, wp, @mpf.round_ceiling),
-      mpc_loggamma_point(z0.real.lo, z0.imag.lo, wp, @mpf.round_floor),
-      mpc_loggamma_point(z0.real.hi, z0.imag.hi, wp, @mpf.round_ceiling),
+      mpc_loggamma_point(z0.real.lo, z0.imag.hi, wp, Floor),
+      mpc_loggamma_point(z0.real.hi, z0.imag.lo, wp, Ceiling),
+      mpc_loggamma_point(z0.real.lo, z0.imag.lo, wp, Floor),
+      mpc_loggamma_point(z0.real.hi, z0.imag.hi, wp, Ceiling),
     )
-  } else if @mpf.mpf_le(z0.imag.hi, @mpf.fzero) {
+  } else if z0.imag.hi <= @mpf.RawMpf::zero() {
     (
-      mpc_loggamma_point(z0.real.lo, z0.imag.lo, wp, @mpf.round_floor),
-      mpc_loggamma_point(z0.real.hi, z0.imag.hi, wp, @mpf.round_ceiling),
-      mpc_loggamma_point(z0.real.hi, z0.imag.lo, wp, @mpf.round_floor),
-      mpc_loggamma_point(z0.real.lo, z0.imag.hi, wp, @mpf.round_ceiling),
+      mpc_loggamma_point(z0.real.lo, z0.imag.lo, wp, Floor),
+      mpc_loggamma_point(z0.real.hi, z0.imag.hi, wp, Ceiling),
+      mpc_loggamma_point(z0.real.hi, z0.imag.lo, wp, Floor),
+      mpc_loggamma_point(z0.real.lo, z0.imag.hi, wp, Ceiling),
     )
   } else {
-    let maxre = mpc_loggamma_point(
-      z0.real.hi,
-      @mpf.fzero,
-      wp,
-      @mpf.round_ceiling,
-    )
-    let minre = if @mpf.mpf_gt(
-        @mpf.mpf_neg(z0.imag.lo, 0, @mpf.round_down),
-        z0.imag.hi,
-      ) {
-      mpc_loggamma_point(z0.real.lo, z0.imag.lo, wp, @mpf.round_ceiling)
+    let maxre = mpc_loggamma_point(z0.real.hi, @mpf.RawMpf::zero(), wp, Ceiling)
+    let minre = if z0.imag.lo.negated(0, Down) > z0.imag.hi {
+      mpc_loggamma_point(z0.real.lo, z0.imag.lo, wp, Ceiling)
     } else {
-      mpc_loggamma_point(z0.real.lo, z0.imag.hi, wp, @mpf.round_ceiling)
+      mpc_loggamma_point(z0.real.lo, z0.imag.hi, wp, Ceiling)
     }
     (
       minre,
       maxre,
-      mpc_loggamma_point(z0.real.hi, z0.imag.lo, wp, @mpf.round_floor),
-      mpc_loggamma_point(z0.real.hi, z0.imag.hi, wp, @mpf.round_floor),
+      mpc_loggamma_point(z0.real.hi, z0.imag.lo, wp, Floor),
+      mpc_loggamma_point(z0.real.hi, z0.imag.hi, wp, Floor),
     )
   }
-  let mut w = mpci_make(
-    mpi_make(minre.real, maxre.real),
-    mpi_make(minim.imag, maxim.imag),
+  let mut w = RawMpci::new(
+    RawMpi::new(minre.real, maxre.real),
+    RawMpi::new(minim.imag, maxim.imag),
   )
   if k == gamma_kind_loggamma {
     w = widen_mpci_with_point(
       w,
-      mpc_loggamma_point(z0.real.lo, z0.imag.lo, wp, @mpf.round_nearest),
+      mpc_loggamma_point(z0.real.lo, z0.imag.lo, wp, Nearest),
       wp,
     )
     w = widen_mpci_with_point(
       w,
-      mpc_loggamma_point(z0.real.hi, z0.imag.lo, wp, @mpf.round_nearest),
+      mpc_loggamma_point(z0.real.hi, z0.imag.lo, wp, Nearest),
       wp,
     )
     w = widen_mpci_with_point(
       w,
-      mpc_loggamma_point(z0.real.lo, z0.imag.hi, wp, @mpf.round_nearest),
+      mpc_loggamma_point(z0.real.lo, z0.imag.hi, wp, Nearest),
       wp,
     )
     w = widen_mpci_with_point(
       w,
-      mpc_loggamma_point(z0.real.hi, z0.imag.hi, wp, @mpf.round_nearest),
+      mpc_loggamma_point(z0.real.hi, z0.imag.hi, wp, Nearest),
       wp,
     )
-    if @mpf.mpf_le(z0.imag.lo, @mpf.fzero) &&
-      @mpf.mpf_ge(z0.imag.hi, @mpf.fzero) {
+    if z0.imag.lo <= @mpf.RawMpf::zero() && z0.imag.hi >= @mpf.RawMpf::zero() {
       w = widen_mpci_with_point(
         w,
-        mpc_loggamma_point(z0.real.lo, @mpf.fzero, wp, @mpf.round_nearest),
+        mpc_loggamma_point(z0.real.lo, @mpf.RawMpf::zero(), wp, Nearest),
         wp,
       )
       w = widen_mpci_with_point(
         w,
-        mpc_loggamma_point(z0.real.hi, @mpf.fzero, wp, @mpf.round_nearest),
+        mpc_loggamma_point(z0.real.hi, @mpf.RawMpf::zero(), wp, Nearest),
         wp,
       )
     }
-    return mpci_pos(w, p)
+    return w.rounded(p)
   }
   if k == gamma_kind_rgamma {
-    w = mpci_neg(w, wp)
+    w = w.negated(wp)
   }
-  mpci_exp(w, p)
+  w.exp(p)
 }
 
 ///|
-pub fn mpci_gamma(z : RawMpci, prec : Int) -> RawMpci raise MpiError {
+pub fn RawMpci::gamma(z : RawMpci, prec : Int) -> RawMpci raise MpiError {
   mpci_gamma_kind(z, prec, gamma_kind_gamma)
 }
 
 ///|
-pub fn mpci_loggamma(z : RawMpci, prec : Int) -> RawMpci raise MpiError {
+pub fn RawMpci::loggamma(z : RawMpci, prec : Int) -> RawMpci raise MpiError {
   mpci_gamma_kind(z, prec, gamma_kind_loggamma)
 }
 
 ///|
-pub fn mpci_rgamma(z : RawMpci, prec : Int) -> RawMpci raise MpiError {
+pub fn RawMpci::rgamma(z : RawMpci, prec : Int) -> RawMpci raise MpiError {
   mpci_gamma_kind(z, prec, gamma_kind_rgamma)
 }
 
 ///|
-pub fn mpci_factorial(z : RawMpci, prec : Int) -> RawMpci raise MpiError {
+pub fn RawMpci::factorial(z : RawMpci, prec : Int) -> RawMpci raise MpiError {
   mpci_gamma_kind(z, prec, gamma_kind_factorial)
 }

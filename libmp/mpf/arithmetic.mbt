@@ -10,9 +10,9 @@ fn signed_man(x : RawMpf) -> BigInt {
 ///|
 fn inf_with_sign(sign : Int) -> RawMpf {
   if sign == 1 {
-    fninf
+    RawMpf::negative_infinity()
   } else {
-    finf
+    RawMpf::infinity()
   }
 }
 
@@ -27,15 +27,15 @@ fn xor_sign(x : RawMpf, y : RawMpf) -> Int {
 
 ///|
 fn negated(x : RawMpf) -> RawMpf {
-  if is_nan(x) {
-    fnan
-  } else if is_inf(x) {
+  if x.is_nan() {
+    RawMpf::nan()
+  } else if x.is_infinite() {
     if x.sign == 1 {
-      finf
+      RawMpf::infinity()
     } else {
-      fninf
+      RawMpf::negative_infinity()
     }
-  } else if is_zero(x) {
+  } else if x.is_zero() {
     x
   } else {
     { sign: 1 - x.sign, man: x.man, exp: x.exp, bc: x.bc }
@@ -43,90 +43,110 @@ fn negated(x : RawMpf) -> RawMpf {
 }
 
 ///|
-pub fn mpf_add(x : RawMpf, y : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
-  if is_nan(x) || is_nan(y) {
-    return fnan
+pub impl Neg for RawMpf with fn neg(x) {
+  negated(x)
+}
+
+///|
+pub fn RawMpf::add(
+  x : RawMpf,
+  y : RawMpf,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf {
+  if x.is_nan() || y.is_nan() {
+    return RawMpf::nan()
   }
-  if is_inf(x) || is_inf(y) {
-    if is_inf(x) && is_inf(y) {
+  if x.is_infinite() || y.is_infinite() {
+    if x.is_infinite() && y.is_infinite() {
       if x.sign == y.sign {
         return inf_with_sign(x.sign)
       }
-      return fnan
+      return RawMpf::nan()
     }
-    if is_inf(x) {
+    if x.is_infinite() {
       return inf_with_sign(x.sign)
     }
     return inf_with_sign(y.sign)
   }
-  if is_zero(x) {
-    return normalize(y.sign, y.man, y.exp, y.bc, prec, rnd)
+  if x.is_zero() {
+    return RawMpf::from_raw_parts(y.sign, y.man, y.exp, y.bc, prec, rnd)
   }
-  if is_zero(y) {
-    return normalize(x.sign, x.man, x.exp, x.bc, prec, rnd)
+  if y.is_zero() {
+    return RawMpf::from_raw_parts(x.sign, x.man, x.exp, x.bc, prec, rnd)
   }
   let xm = signed_man(x)
   let ym = signed_man(y)
   if x.exp >= y.exp {
     let delta = x.exp - y.exp
-    from_man_exp((xm << delta) + ym, y.exp, prec, rnd)
+    RawMpf::from_mantissa_exponent((xm << delta) + ym, y.exp, prec, rnd)
   } else {
     let delta = y.exp - x.exp
-    from_man_exp(xm + (ym << delta), x.exp, prec, rnd)
+    RawMpf::from_mantissa_exponent(xm + (ym << delta), x.exp, prec, rnd)
   }
 }
 
 ///|
-pub fn mpf_sub(x : RawMpf, y : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
-  mpf_add(x, negated(y), prec, rnd)
+pub fn RawMpf::sub(
+  x : RawMpf,
+  y : RawMpf,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf {
+  x.add(negated(y), prec, rnd)
 }
 
 ///|
-pub fn mpf_mul(x : RawMpf, y : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
-  if is_nan(x) || is_nan(y) {
-    return fnan
+pub fn RawMpf::mul(
+  x : RawMpf,
+  y : RawMpf,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf {
+  if x.is_nan() || y.is_nan() {
+    return RawMpf::nan()
   }
-  if is_inf(x) || is_inf(y) {
-    if is_zero(x) || is_zero(y) {
-      return fnan
+  if x.is_infinite() || y.is_infinite() {
+    if x.is_zero() || y.is_zero() {
+      return RawMpf::nan()
     }
     return inf_with_sign(xor_sign(x, y))
   }
-  if is_zero(x) || is_zero(y) {
-    return fzero
+  if x.is_zero() || y.is_zero() {
+    return RawMpf::zero()
   }
   let sign = xor_sign(x, y)
   let man = x.man * y.man
-  normalize(sign, man, x.exp + y.exp, man.bit_length(), prec, rnd)
+  RawMpf::from_raw_parts(sign, man, x.exp + y.exp, man.bit_length(), prec, rnd)
 }
 
 ///|
-pub fn mpf_div(
+pub fn RawMpf::div(
   x : RawMpf,
   y : RawMpf,
   prec : Int,
   rnd : RoundMode,
 ) -> RawMpf raise MpfError {
-  if is_nan(x) || is_nan(y) {
-    return fnan
+  if x.is_nan() || y.is_nan() {
+    return RawMpf::nan()
   }
-  if is_zero(x) {
-    if is_zero(y) {
-      raise DivisionByZero("mpf_div: division by zero")
+  if x.is_zero() {
+    if y.is_zero() {
+      raise DivisionByZero("RawMpf::div: division by zero")
     }
-    return fzero
+    return RawMpf::zero()
   }
-  if is_zero(y) {
-    raise DivisionByZero("mpf_div: division by zero")
+  if y.is_zero() {
+    raise DivisionByZero("RawMpf::div: division by zero")
   }
-  if is_inf(x) && is_inf(y) {
-    return fnan
+  if x.is_infinite() && y.is_infinite() {
+    return RawMpf::nan()
   }
-  if is_inf(x) {
+  if x.is_infinite() {
     return inf_with_sign(xor_sign(x, y))
   }
-  if is_inf(y) {
-    return fzero
+  if y.is_infinite() {
+    return RawMpf::zero()
   }
   let target_prec = if prec > 0 { prec } else { 1 }
   let sign = xor_sign(x, y)
@@ -139,5 +159,5 @@ pub fn mpf_div(
   let sticky = if r == 0N { 0N } else { 1N }
   let man = (q << 1) + sticky
   let exp = x.exp - y.exp - p - 1
-  normalize(sign, man, exp, man.bit_length(), target_prec, rnd)
+  RawMpf::from_raw_parts(sign, man, exp, man.bit_length(), target_prec, rnd)
 }

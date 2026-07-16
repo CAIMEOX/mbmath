@@ -5,10 +5,23 @@ pub struct RawMpi {
 } derive(Debug, Eq)
 
 ///|
-pub let mpi_zero : RawMpi = { lo: @mpf.fzero, hi: @mpf.fzero }
+let zero_interval : RawMpi = {
+  lo: @mpf.RawMpf::zero(),
+  hi: @mpf.RawMpf::zero(),
+}
 
 ///|
-pub let mpi_one : RawMpi = { lo: @mpf.fone, hi: @mpf.fone }
+pub fn RawMpi::zero() -> RawMpi {
+  zero_interval
+}
+
+///|
+let one_interval : RawMpi = { lo: @mpf.RawMpf::one(), hi: @mpf.RawMpf::one() }
+
+///|
+pub fn RawMpi::one() -> RawMpi {
+  one_interval
+}
 
 ///|
 pub(all) suberror MpiError {
@@ -26,7 +39,20 @@ pub struct RawMpci {
 } derive(Debug, Eq)
 
 ///|
-pub let mpci_zero : RawMpci = { real: mpi_zero, imag: mpi_zero }
+let zero_complex_interval : RawMpci = {
+  real: zero_interval,
+  imag: zero_interval,
+}
 
 ///|
-pub let mpci_one : RawMpci = { real: mpi_one, imag: mpi_zero }
+pub fn RawMpci::zero() -> RawMpci {
+  zero_complex_interval
+}
+
+///|
+let one_complex_interval : RawMpci = { real: one_interval, imag: zero_interval }
+
+///|
+pub fn RawMpci::one() -> RawMpci {
+  one_complex_interval
+}

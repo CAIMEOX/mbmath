@@ -14,6 +14,6 @@ pub(all) suberror MpcError {
 
 ///|
 /// Additive identity `0 + 0j`.
-pub fn zero() -> RawMpc {
-  { real: @mpf.fzero, imag: @mpf.fzero }
+pub fn RawMpc::zero() -> RawMpc {
+  { real: @mpf.RawMpf::zero(), imag: @mpf.RawMpf::zero() }
 }

@@ -46,7 +46,7 @@ fn round_mantissa(sign : Int, man : BigInt, n : Int, rnd : RoundMode) -> BigInt 
 }
 
 ///|
-pub fn normalize(
+pub fn RawMpf::from_raw_parts(
   sign : Int,
   man : BigInt,
   exp : Int,
@@ -55,7 +55,7 @@ pub fn normalize(
   rnd : RoundMode,
 ) -> RawMpf {
   if man == 0N {
-    fzero
+    RawMpf::zero()
   } else {
     let mut m = man
     let mut e = exp
@@ -68,7 +68,7 @@ pub fn normalize(
       }
     }
     if m == 0N {
-      fzero
+      RawMpf::zero()
     } else {
       if (m & 1N) == 0N {
         let t = m.ctz()
@@ -82,47 +82,47 @@ pub fn normalize(
 }
 
 ///|
-pub fn from_man_exp(
+pub fn RawMpf::from_mantissa_exponent(
   man : BigInt,
   exp : Int,
   prec : Int,
   rnd : RoundMode,
 ) -> RawMpf {
   if man == 0N {
-    fzero
+    RawMpf::zero()
   } else {
     let sign = if man < 0N { 1 } else { 0 }
     let abs_man = if sign == 1 { -man } else { man }
     let bc = abs_man.bit_length()
     if prec <= 0 {
-      normalize(sign, abs_man, exp, bc, 0, rnd)
+      RawMpf::from_raw_parts(sign, abs_man, exp, bc, 0, rnd)
     } else {
-      normalize(sign, abs_man, exp, bc, prec, rnd)
+      RawMpf::from_raw_parts(sign, abs_man, exp, bc, prec, rnd)
     }
   }
 }
 
 ///|
-pub fn from_int(n : Int) -> RawMpf {
-  from_man_exp(BigInt::from_int(n), 0, 0, round_down)
+pub fn RawMpf::from_int(n : Int) -> RawMpf {
+  RawMpf::from_mantissa_exponent(BigInt::from_int(n), 0, 0, Down)
 }
 
 ///|
-pub fn is_zero(x : RawMpf) -> Bool {
+pub fn RawMpf::is_zero(x : RawMpf) -> Bool {
   x.man == 0N && x.bc == 0
 }
 
 ///|
-pub fn is_finite(x : RawMpf) -> Bool {
+pub fn RawMpf::is_finite(x : RawMpf) -> Bool {
   x.bc >= 0
 }
 
 ///|
-pub fn is_inf(x : RawMpf) -> Bool {
+pub fn RawMpf::is_infinite(x : RawMpf) -> Bool {
   x.bc == -2 || x.bc == -3
 }
 
 ///|
-pub fn is_nan(x : RawMpf) -> Bool {
+pub fn RawMpf::is_nan(x : RawMpf) -> Bool {
   x.bc == -1
 }

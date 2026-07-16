@@ -23,29 +23,29 @@ fn hash_exp_shift(exp : Int) -> Int {
 }
 
 ///|
-pub fn mpf_frexp(x : RawMpf) -> (RawMpf, Int) raise MpfError {
-  if is_zero(x) {
-    (fzero, 0)
-  } else if !is_finite(x) {
-    raise DomainError("mpf_frexp: non-finite input")
+pub fn RawMpf::frexp(x : RawMpf) -> (RawMpf, Int) raise MpfError {
+  if x.is_zero() {
+    (RawMpf::zero(), 0)
+  } else if !x.is_finite() {
+    raise DomainError("RawMpf::frexp: non-finite input")
   } else {
     let n = x.bc + x.exp
-    (mpf_shift(x, -n), n)
+    (x.scale_pow2(-n), n)
   }
 }
 
 ///|
-pub fn mpf_hash(x : RawMpf) -> Int {
-  if is_nan(x) {
+pub fn RawMpf::stable_hash(x : RawMpf) -> Int {
+  if x.is_nan() {
     return py_hash_nan
   }
-  if x == finf {
+  if x == RawMpf::infinity() {
     return py_hash_inf
   }
-  if x == fninf {
+  if x == RawMpf::negative_infinity() {
     return -py_hash_inf
   }
-  if is_zero(x) {
+  if x.is_zero() {
     return 0
   }
   let mut h = x.man % py_hash_modulus
@@ -62,14 +62,24 @@ pub fn mpf_hash(x : RawMpf) -> Int {
 }
 
 ///|
-pub fn mpf_perturb(
+pub impl Hash for RawMpf with fn hash(x) {
+  x.stable_hash()
+}
+
+///|
+pub impl Hash for RawMpf with fn hash_combine(x, hasher) {
+  hasher.combine_int(x.stable_hash())
+}
+
+///|
+pub fn RawMpf::perturb(
   x : RawMpf,
   eps_sign : Int,
   prec : Int,
   rnd : RoundMode,
 ) -> RawMpf {
-  if rnd == round_nearest {
-    return mpf_pos(x, prec, rnd)
+  if rnd == Nearest {
+    return x.rounded(prec, rnd)
   }
   let perturb_sign = if eps_sign == 0 { 0 } else { 1 }
   let eps : RawMpf = {
@@ -80,22 +90,22 @@ pub fn mpf_perturb(
   }
   let eps_is_negative = perturb_sign == 1
   let away = if x.sign == 1 {
-    (rnd == round_down || rnd == round_ceiling) != eps_is_negative
+    (rnd == Down || rnd == Ceiling) != eps_is_negative
   } else {
-    (rnd == round_up || rnd == round_ceiling) != eps_is_negative
+    (rnd == Up || rnd == Ceiling) != eps_is_negative
   }
   if away {
-    mpf_add(x, eps, prec, rnd)
+    x.add(eps, prec, rnd)
   } else {
-    mpf_pos(x, prec, rnd)
+    x.rounded(prec, rnd)
   }
 }
 
 ///|
-pub fn mpf_rand(prec : Int) -> RawMpf {
+pub fn RawMpf::random(prec : Int) -> RawMpf {
   if prec <= 0 {
-    return fzero
+    return RawMpf::zero()
   }
   let man = mpf_rand_gen.bigint(prec)
-  from_man_exp(man, -prec, prec, round_floor)
+  RawMpf::from_mantissa_exponent(man, -prec, prec, Floor)
 }

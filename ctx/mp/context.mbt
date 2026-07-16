@@ -68,7 +68,7 @@ fn checked_mpf_pi(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise MPError {
-  @libelefun.mpf_pi(prec, rnd) catch {
+  @libelefun.pi(prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -79,7 +79,7 @@ fn checked_mpf_exp(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise MPError {
-  @libelefun.mpf_exp(x, prec, rnd) catch {
+  @libelefun.exp(x, prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -90,7 +90,7 @@ fn checked_mpf_sin(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise MPError {
-  @libelefun.mpf_sin(x, prec, rnd) catch {
+  @libelefun.sin(x, prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -101,7 +101,7 @@ fn checked_mpf_cos(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise MPError {
-  @libelefun.mpf_cos(x, prec, rnd) catch {
+  @libelefun.cos(x, prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -112,7 +112,7 @@ fn checked_mpf_tan(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise MPError {
-  @libelefun.mpf_tan(x, prec, rnd) catch {
+  @libelefun.tan(x, prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -122,14 +122,14 @@ fn checked_mpf_ln2(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise MPError {
-  @libelefun.mpf_ln2(prec, rnd) catch {
+  @libelefun.ln2(prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
 
 ///|
 fn checked_mpc_to_str(z : @mpc.RawMpc, dps? : Int = 15) -> String raise MPError {
-  @mpc.mpc_to_str(z, dps~) catch {
+  z.format(dps~) catch {
     err => raise from_mpc_error(err)
   }
 }
@@ -140,7 +140,7 @@ fn checked_mpc_sqrt(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpc.RawMpc raise MPError {
-  @mpc.mpc_sqrt(z, prec, rnd) catch {
+  z.sqrt(prec, rnd) catch {
     err => raise from_mpc_error(err)
   }
 }
@@ -151,7 +151,7 @@ fn checked_mpc_gamma(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpc.RawMpc raise MPError {
-  @mpc.mpc_gamma(z, prec, rnd) catch {
+  z.gamma(prec, rnd) catch {
     err => raise from_mpc_error(err)
   }
 }
@@ -163,7 +163,7 @@ fn checked_mpc_zeta(
   rnd : @mpf.RoundMode,
   alt? : Bool = false,
 ) -> @mpc.RawMpc raise MPError {
-  @mpc.mpc_zeta(z, prec, rnd, alt~) catch {
+  z.zeta(prec, rnd, alt~) catch {
     err => raise from_mpc_error(err)
   }
 }
@@ -174,7 +174,7 @@ fn checked_mpc_abs(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise MPError {
-  @mpc.mpc_abs(z, prec, rnd) catch {
+  z.abs(prec, rnd) catch {
     err => raise from_mpc_error(err)
   }
 }
@@ -186,7 +186,7 @@ fn checked_mpc_div(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpc.RawMpc raise MPError {
-  @mpc.mpc_div(z, w, prec, rnd) catch {
+  z.div(w, prec, rnd) catch {
     err => raise from_mpc_error(err)
   }
 }
@@ -198,7 +198,7 @@ fn checked_mpc_div_mpf(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpc.RawMpc raise MPError {
-  @mpc.mpc_div_mpf(z, x, prec, rnd) catch {
+  z.div_real(x, prec, rnd) catch {
     err => raise from_mpc_error(err)
   }
 }
@@ -209,7 +209,7 @@ fn checked_mpc_exp(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpc.RawMpc raise MPError {
-  @mpc.mpc_exp(z, prec, rnd) catch {
+  z.exp(prec, rnd) catch {
     err => raise from_mpc_error(err)
   }
 }
@@ -220,7 +220,7 @@ fn checked_mpc_exp(
 /// This is the MoonBit counterpart of constructing an `mpmath.mp`-like runtime
 /// state. `prec` is binary precision (bits), and `rounding` controls final
 /// rounding for wrapper operations.
-pub fn new(prec : Int, rounding : @mpf.RoundMode) -> MPContext {
+pub fn MPContext::new(prec : Int, rounding : @mpf.RoundMode) -> MPContext {
   { prec, rounding }
 }
 
@@ -238,8 +238,13 @@ pub fn MPContext::round_mode(self : MPContext) -> @mpf.RoundMode {
 
 ///|
 /// Construct an `mpf` value from an integer using this context precision.
-pub fn MPContext::make_int(self : MPContext, n : Int) -> @mpf.RawMpf {
-  @mpf.from_man_exp(BigInt::from_int(n), 0, self.prec, self.rounding)
+pub fn MPContext::from_int(self : MPContext, n : Int) -> @mpf.RawMpf {
+  @mpf.RawMpf::from_mantissa_exponent(
+    BigInt::from_int(n),
+    0,
+    self.prec,
+    self.rounding,
+  )
 }
 
 ///|
@@ -247,11 +252,11 @@ pub fn MPContext::make_int(self : MPContext, n : Int) -> @mpf.RawMpf {
 ///
 /// Compatible with mpmath-style numeric spellings (`inf`, `nan`, exponents,
 /// signed literals). Parse failures are normalized to `MPError::ValueError`.
-pub fn MPContext::make_float(
+pub fn MPContext::parse(
   self : MPContext,
-  s : String,
+  s : StringView,
 ) -> @mpf.RawMpf raise MPError {
-  @mpf.from_str(s, prec=self.prec, rnd=self.rounding) catch {
+  @mpf.RawMpf::parse(s, prec=self.prec, rnd=self.rounding) catch {
     err => raise from_mpf_error(err)
   }
 }
@@ -259,7 +264,7 @@ pub fn MPContext::make_float(
 ///|
 /// Convert an `mpf` to a plain decimal string with optional `dps`.
 ///
-/// This wraps `@mpf.to_str_opts` and follows mpmath's default user-facing
+/// This wraps `RawMpf::format` and follows mpmath's default user-facing
 /// conversion style for finite/special values.
 pub fn MPContext::to_string(
   self : MPContext,
@@ -267,7 +272,7 @@ pub fn MPContext::to_string(
   dps? : Int = 15,
 ) -> String raise MPError {
   ignore(self)
-  @mpf.to_str_opts(x, dps~) catch {
+  x.format(dps~) catch {
     err => raise from_mpf_error(err)
   }
 }
@@ -275,29 +280,29 @@ pub fn MPContext::to_string(
 ///|
 /// Format an `mpf` using mpmath/Python-like format mini-language subset.
 ///
-/// `format_spec` is forwarded to `@mpf.format_mpf` (alignment, sign, percent,
+/// `format_spec` is forwarded to `RawMpf::format_spec` (alignment, sign, percent,
 /// base/precision options implemented by libmp).
 pub fn MPContext::format(
   self : MPContext,
   x : @mpf.RawMpf,
-  format_spec : String,
+  format_spec : StringView,
   dps? : Int = 15,
 ) -> String raise MPError {
   ignore(self)
-  @mpf.format_mpf(x, format_spec, dps~) catch {
+  x.format_spec(format_spec, dps~) catch {
     err => raise from_mpf_error(err)
   }
 }
 
 ///|
 /// Build a complex number from real and imaginary `mpf` parts.
-pub fn MPContext::make_complex(
+pub fn MPContext::complex(
   self : MPContext,
   re : @mpf.RawMpf,
   im : @mpf.RawMpf,
 ) -> @mpc.RawMpc {
   ignore(self)
-  @mpc.from_parts(re, im)
+  @mpc.RawMpc::new(re, im)
 }
 
 ///|
@@ -305,7 +310,7 @@ pub fn MPContext::make_complex(
 ///
 /// `dps` controls displayed digits. Behavior follows `mpmath.nstr`-style
 /// compact conversion for complex numbers.
-pub fn MPContext::complex_to_string(
+pub fn MPContext::format_complex(
   self : MPContext,
   z : @mpc.RawMpc,
   dps? : Int = 15,
@@ -321,7 +326,7 @@ pub fn MPContext::add(
   x : @mpf.RawMpf,
   y : @mpf.RawMpf,
 ) -> @mpf.RawMpf {
-  @mpf.mpf_add(x, y, self.prec, self.rounding)
+  x.add(y, self.prec, self.rounding)
 }
 
 ///|
@@ -331,7 +336,7 @@ pub fn MPContext::sub(
   x : @mpf.RawMpf,
   y : @mpf.RawMpf,
 ) -> @mpf.RawMpf {
-  @mpf.mpf_sub(x, y, self.prec, self.rounding)
+  x.sub(y, self.prec, self.rounding)
 }
 
 ///|
@@ -341,7 +346,7 @@ pub fn MPContext::mul(
   x : @mpf.RawMpf,
   y : @mpf.RawMpf,
 ) -> @mpf.RawMpf {
-  @mpf.mpf_mul(x, y, self.prec, self.rounding)
+  x.mul(y, self.prec, self.rounding)
 }
 
 ///|
@@ -354,7 +359,7 @@ pub fn MPContext::div(
   x : @mpf.RawMpf,
   y : @mpf.RawMpf,
 ) -> @mpf.RawMpf raise MPError {
-  @mpf.mpf_div(x, y, self.prec, self.rounding) catch {
+  x.div(y, self.prec, self.rounding) catch {
     err => raise from_mpf_error(err)
   }
 }
@@ -362,13 +367,13 @@ pub fn MPContext::div(
 ///|
 /// Unary negation with context rounding.
 pub fn MPContext::neg(self : MPContext, x : @mpf.RawMpf) -> @mpf.RawMpf {
-  @mpf.mpf_neg(x, self.prec, self.rounding)
+  x.negated(self.prec, self.rounding)
 }
 
 ///|
 /// Absolute value with context rounding.
 pub fn MPContext::abs(self : MPContext, x : @mpf.RawMpf) -> @mpf.RawMpf {
-  @mpf.mpf_abs(x, self.prec, self.rounding)
+  x.abs(self.prec, self.rounding)
 }
 
 ///|
@@ -380,7 +385,7 @@ pub fn MPContext::sqrt(
   self : MPContext,
   x : @mpf.RawMpf,
 ) -> @mpf.RawMpf raise MPError {
-  @mpf.mpf_sqrt(x, self.prec, self.rounding) catch {
+  x.sqrt(self.prec, self.rounding) catch {
     err => raise from_mpf_error(err)
   }
 }
@@ -395,7 +400,7 @@ pub fn MPContext::pow_int(
   x : @mpf.RawMpf,
   n : Int,
 ) -> @mpf.RawMpf raise MPError {
-  @mpf.mpf_pow_int(x, n, self.prec, self.rounding) catch {
+  x.pow_int(n, self.prec, self.rounding) catch {
     err => raise from_mpf_error(err)
   }
 }
@@ -417,7 +422,7 @@ pub fn MPContext::ln(
   self : MPContext,
   x : @mpf.RawMpf,
 ) -> @mpf.RawMpf raise MPError {
-  @libelefun.mpf_ln(x, self.prec, self.rounding) catch {
+  @libelefun.ln(x, self.prec, self.rounding) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -458,7 +463,7 @@ pub fn MPContext::gamma(
   self : MPContext,
   x : @mpf.RawMpf,
 ) -> @mpf.RawMpf raise MPError {
-  @gammazeta.mpf_gamma(x, self.prec, self.rounding) catch {
+  @gammazeta.gamma(x, self.prec, self.rounding) catch {
     err => raise from_gammazeta_error(err)
   }
 }
@@ -472,17 +477,17 @@ pub fn MPContext::zeta(
   s : @mpf.RawMpf,
   alt? : Bool = false,
 ) -> @mpf.RawMpf raise MPError {
-  @gammazeta.mpf_zeta(s, self.prec, self.rounding, alt~) catch {
+  @gammazeta.zeta(s, self.prec, self.rounding, alt~) catch {
     err => raise from_gammazeta_error(err)
   }
 }
 
 ///|
 fn is_real_integer(x : @mpf.RawMpf) -> Bool {
-  if !@mpf.is_finite(x) {
+  if !x.is_finite() {
     return false
   }
-  @mpf.mpf_eq(x, @mpf.mpf_round_int(x, @mpf.round_nearest))
+  x == x.round_to_integer(Nearest)
 }
 
 ///|
@@ -494,10 +499,10 @@ pub fn MPContext::complex_log(
   self : MPContext,
   z : @mpc.RawMpc,
 ) -> @mpc.RawMpc raise MPError {
-  if z == @mpc.zero() {
+  if z == @mpc.RawMpc::zero() {
     raise PoleError("complex_log: logarithm singular at zero")
   }
-  @mpc.mpc_log(z, self.prec, self.rounding) catch {
+  z.log(self.prec, self.rounding) catch {
     err => raise from_mpc_error(err)
   }
 }
@@ -523,15 +528,16 @@ pub fn MPContext::complex_pow(
   z : @mpc.RawMpc,
   w : @mpc.RawMpc,
 ) -> @mpc.RawMpc raise MPError {
-  if w == @mpc.zero() {
-    return @mpc.one()
+  if w == @mpc.RawMpc::zero() {
+    return @mpc.RawMpc::one()
   }
-  if z == @mpc.zero() && (w.imag != @mpf.fzero || @mpf.mpf_sign(w.real) <= 0) {
+  if z == @mpc.RawMpc::zero() &&
+    (w.imag != @mpf.RawMpf::zero() || w.real.signum() <= 0) {
     raise DomainError(
       "complex_pow: zero base with non-positive/complex exponent",
     )
   }
-  @mpc.mpc_pow(z, w, self.prec, self.rounding) catch {
+  z.pow(w, self.prec, self.rounding) catch {
     err => raise from_mpc_error(err)
   }
 }
@@ -544,8 +550,8 @@ pub fn MPContext::complex_gamma(
   self : MPContext,
   z : @mpc.RawMpc,
 ) -> @mpc.RawMpc raise MPError {
-  if z.imag == @mpf.fzero &&
-    @mpf.mpf_le(z.real, @mpf.fzero) &&
+  if z.imag == @mpf.RawMpf::zero() &&
+    z.real <= @mpf.RawMpf::zero() &&
     is_real_integer(z.real) {
     raise PoleError("complex_gamma: pole at non-positive integer")
   }
@@ -562,9 +568,12 @@ pub fn MPContext::complex_zeta(
   s : @mpc.RawMpc,
   alt? : Bool = false,
 ) -> @mpc.RawMpc raise MPError {
-  if s.imag == @mpf.fzero && @mpf.mpf_eq(s.real, @mpf.fone) {
+  if s.imag == @mpf.RawMpf::zero() && s.real == @mpf.RawMpf::one() {
     return if alt {
-      @mpc.from_parts(checked_mpf_ln2(self.prec, self.rounding), @mpf.fzero)
+      @mpc.RawMpc::new(
+        checked_mpf_ln2(self.prec, self.rounding),
+        @mpf.RawMpf::zero(),
+      )
     } else {
       raise PoleError("complex_zeta: pole at s=1")
     }
@@ -574,7 +583,7 @@ pub fn MPContext::complex_zeta(
 
 ///|
 fn lift_real(y : @mpf.RawMpf) -> @mpc.RawMpc {
-  @mpc.from_parts(y, @mpf.fzero)
+  @mpc.RawMpc::new(y, @mpf.RawMpf::zero())
 }
 
 ///|
@@ -583,27 +592,23 @@ fn e1_complex_principal(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpc.RawMpc raise MPError {
-  if @mpf.is_nan(x) {
-    return @mpc.from_parts(@mpf.fnan, @mpf.fnan)
+  if x.is_nan() {
+    return @mpc.RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
   }
-  if @mpf.is_zero(x) {
-    return @mpc.from_parts(@mpf.finf, @mpf.fzero)
+  if x.is_zero() {
+    return @mpc.RawMpc::new(@mpf.RawMpf::infinity(), @mpf.RawMpf::zero())
   }
   if x.sign == 1 {
     let p = if prec > 0 { prec + 24 } else { 64 }
-    let ax = @mpf.mpf_abs(x, p, @mpf.round_nearest)
-    let ei = @libhyper.mpf_ei(ax, p, @mpf.round_nearest) catch {
+    let ax = x.abs(p, Nearest)
+    let ei = @libhyper.ei(ax, p, Nearest) catch {
       err => raise from_libhyper_error(err)
     }
-    let re = @mpf.mpf_neg(ei, p, @mpf.round_nearest)
-    let im = @mpf.mpf_neg(
-      checked_mpf_pi(p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    )
-    return @mpc.mpc_pos(@mpc.from_parts(re, im), prec, rnd)
+    let re = ei.negated(p, Nearest)
+    let im = checked_mpf_pi(p, Nearest).negated(p, Nearest)
+    return @mpc.RawMpc::new(re, im).rounded(prec, rnd)
   }
-  let re = @libhyper.mpf_e1(x, prec, rnd) catch {
+  let re = @libhyper.e1(x, prec, rnd) catch {
     err => raise from_libhyper_error(err)
   }
   lift_real(re)
@@ -618,10 +623,10 @@ pub fn MPContext::e1_real(
   self : MPContext,
   x : @mpf.RawMpf,
 ) -> @mpf.RawMpf raise MPError {
-  if !@mpf.is_nan(x) && !@mpf.is_zero(x) && x.sign == 1 {
+  if !x.is_nan() && !x.is_zero() && x.sign == 1 {
     raise ComplexResult("e1_real: E1(x) for x < 0")
   }
-  @libhyper.mpf_e1(x, self.prec, self.rounding) catch {
+  @libhyper.e1(x, self.prec, self.rounding) catch {
     err => raise from_libhyper_error(err)
   }
 }
@@ -645,87 +650,72 @@ pub fn MPContext::e1(
 ///
 /// For negative real arguments in the non-gamma form, this function returns the
 /// complex principal value instead of failing, matching mpmath branch behavior.
-pub fn MPContext::expint(
+pub fn MPContext::exponential_integral(
   self : MPContext,
   n : Int,
   x : @mpf.RawMpf,
   gamma? : Bool = false,
 ) -> @mpc.RawMpc raise MPError {
   if n <= 0 {
-    raise ValueError("expint: n must be positive")
+    raise ValueError("exponential_integral: n must be positive")
   }
-  if @mpf.is_nan(x) {
-    return @mpc.from_parts(@mpf.fnan, @mpf.fnan)
+  if x.is_nan() {
+    return @mpc.RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
   }
-  if gamma && @mpf.is_inf(x) {
+  if gamma && x.is_infinite() {
     return if x.sign == 0 {
-      @mpc.zero()
+      @mpc.RawMpc::zero()
     } else {
-      @mpc.from_parts(@mpf.fnan, @mpf.fnan)
+      @mpc.RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
     }
   }
-  if !gamma && x.sign == 1 && !@mpf.is_zero(x) {
+  if !gamma && x.sign == 1 && !x.is_zero() {
     let p = if self.prec > 0 { self.prec + 24 } else { 64 }
-    let mut en = e1_complex_principal(x, p, @mpf.round_nearest)
-    let ex = lift_real(
-      checked_mpf_exp(
-        @mpf.mpf_neg(x, p, @mpf.round_nearest),
-        p,
-        @mpf.round_nearest,
-      ),
-    )
-    let xz = lift_real(@mpf.mpf_pos(x, p, @mpf.round_nearest))
+    let mut en = e1_complex_principal(x, p, Nearest)
+    let ex = lift_real(checked_mpf_exp(x.negated(p, Nearest), p, Nearest))
+    let xz = lift_real(x.rounded(p, Nearest))
     let mut k = 1
     while k < n {
       en = checked_mpc_div_mpf(
-        @mpc.mpc_sub(
-          ex,
-          @mpc.mpc_mul(xz, en, p, @mpf.round_nearest),
-          p,
-          @mpf.round_nearest,
-        ),
-        @mpf.from_int(k),
+        ex.sub(xz.mul(en, p, Nearest), p, Nearest),
+        @mpf.RawMpf::from_int(k),
         p,
-        @mpf.round_nearest,
+        Nearest,
       )
       k += 1
     }
-    return @mpc.mpc_pos(en, self.prec, self.rounding)
+    return en.rounded(self.prec, self.rounding)
   }
-  if gamma && x.sign == 1 && !@mpf.is_zero(x) {
+  if gamma && x.sign == 1 && !x.is_zero() {
     let p = if self.prec > 0 { self.prec + 24 } else { 64 }
-    let xz = lift_real(@mpf.mpf_pos(x, p, @mpf.round_nearest))
-    let ex = checked_mpc_exp(
-      @mpc.mpc_neg(xz, p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    )
-    let mut sum = @mpc.one()
-    let mut term = @mpc.one()
+    let xz = lift_real(x.rounded(p, Nearest))
+    let ex = checked_mpc_exp(xz.negated(p, Nearest), p, Nearest)
+    let mut sum = @mpc.RawMpc::one()
+    let mut term = @mpc.RawMpc::one()
     for k in 1..<n {
       term = checked_mpc_div_mpf(
-        @mpc.mpc_mul(term, xz, p, @mpf.round_nearest),
-        @mpf.from_int(k),
+        term.mul(xz, p, Nearest),
+        @mpf.RawMpf::from_int(k),
         p,
-        @mpf.round_nearest,
+        Nearest,
       )
-      sum = @mpc.mpc_add(sum, term, p, @mpf.round_nearest)
+      sum = sum.add(term, p, Nearest)
     }
-    let fac = @gammazeta.mpf_factorial(n - 1, p, @mpf.round_nearest) catch {
+    let fac = @gammazeta.factorial(n - 1, p, Nearest) catch {
       err => raise from_gammazeta_error(err)
     }
-    return @mpc.mpc_pos(
-      @mpc.mpc_mul_mpf(
-        @mpc.mpc_mul(ex, sum, p, @mpf.round_nearest),
-        fac,
-        p,
-        @mpf.round_nearest,
-      ),
-      self.prec,
-      self.rounding,
-    )
+    return ex
+      .mul(sum, p, Nearest)
+      .mul_real(fac, p, Nearest)
+      .rounded(self.prec, self.rounding)
   }
-  let re = @libhyper.mpf_expint(n, x, self.prec, self.rounding, gamma~) catch {
+  let re = @libhyper.exponential_integral(
+    n,
+    x,
+    self.prec,
+    self.rounding,
+    gamma~,
+  ) catch {
     err => raise from_libhyper_error(err)
   }
   lift_real(re)
@@ -757,11 +747,7 @@ fn identify_decimals(prec : Int) -> Int {
 ///|
 fn identify_tol(prec : Int) -> @mpf.RawMpf raise MPError {
   let dps = identify_decimals(prec)
-  @mpf.from_str(
-    "1e-\{dps}",
-    prec=identify_work_prec(prec),
-    rnd=@mpf.round_nearest,
-  ) catch {
+  @mpf.RawMpf::parse("1e-\{dps}", prec=identify_work_prec(prec), rnd=Nearest) catch {
     err => raise from_mpf_error(err)
   }
 }
@@ -773,12 +759,8 @@ fn mpf_close(
   p : Int,
   tol : @mpf.RawMpf,
 ) -> Bool {
-  let err = @mpf.mpf_abs(
-    @mpf.mpf_sub(a, b, p, @mpf.round_nearest),
-    p,
-    @mpf.round_nearest,
-  )
-  @mpf.mpf_le(err, tol)
+  let err = a.sub(b, p, Nearest).abs(p, Nearest)
+  err <= tol
 }
 
 ///|
@@ -800,11 +782,10 @@ fn find_small_rational(
 ) -> (Int, Int)? raise MPError {
   for den in 1..<=max_den {
     for num in -max_num..<=max_num {
-      let cand = @mpf.mpf_div(
-        @mpf.from_int(num),
-        @mpf.from_int(den),
+      let cand = @mpf.RawMpf::from_int(num).div(
+        @mpf.RawMpf::from_int(den),
         p,
-        @mpf.round_nearest,
+        Nearest,
       ) catch {
         err => raise from_mpf_error(err)
       }
@@ -824,10 +805,10 @@ fn identify_by_basis(
   tol : @mpf.RawMpf,
 ) -> String? raise MPError {
   for name, base in bases {
-    if @mpf.is_zero(base) || !@mpf.is_finite(base) {
+    if base.is_zero() || !base.is_finite() {
       continue
     }
-    let ratio = @mpf.mpf_div(x, base, p, @mpf.round_nearest) catch {
+    let ratio = x.div(base, p, Nearest) catch {
       err => raise from_mpf_error(err)
     }
     match find_small_rational(ratio, p, tol, 512, 192) {
@@ -835,8 +816,8 @@ fn identify_by_basis(
       None => ()
     }
     for off in -8..<=8 {
-      let shifted = @mpf.mpf_sub(x, @mpf.from_int(off), p, @mpf.round_nearest)
-      let ratio2 = @mpf.mpf_div(shifted, base, p, @mpf.round_nearest) catch {
+      let shifted = x.sub(@mpf.RawMpf::from_int(off), p, Nearest)
+      let ratio2 = shifted.div(base, p, Nearest) catch {
         err => raise from_mpf_error(err)
       }
       match find_small_rational(ratio2, p, tol, 128, 128) {
@@ -868,25 +849,25 @@ pub fn MPContext::identify(
 ) -> String raise MPError {
   let p = identify_work_prec(self.prec)
   let tol = identify_tol(self.prec)
-  if @mpf.is_nan(x) {
+  if x.is_nan() {
     return "nan"
   }
-  if @mpf.is_inf(x) {
+  if x.is_infinite() {
     return if x.sign == 1 { "-inf" } else { "inf" }
   }
-  if @mpf.is_zero(x) {
+  if x.is_zero() {
     return "0"
   }
 
   for n in -10..<=10 {
-    let e_n = checked_mpf_exp(@mpf.from_int(n), p, @mpf.round_nearest)
+    let e_n = checked_mpf_exp(@mpf.RawMpf::from_int(n), p, Nearest)
     if mpf_close(x, e_n, p, tol) {
       return "exp(\{n})"
     }
   }
 
   for n in 2..<=20 {
-    let l_n = @libelefun.mpf_ln(@mpf.from_int(n), p, @mpf.round_nearest) catch {
+    let l_n = @libelefun.ln(@mpf.RawMpf::from_int(n), p, Nearest) catch {
       err => raise from_libelefun_error(err)
     }
     if mpf_close(x, l_n, p, tol) {
@@ -894,12 +875,12 @@ pub fn MPContext::identify(
     }
   }
 
-  let pi = checked_mpf_pi(p, @mpf.round_nearest)
-  if @mpf.mpf_sign(x) > 0 {
-    let ln_x = @libelefun.mpf_ln(x, p, @mpf.round_nearest) catch {
+  let pi = checked_mpf_pi(p, Nearest)
+  if x.signum() > 0 {
+    let ln_x = @libelefun.ln(x, p, Nearest) catch {
       err => raise from_libelefun_error(err)
     }
-    let ratio = @mpf.mpf_div(ln_x, pi, p, @mpf.round_nearest) catch {
+    let ratio = ln_x.div(pi, p, Nearest) catch {
       err => raise from_mpf_error(err)
     }
     match find_small_rational(ratio, p, tol, 64, 32) {
@@ -915,11 +896,9 @@ pub fn MPContext::identify(
 
   let builtins : Map[String, @mpf.RawMpf] = {
     "pi": pi,
-    "log(2)": checked_mpf_ln2(p, @mpf.round_nearest),
+    "log(2)": checked_mpf_ln2(p, Nearest),
   }
-  let pi4 = @mpf.mpf_pow_int(pi, 4, p, @mpf.round_nearest) catch {
-    err => raise from_mpf_error(err)
-  }
+  let pi4 = pi.pow_int(4, p, Nearest) catch { err => raise from_mpf_error(err) }
   builtins["pi**4"] = pi4
   match identify_by_basis(x, builtins, p, tol) {
     Some(expr) => return expr

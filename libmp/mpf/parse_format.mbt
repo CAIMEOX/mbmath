@@ -21,6 +21,11 @@ priv struct ParsedFormatSpec {
 }
 
 ///|
+fn slice_owned(s : StringView, start : Int, end : Int) -> String {
+  s.view(start_offset=start, end_offset=end).to_owned()
+}
+
+///|
 fn pow5(n : Int) -> BigInt {
   let mut acc = 1N
   for _ in 0..<n {
@@ -39,15 +44,15 @@ fn pow10(n : Int) -> BigInt {
 }
 
 ///|
-fn trim_leading_zeros_digits(s : String) -> String {
+fn trim_leading_zeros_digits(s : StringView) -> String {
   match s.find_by(c => c != '0') {
-    Some(i) => s.unsafe_substring(start=i, end=s.length())
+    Some(i) => s.view(start_offset=i).to_owned()
     None => "0"
   }
 }
 
 ///|
-fn trim_trailing_zeros_decimal_digits(s : String) -> String {
+fn trim_trailing_zeros_decimal_digits(s : StringView) -> String {
   let mut end = s.length()
   while end > 0 {
     match s.get_char(end - 1) {
@@ -58,14 +63,14 @@ fn trim_trailing_zeros_decimal_digits(s : String) -> String {
   if end == 0 {
     "0"
   } else {
-    s.unsafe_substring(start=0, end~)
+    s.view(end_offset=end).to_owned()
   }
 }
 
 ///|
-fn parse_signed_decimal_int(s : String) -> Int raise MpfError {
+fn parse_signed_decimal_int(s : StringView) -> Int raise MpfError {
   if s.is_empty() {
-    raise ParseError("from_str: empty exponent")
+    raise ParseError("RawMpf::parse: empty exponent")
   }
   let mut sign = 1
   let mut start = 0
@@ -87,28 +92,28 @@ fn parse_signed_decimal_int(s : String) -> Int raise MpfError {
       continue
     }
     if !c.is_ascii_digit() {
-      raise ParseError("from_str: invalid exponent")
+      raise ParseError("RawMpf::parse: invalid exponent")
     }
     has_digit = true
     let d = c.to_int() - '0'.to_int()
     value = value * 10 + d
   }
   if !has_digit {
-    raise ParseError("from_str: missing exponent digits")
+    raise ParseError("RawMpf::parse: missing exponent digits")
   }
   sign * value
 }
 
 ///|
 fn parse_decimal_finite(
-  text : String,
+  text : StringView,
   target_prec : Int,
   rnd : RoundMode,
 ) -> RawMpf raise MpfError {
   let mut state = ParseState::Mantissa
   let mut sign = 0
   let mut idx = 0
-  let digits_builder = StringBuilder::new()
+  let digits_builder = StringBuilder(size_hint=text.length())
   let mut has_digit = false
   let mut seen_dot = false
   let mut frac_len = 0
@@ -130,16 +135,16 @@ fn parse_decimal_finite(
           }
         } else if c == '.' {
           if seen_dot {
-            raise ParseError("from_str: multiple decimal points")
+            raise ParseError("RawMpf::parse: multiple decimal points")
           }
           seen_dot = true
         } else if c == 'e' || c == 'E' {
           if !has_digit {
-            raise ParseError("from_str: invalid mantissa")
+            raise ParseError("RawMpf::parse: invalid mantissa")
           }
           state = ExpSignOrDigit
         } else {
-          raise ParseError("from_str: invalid character")
+          raise ParseError("RawMpf::parse: invalid character")
         }
       ExpSignOrDigit =>
         if c == '+' {
@@ -155,7 +160,7 @@ fn parse_decimal_finite(
           exp_value = c.to_int() - '0'.to_int()
           state = ExpDigits
         } else {
-          raise ParseError("from_str: invalid exponent")
+          raise ParseError("RawMpf::parse: invalid exponent")
         }
       ExpDigits =>
         if c == '_' {
@@ -165,54 +170,54 @@ fn parse_decimal_finite(
           let d = c.to_int() - '0'.to_int()
           exp_value = exp_value * 10 + d
         } else {
-          raise ParseError("from_str: invalid exponent")
+          raise ParseError("RawMpf::parse: invalid exponent")
         }
     }
     idx += 1
   }
   if !has_digit {
-    raise ParseError("from_str: no digits")
+    raise ParseError("RawMpf::parse: no digits")
   }
   if state == ExpSignOrDigit || (state == ExpDigits && !exp_has_digit) {
-    raise ParseError("from_str: missing exponent digits")
+    raise ParseError("RawMpf::parse: missing exponent digits")
   }
   let digits = trim_leading_zeros_digits(digits_builder.to_string())
   if digits == "0" {
-    return fzero
+    return RawMpf::zero()
   }
   let digits_big = BigInt::from_string(digits)
   let signed_digits = if sign == 0 { digits_big } else { -digits_big }
   let exp10 = exp_sign * exp_value - frac_len
   if exp10 >= 0 {
     let p5 = pow5(exp10)
-    from_man_exp(signed_digits * p5, exp10, target_prec, rnd)
+    RawMpf::from_mantissa_exponent(signed_digits * p5, exp10, target_prec, rnd)
   } else {
     let k = -exp10
-    let numerator = from_man_exp(signed_digits, -k, 0, round_down)
-    let denominator = from_man_exp(pow5(k), 0, 0, round_down)
-    mpf_div(numerator, denominator, target_prec, rnd)
+    let numerator = RawMpf::from_mantissa_exponent(signed_digits, -k, 0, Down)
+    let denominator = RawMpf::from_mantissa_exponent(pow5(k), 0, 0, Down)
+    numerator.div(denominator, target_prec, rnd)
   }
 }
 
 ///|
 fn parse_hex_finite(
-  text : String,
+  text : StringView,
   target_prec : Int,
   rnd : RoundMode,
 ) -> RawMpf raise MpfError {
   let mut sign = 0
   let mut body = text
   if body.has_prefix("+") {
-    body = body.unsafe_substring(start=1, end=body.length())
+    body = body.view(start_offset=1)
   } else if body.has_prefix("-") {
     sign = 1
-    body = body.unsafe_substring(start=1, end=body.length())
+    body = body.view(start_offset=1)
   }
   let body_lower = body.to_lower()
   if !body_lower.has_prefix("0x") {
-    raise ParseError("from_str: invalid hex literal")
+    raise ParseError("RawMpf::parse: invalid hex literal")
   }
-  let hex_body = body_lower.unsafe_substring(start=2, end=body_lower.length())
+  let hex_body = body_lower.view(start_offset=2)
   let mut marker_index = -1
   let mut marker = ' '
   for i, c in hex_body.iter2() {
@@ -223,12 +228,12 @@ fn parse_hex_finite(
     }
   }
   let mant_part = if marker_index >= 0 {
-    hex_body.unsafe_substring(start=0, end=marker_index)
+    hex_body.view(end_offset=marker_index)
   } else {
     hex_body
   }
   let exp_part = if marker_index >= 0 {
-    hex_body.unsafe_substring(start=marker_index + 1, end=hex_body.length())
+    hex_body.view(start_offset=marker_index + 1)
   } else {
     ""
   }
@@ -237,7 +242,7 @@ fn parse_hex_finite(
     let e = parse_signed_decimal_int(exp_part)
     exp2 = if marker == '@' { e * 4 } else { e }
   }
-  let digits_builder = StringBuilder::new()
+  let digits_builder = StringBuilder(size_hint=mant_part.length())
   let mut has_digit = false
   let mut seen_dot = false
   let mut frac_hex_len = 0
@@ -247,13 +252,13 @@ fn parse_hex_finite(
     }
     if c == '.' {
       if seen_dot {
-        raise ParseError("from_str: multiple decimal points")
+        raise ParseError("RawMpf::parse: multiple decimal points")
       }
       seen_dot = true
       continue
     }
     if !c.is_ascii_hexdigit() {
-      raise ParseError("from_str: invalid hex digit")
+      raise ParseError("RawMpf::parse: invalid hex digit")
     }
     digits_builder.write_char(c)
     has_digit = true
@@ -262,24 +267,24 @@ fn parse_hex_finite(
     }
   }
   if !has_digit {
-    raise ParseError("from_str: invalid hex literal")
+    raise ParseError("RawMpf::parse: invalid hex literal")
   }
   let digits = trim_leading_zeros_digits(digits_builder.to_string())
   if digits == "0" {
-    return fzero
+    return RawMpf::zero()
   }
   let mut man = BigInt::from_string(digits, radix=16)
   if sign == 1 {
     man = -man
   }
   exp2 -= frac_hex_len * 4
-  from_man_exp(man, exp2, target_prec, rnd)
+  RawMpf::from_mantissa_exponent(man, exp2, target_prec, rnd)
 }
 
 ///|
 fn parse_pow2_finite(
-  text : String,
-  prefix : String,
+  text : StringView,
+  prefix : StringView,
   radix : Int,
   bits_per_digit : Int,
   target_prec : Int,
@@ -288,20 +293,17 @@ fn parse_pow2_finite(
   let mut sign = 0
   let mut body = text
   if body.has_prefix("+") {
-    body = body.unsafe_substring(start=1, end=body.length())
+    body = body.view(start_offset=1)
   } else if body.has_prefix("-") {
     sign = 1
-    body = body.unsafe_substring(start=1, end=body.length())
+    body = body.view(start_offset=1)
   }
   let lower = body.to_lower()
   if !lower.has_prefix(prefix) {
-    raise ParseError("from_str: invalid literal")
+    raise ParseError("RawMpf::parse: invalid literal")
   }
-  let mant_part = lower.unsafe_substring(
-    start=prefix.length(),
-    end=lower.length(),
-  )
-  let digits_builder = StringBuilder::new()
+  let mant_part = lower.view(start_offset=prefix.length())
+  let digits_builder = StringBuilder(size_hint=mant_part.length())
   let mut has_digit = false
   let mut seen_dot = false
   let mut frac_len = 0
@@ -311,7 +313,7 @@ fn parse_pow2_finite(
     }
     if c == '.' {
       if seen_dot {
-        raise ParseError("from_str: multiple decimal points")
+        raise ParseError("RawMpf::parse: multiple decimal points")
       }
       seen_dot = true
       continue
@@ -322,7 +324,7 @@ fn parse_pow2_finite(
       c >= '0' && c <= '7'
     }
     if !valid {
-      raise ParseError("from_str: invalid digit")
+      raise ParseError("RawMpf::parse: invalid digit")
     }
     digits_builder.write_char(c)
     has_digit = true
@@ -331,47 +333,47 @@ fn parse_pow2_finite(
     }
   }
   if !has_digit {
-    raise ParseError("from_str: invalid literal")
+    raise ParseError("RawMpf::parse: invalid literal")
   }
   let digits = trim_leading_zeros_digits(digits_builder.to_string())
   if digits == "0" {
-    return fzero
+    return RawMpf::zero()
   }
   let mut man = BigInt::from_string(digits, radix~)
   if sign == 1 {
     man = -man
   }
   let exp2 = -(frac_len * bits_per_digit)
-  from_man_exp(man, exp2, target_prec, rnd)
+  RawMpf::from_mantissa_exponent(man, exp2, target_prec, rnd)
 }
 
 ///|
-pub fn from_str(
-  s : String,
+pub fn RawMpf::parse(
+  s : StringView,
   prec? : Int = 0,
-  rnd? : RoundMode = round_nearest,
+  rnd? : RoundMode = Nearest,
 ) -> RawMpf raise MpfError {
-  let text = s.trim().to_owned()
+  let text = s.trim()
   if text.is_empty() {
-    raise ParseError("from_str: empty input")
+    raise ParseError("RawMpf::parse: empty input")
   }
   let lower = text.to_lower()
   if lower == "inf" ||
     lower == "+inf" ||
     lower == "infinity" ||
     lower == "+infinity" {
-    return finf
+    return RawMpf::infinity()
   }
   if lower == "-inf" || lower == "-infinity" {
-    return fninf
+    return RawMpf::negative_infinity()
   }
   if lower == "nan" || lower == "+nan" || lower == "-nan" {
-    return fnan
+    return RawMpf::nan()
   }
   let target_prec = if prec > 0 { prec } else { 53 }
   let mut check = text
   if check.has_prefix("+") || check.has_prefix("-") {
-    check = check.unsafe_substring(start=1, end=check.length())
+    check = check.view(start_offset=1)
   }
   let low_check = check.to_lower()
   if low_check.has_prefix("0x") {
@@ -395,8 +397,8 @@ fn fixed_parts(x : RawMpf) -> (String, String) {
     let digits = scaled.to_string()
     let len = digits.length()
     if len > k {
-      let int_part = digits.unsafe_substring(start=0, end=len - k)
-      let frac_part = digits.unsafe_substring(start=len - k, end=len)
+      let int_part = slice_owned(digits, 0, len - k)
+      let frac_part = slice_owned(digits, len - k, len)
       (int_part, trim_trailing_zeros_decimal_digits(frac_part))
     } else {
       let zeros = "0".repeat(k - len)
@@ -412,47 +414,57 @@ fn first_non_zero_index(s : String) -> Int? {
 }
 
 ///|
-fn exact_digits_exp(x : RawMpf) -> (String, Int) {
+fn exact_digits_exp(x : RawMpf) -> (String, Int) raise MpfError {
   let (int_part, frac_part) = fixed_parts(x)
   if int_part != "0" {
     let frac = if frac_part == "0" { "" } else { frac_part }
     let digits = trim_leading_zeros_digits(int_part + frac)
     (digits, int_part.length() - 1)
   } else {
-    let idx = first_non_zero_index(frac_part).unwrap()
-    let digits = frac_part.unsafe_substring(start=idx, end=frac_part.length())
+    guard first_non_zero_index(frac_part) is Some(idx) else {
+      raise FormatError("cannot format an invalid finite representation")
+    }
+    let digits = slice_owned(frac_part, idx, frac_part.length())
     (digits, -(idx + 1))
   }
 }
 
 ///|
-fn round_significant(digits : String, exp10 : Int, dps : Int) -> (String, Int) {
+fn round_significant(
+  digits : String,
+  exp10 : Int,
+  dps : Int,
+) -> (String, Int) raise MpfError {
   if digits.length() <= dps {
     (digits, exp10)
   } else {
-    let kept = digits.unsafe_substring(start=0, end=dps)
-    let next = digits.get_char(dps).unwrap()
+    let kept = slice_owned(digits, 0, dps)
+    guard digits.get_char(dps) is Some(next) else {
+      raise FormatError("cannot round an invalid digit sequence")
+    }
     let rest_has_nonzero = if dps + 1 >= digits.length() {
       false
     } else {
-      let rest = digits.unsafe_substring(start=dps + 1, end=digits.length())
+      let rest = slice_owned(digits, dps + 1, digits.length())
       first_non_zero_index(rest) is Some(_)
     }
-    let last_kept = kept.get_char(kept.length() - 1).unwrap()
+    guard kept.get_char(kept.length() - 1) is Some(last_kept) else {
+      raise FormatError("cannot round an empty digit sequence")
+    }
     let last_digit = last_kept.to_int() - '0'.to_int()
-    let round_up = if next > '5' {
+    let should_increment = if next > '5' {
       true
     } else if next < '5' {
       false
     } else {
       rest_has_nonzero || last_digit % 2 == 1
     }
-    if !round_up {
+    if !should_increment {
       (kept, exp10)
     } else {
       let inc = (BigInt::from_string(kept) + 1N).to_string()
       if inc.length() > kept.length() {
-        (inc.unsafe_substring(start=0, end=dps), exp10 + 1)
+        (slice_owned(inc, 0, dps), exp10 + 1)
       } else {
         (inc, exp10)
       }
@@ -466,8 +478,8 @@ fn rounding_for_abs(rnd : RoundMode, sign : Int) -> RoundMode {
     rnd
   } else {
     match rnd {
-      Floor => round_ceiling
-      Ceiling => round_floor
+      Floor => Ceiling
+      Ceiling => Floor
       _ => rnd
     }
   }
@@ -502,15 +514,17 @@ fn round_significant_with_mode(
   exp10 : Int,
   dps : Int,
   rnd : RoundMode,
-) -> (String, Int) {
+) -> (String, Int) raise MpfError {
   if digits.length() <= dps {
     (digits, exp10)
   } else {
-    let kept = digits.unsafe_substring(start=0, end=dps)
-    let rest = digits.unsafe_substring(start=dps, end=digits.length())
+    let kept = slice_owned(digits, 0, dps)
+    let rest = slice_owned(digits, dps, digits.length())
     let rest_has_nonzero = first_non_zero_index(rest) is Some(_)
-    let next = digits.get_char(dps).unwrap()
-    let round_up = match rnd {
+    guard digits.get_char(dps) is Some(next) else {
+      raise FormatError("cannot round an invalid digit sequence")
+    }
+    let should_increment = match rnd {
       Down => false
       Floor => false
       Up => rest_has_nonzero
@@ -519,10 +533,12 @@ fn round_significant_with_mode(
         let rest_tail_has_nonzero = if dps + 1 >= digits.length() {
           false
         } else {
-          let tail = digits.unsafe_substring(start=dps + 1, end=digits.length())
+          let tail = slice_owned(digits, dps + 1, digits.length())
           first_non_zero_index(tail) is Some(_)
         }
-        let last_kept = kept.get_char(kept.length() - 1).unwrap()
+        guard kept.get_char(kept.length() - 1) is Some(last_kept) else {
+          raise FormatError("cannot round an empty digit sequence")
+        }
         let last_digit = last_kept.to_int() - '0'.to_int()
         if next > '5' {
           true
@@ -533,12 +549,12 @@ fn round_significant_with_mode(
         }
       }
     }
-    if !round_up {
+    if !should_increment {
       (kept, exp10)
     } else {
       let inc = (BigInt::from_string(kept) + 1N).to_string()
       if inc.length() > kept.length() {
-        (inc.unsafe_substring(start=0, end=dps), exp10 + 1)
+        (slice_owned(inc, 0, dps), exp10 + 1)
       } else {
         (inc, exp10)
       }
@@ -556,8 +572,8 @@ fn mantissa_from_digits(digits : String) -> String {
   if digits.length() == 1 {
     digits + ".0"
   } else {
-    let head = digits.unsafe_substring(start=0, end=1)
-    let raw_tail = digits.unsafe_substring(start=1, end=digits.length())
+    let head = slice_owned(digits, 0, 1)
+    let raw_tail = slice_owned(digits, 1, digits.length())
     let tail = trim_trailing_zeros_decimal_digits(raw_tail)
     if tail == "0" {
       head + ".0"
@@ -582,8 +598,8 @@ fn scientific_from_digits_for_g(digits : String, exp10 : Int) -> String {
   let mantissa = if digits.length() == 1 {
     digits
   } else {
-    let head = digits.unsafe_substring(start=0, end=1)
-    let raw_tail = digits.unsafe_substring(start=1, end=digits.length())
+    let head = slice_owned(digits, 0, 1)
+    let raw_tail = slice_owned(digits, 1, digits.length())
     let tail = trim_trailing_zeros_decimal_digits(raw_tail)
     if tail == "0" {
       head
@@ -606,8 +622,8 @@ fn fixed_from_digits(digits : String, exp10 : Int) -> String {
       let int_part = digits + "0".repeat(int_len - digits.length())
       "\{int_part}.0"
     } else {
-      let int_part = digits.unsafe_substring(start=0, end=int_len)
-      let raw_frac = digits.unsafe_substring(start=int_len, end=digits.length())
+      let int_part = slice_owned(digits, 0, int_len)
+      let raw_frac = slice_owned(digits, int_len, digits.length())
       let frac_part = trim_trailing_zeros_decimal_digits(raw_frac)
       "\{int_part}.\{frac_part}"
     }
@@ -627,7 +643,7 @@ fn fixed_from_digits_with_frac(
   force_point? : Bool = false,
 ) -> String raise MpfError {
   if frac_digits < 0 {
-    raise FormatError("format_mpf: invalid fraction digits")
+    raise FormatError("RawMpf::format_spec: invalid fraction digits")
   }
   let (int_part, raw_frac) = if exp10 >= 0 {
     let int_len = exp10 + 1
@@ -635,8 +651,8 @@ fn fixed_from_digits_with_frac(
       (digits + "0".repeat(int_len - digits.length()), "")
     } else {
       (
-        digits.unsafe_substring(start=0, end=int_len),
-        digits.unsafe_substring(start=int_len, end=digits.length()),
+        slice_owned(digits, 0, int_len),
+        slice_owned(digits, int_len, digits.length()),
       )
     }
   } else {
@@ -650,7 +666,7 @@ fn fixed_from_digits_with_frac(
     }
   } else {
     let frac = if raw_frac.length() >= frac_digits {
-      raw_frac.unsafe_substring(start=0, end=frac_digits)
+      slice_owned(raw_frac, 0, frac_digits)
     } else {
       raw_frac.pad_end(frac_digits, '0')
     }
@@ -671,12 +687,8 @@ fn scientific_from_digits_with_precision(
   } else {
     digits
   }
-  let head = padded.unsafe_substring(start=0, end=1)
-  let tail = if precision == 0 {
-    ""
-  } else {
-    padded.unsafe_substring(start=1, end=sig)
-  }
+  let head = slice_owned(padded, 0, 1)
+  let tail = if precision == 0 { "" } else { slice_owned(padded, 1, sig) }
   let mantissa = if precision == 0 {
     if alternate {
       head + "."
@@ -701,9 +713,9 @@ fn fixed_with_precision_abs(
   rnd : RoundMode,
 ) -> String raise MpfError {
   if precision < 0 {
-    raise FormatError("format_mpf: precision must be non-negative")
+    raise FormatError("RawMpf::format_spec: precision must be non-negative")
   }
-  if is_zero(x) {
+  if x.is_zero() {
     if precision == 0 {
       if alternate {
         "0."
@@ -747,9 +759,9 @@ fn scientific_with_precision_abs(
   rnd : RoundMode,
 ) -> String raise MpfError {
   if precision < 0 {
-    raise FormatError("format_mpf: precision must be non-negative")
+    raise FormatError("RawMpf::format_spec: precision must be non-negative")
   }
-  if is_zero(x) {
+  if x.is_zero() {
     let frac = if precision == 0 {
       if alternate {
         "."
@@ -779,7 +791,7 @@ fn general_with_precision_abs(
   rnd : RoundMode,
 ) -> String raise MpfError {
   let precision = if precision <= 0 { 1 } else { precision }
-  if is_zero(x) {
+  if x.is_zero() {
     if !alternate {
       return "0"
     }
@@ -818,7 +830,7 @@ fn to_pow2_fixed_abs(
   bits_per_digit : Int,
   prefix : String,
 ) -> String {
-  if is_zero(x) {
+  if x.is_zero() {
     return "\{prefix}0.0"
   }
   if x.exp >= 0 {
@@ -842,7 +854,7 @@ fn to_pow2_fixed_abs(
 
 ///|
 fn to_hex_binary_abs(x : RawMpf, dps : Int) -> String {
-  if is_zero(x) {
+  if x.is_zero() {
     return "0x0.0p+0"
   }
   let exp2 = x.exp + x.bc - 1
@@ -858,7 +870,7 @@ fn to_hex_binary_abs(x : RawMpf, dps : Int) -> String {
   }
   let frac = if dps > 0 {
     if frac_exact.length() >= dps {
-      frac_exact.unsafe_substring(start=0, end=dps)
+      slice_owned(frac_exact, 0, dps)
     } else {
       frac_exact.pad_end(dps, '0')
     }
@@ -873,20 +885,20 @@ fn to_hex_binary_abs(x : RawMpf, dps : Int) -> String {
 }
 
 ///|
-pub fn to_str_opts(
+pub fn RawMpf::format(
   x : RawMpf,
   dps? : Int = 15,
   base? : Int = 10,
   binary_exp? : Bool = false,
 ) -> String raise MpfError {
-  if is_nan(x) {
+  if x.is_nan() {
     return "nan"
   }
-  if is_inf(x) {
+  if x.is_infinite() {
     return if x.sign == 1 { "-inf" } else { "inf" }
   }
-  if !is_finite(x) {
-    raise UnsupportedError("to_str_opts: unsupported raw value")
+  if !x.is_finite() {
+    raise UnsupportedError("RawMpf::format: unsupported raw value")
   }
   let sign_prefix = if x.sign == 1 { "-" } else { "" }
   let absx = if x.sign == 1 {
@@ -895,11 +907,11 @@ pub fn to_str_opts(
     x
   }
   if base == 10 {
-    if is_zero(absx) {
+    if absx.is_zero() {
       return "0.0"
     }
     if dps <= 0 {
-      raise ValueError("to_str_opts: dps must be positive")
+      raise ValueError("RawMpf::format: dps must be positive")
     }
     let (exact_digits, exact_exp10) = exact_digits_exp(absx)
     let (digits, exp10) = round_significant(exact_digits, exact_exp10, dps)
@@ -918,16 +930,20 @@ pub fn to_str_opts(
     sign_prefix + body
   } else if base == 2 {
     if binary_exp {
-      raise ValueError("to_str_opts: binary_exp is only supported with base=16")
+      raise ValueError(
+        "RawMpf::format: binary_exp is only supported with base=16",
+      )
     }
     sign_prefix + to_pow2_fixed_abs(absx, 2, 1, "0b")
   } else if base == 8 {
     if binary_exp {
-      raise ValueError("to_str_opts: binary_exp is only supported with base=16")
+      raise ValueError(
+        "RawMpf::format: binary_exp is only supported with base=16",
+      )
     }
     sign_prefix + to_pow2_fixed_abs(absx, 8, 3, "0o")
   } else {
-    raise ValueError("to_str_opts: supported bases are 2, 8, 10 and 16")
+    raise ValueError("RawMpf::format: supported bases are 2, 8, 10 and 16")
   }
 }
 
@@ -991,7 +1007,7 @@ fn pad_or_truncate(s : String, size : Int) -> String {
   if size <= 0 {
     ""
   } else if s.length() >= size {
-    s.unsafe_substring(start=0, end=size)
+    slice_owned(s, 0, size)
   } else {
     s.pad_end(size, '0')
   }
@@ -1007,12 +1023,14 @@ fn format_pow2_scientific_abs(
   alternate : Bool,
   force_prefix : Bool,
 ) -> String raise MpfError {
-  if is_zero(x) {
+  if x.is_zero() {
     let head = if force_prefix { prefix + "0" } else { "0" }
     let frac = match precision {
       Some(p) =>
         if p < 0 {
-          raise FormatError("format_mpf: precision must be non-negative")
+          raise FormatError(
+            "RawMpf::format_spec: precision must be non-negative",
+          )
         } else if p == 0 {
           if alternate {
             "."
@@ -1031,7 +1049,7 @@ fn format_pow2_scientific_abs(
   let frac = match precision {
     Some(p) =>
       if p < 0 {
-        raise FormatError("format_mpf: precision must be non-negative")
+        raise FormatError("RawMpf::format_spec: precision must be non-negative")
       } else {
         pad_or_truncate(exact_frac, p)
       }
@@ -1055,7 +1073,7 @@ fn add_grouping_left(s : String, sep : Char) -> String {
   if s.length() <= 3 {
     return s
   }
-  let b = StringBuilder::new()
+  let b = StringBuilder(size_hint=s.length() + s.length() / 3)
   let len = s.length()
   for i, c in s.iter2() {
     if i > 0 && (len - i) % 3 == 0 {
@@ -1071,7 +1089,7 @@ fn add_grouping_right(s : String, sep : Char) -> String {
   if s.length() <= 3 {
     return s
   }
-  let b = StringBuilder::new()
+  let b = StringBuilder(size_hint=s.length() + s.length() / 3)
   for i, c in s.iter2() {
     if i > 0 && i % 3 == 0 {
       b.write_char(sep)
@@ -1094,13 +1112,9 @@ fn apply_digit_grouping(
       break
     }
   }
-  let mantissa = if exp_index >= 0 {
-    s.unsafe_substring(start=0, end=exp_index)
-  } else {
-    s
-  }
+  let mantissa = if exp_index >= 0 { slice_owned(s, 0, exp_index) } else { s }
   let exp_suffix = if exp_index >= 0 {
-    s.unsafe_substring(start=exp_index, end=s.length())
+    slice_owned(s, exp_index, s.length())
   } else {
     ""
   }
@@ -1113,9 +1127,9 @@ fn apply_digit_grouping(
   }
   let (int_part, has_dot, frac_part) = if dot_index >= 0 {
     (
-      mantissa.unsafe_substring(start=0, end=dot_index),
+      slice_owned(mantissa, 0, dot_index),
       true,
-      mantissa.unsafe_substring(start=dot_index + 1, end=mantissa.length()),
+      slice_owned(mantissa, dot_index + 1, mantissa.length()),
     )
   } else {
     (mantissa, false, "")
@@ -1147,12 +1161,22 @@ fn decimal_body_is_zero(s : String) -> Bool {
 }
 
 ///|
-pub fn to_str(x : RawMpf) -> String raise MpfError {
-  to_str_opts(x)
+pub fn RawMpf::to_string(x : RawMpf) -> String raise MpfError {
+  x.format()
 }
 
 ///|
-fn parse_format_spec(format_spec : String) -> ParsedFormatSpec raise MpfError {
+fn format_char_at(format_spec : StringView, i : Int) -> Char raise MpfError {
+  match format_spec.get_char(i) {
+    Some(c) => c
+    None => raise FormatError("RawMpf::format_spec: invalid character boundary")
+  }
+}
+
+///|
+fn parse_format_spec(
+  format_spec : StringView,
+) -> ParsedFormatSpec raise MpfError {
   let len = format_spec.length()
   let mut i = 0
   let mut fill = ' '
@@ -1165,8 +1189,8 @@ fn parse_format_spec(format_spec : String) -> ParsedFormatSpec raise MpfError {
   let mut frac_group_sep : Char? = None
   let mut rounding : RoundMode? = None
   if len >= 2 {
-    let c0 = format_spec.get_char(0).unwrap()
-    let c1 = format_spec.get_char(1).unwrap()
+    let c0 = format_char_at(format_spec, 0)
+    let c1 = format_char_at(format_spec, 1)
     if c1 == '<' || c1 == '>' || c1 == '^' || c1 == '=' {
       fill = c0
       align = c1
@@ -1175,7 +1199,7 @@ fn parse_format_spec(format_spec : String) -> ParsedFormatSpec raise MpfError {
     }
   }
   if i == 0 && len >= 1 {
-    let c0 = format_spec.get_char(0).unwrap()
+    let c0 = format_char_at(format_spec, 0)
     if c0 == '<' || c0 == '>' || c0 == '^' || c0 == '=' {
       align = c0
       i = 1
@@ -1183,7 +1207,7 @@ fn parse_format_spec(format_spec : String) -> ParsedFormatSpec raise MpfError {
     }
   }
   if i < len {
-    let c = format_spec.get_char(i).unwrap()
+    let c = format_char_at(format_spec, i)
     if c == '+' || c == '-' || c == ' ' {
       sign = c
       i += 1
@@ -1206,7 +1230,7 @@ fn parse_format_spec(format_spec : String) -> ParsedFormatSpec raise MpfError {
   }
   let mut width = 0
   while i < len {
-    let c = format_spec.get_char(i).unwrap()
+    let c = format_char_at(format_spec, i)
     if c.is_ascii_digit() {
       width = width * 10 + (c.to_int() - '0'.to_int())
       i += 1
@@ -1215,7 +1239,7 @@ fn parse_format_spec(format_spec : String) -> ParsedFormatSpec raise MpfError {
     }
   }
   if i < len {
-    let c = format_spec.get_char(i).unwrap()
+    let c = format_char_at(format_spec, i)
     if c == ',' || c == '_' {
       int_group_sep = Some(c)
       i += 1
@@ -1227,7 +1251,7 @@ fn parse_format_spec(format_spec : String) -> ParsedFormatSpec raise MpfError {
     let mut p = 0
     let mut has_digit = false
     while i < len {
-      let c = format_spec.get_char(i).unwrap()
+      let c = format_char_at(format_spec, i)
       if c.is_ascii_digit() {
         has_digit = true
         p = p * 10 + (c.to_int() - '0'.to_int())
@@ -1237,11 +1261,11 @@ fn parse_format_spec(format_spec : String) -> ParsedFormatSpec raise MpfError {
       }
     }
     if !has_digit {
-      raise FormatError("format_mpf: invalid precision")
+      raise FormatError("RawMpf::format_spec: invalid precision")
     }
     precision = Some(p)
     if i < len {
-      let c = format_spec.get_char(i).unwrap()
+      let c = format_char_at(format_spec, i)
       if c == ',' || c == '_' {
         frac_group_sep = Some(c)
         i += 1
@@ -1249,31 +1273,31 @@ fn parse_format_spec(format_spec : String) -> ParsedFormatSpec raise MpfError {
     }
   }
   if i < len {
-    let c = format_spec.get_char(i).unwrap()
+    let c = format_char_at(format_spec, i)
     if c == 'U' {
-      rounding = Some(round_ceiling)
+      rounding = Some(Ceiling)
       i += 1
     } else if c == 'D' {
-      rounding = Some(round_floor)
+      rounding = Some(Floor)
       i += 1
     } else if c == 'Y' {
-      rounding = Some(round_up)
+      rounding = Some(Up)
       i += 1
     } else if c == 'Z' {
-      rounding = Some(round_down)
+      rounding = Some(Down)
       i += 1
     } else if c == 'N' {
-      rounding = Some(round_nearest)
+      rounding = Some(Nearest)
       i += 1
     }
   }
   let mut ty = 'g'
   if i < len {
-    ty = format_spec.get_char(i).unwrap()
+    ty = format_char_at(format_spec, i)
     i += 1
   }
   if i != len {
-    raise FormatError("format_mpf: unsupported format spec")
+    raise FormatError("RawMpf::format_spec: unsupported format spec")
   }
   {
     fill,
@@ -1306,8 +1330,8 @@ fn apply_alignment(
   } else if align == '=' {
     let c0 = s.get_char(0)
     if c0 == Some('-') || c0 == Some('+') || c0 == Some(' ') {
-      let head = s.unsafe_substring(start=0, end=1)
-      let tail = s.unsafe_substring(start=1, end=s.length())
+      let head = slice_owned(s, 0, 1)
+      let tail = slice_owned(s, 1, s.length())
       head + String::make(pad, fill) + tail
     } else {
       String::make(pad, fill) + s
@@ -1322,21 +1346,21 @@ fn apply_alignment(
 }
 
 ///|
-pub fn format_mpf(
+pub fn RawMpf::format_spec(
   x : RawMpf,
-  format_spec : String,
+  format_spec : StringView,
   dps? : Int = 15,
 ) -> String raise MpfError {
   let spec = parse_format_spec(format_spec)
   let lower_ty = lower_type(spec.ty)
-  let fmt_rnd = spec.rounding.unwrap_or(round_nearest)
-  let body = if is_nan(x) {
+  let fmt_rnd = spec.rounding.unwrap_or(Nearest)
+  let body = if x.is_nan() {
     let suffix = if lower_ty == '%' { "%" } else { "" }
     maybe_uppercase_type(
       positive_sign_prefix(spec.sign) + "nan" + suffix,
       spec.ty,
     )
-  } else if is_inf(x) {
+  } else if x.is_infinite() {
     if x.sign == 1 {
       let suffix = if lower_ty == '%' { "%" } else { "" }
       maybe_uppercase_type("-inf" + suffix, spec.ty)
@@ -1391,7 +1415,7 @@ pub fn format_mpf(
           "",
         )
       '%' => {
-        let scaled = mpf_mul(absx, from_int(100), 0, round_down)
+        let scaled = absx.mul(RawMpf::from_int(100), 0, Down)
         (
           fixed_with_precision_abs(
             scaled,
@@ -1429,7 +1453,9 @@ pub fn format_mpf(
           "",
         )
       _ =>
-        raise FormatError("format_mpf: supported types are f, e, g, %, a and b")
+        raise FormatError(
+          "RawMpf::format_spec: supported types are f, e, g, %, a and b",
+        )
     }
     let sign_prefix = if x.sign == 1 &&
       spec.no_neg_0 &&
@@ -1450,10 +1476,4 @@ pub fn format_mpf(
     maybe_uppercase_type(sign_prefix + core + suffix, spec.ty)
   }
   apply_alignment(body, spec.width, spec.align, spec.fill)
-}
-
-///|
-pub fn _internal_keep_parse_format_size() -> Unit {
-  // keep compiler from accidentally stripping local helpers while we iterate
-  ()
 }

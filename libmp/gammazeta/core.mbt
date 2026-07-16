@@ -9,9 +9,9 @@ fn wp(prec : Int) -> Int {
 
 ///|
 fn tiny_enough(x : @mpf.RawMpf, bits : Int) -> Bool {
-  if @mpf.is_zero(x) {
+  if x.is_zero() {
     true
-  } else if !@mpf.is_finite(x) {
+  } else if !x.is_finite() {
     false
   } else {
     x.exp + x.bc <= -bits
@@ -55,11 +55,11 @@ fn from_libelefun_error(err : @libelefun.LibElefunError) -> GammaZetaError {
 
 ///|
 fn mpf_from_str_checked(
-  s : String,
+  s : StringView,
   prec~ : Int,
   rnd~ : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  @mpf.from_str(s, prec~, rnd~) catch {
+  @mpf.RawMpf::parse(s, prec~, rnd~) catch {
     err => raise from_mpf_error(err)
   }
 }
@@ -71,7 +71,7 @@ fn mpf_div_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  @mpf.mpf_div(x, y, prec, rnd) catch {
+  x.div(y, prec, rnd) catch {
     err => raise from_mpf_error(err)
   }
 }
@@ -83,7 +83,7 @@ fn mpf_pow_int_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  @mpf.mpf_pow_int(x, n, prec, rnd) catch {
+  x.pow_int(n, prec, rnd) catch {
     err => raise from_mpf_error(err)
   }
 }
@@ -94,7 +94,7 @@ fn mpf_sqrt_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  @mpf.mpf_sqrt(x, prec, rnd) catch {
+  x.sqrt(prec, rnd) catch {
     err => raise from_mpf_error(err)
   }
 }
@@ -105,7 +105,7 @@ fn mpf_log_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  @libelefun.mpf_log(x, prec, rnd) catch {
+  @libelefun.log(x, prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -117,7 +117,7 @@ fn mpf_pow_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  @libelefun.mpf_pow(x, y, prec, rnd) catch {
+  @libelefun.pow(x, y, prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -127,7 +127,7 @@ fn mpf_pi_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  @libelefun.mpf_pi(prec, rnd) catch {
+  @libelefun.pi(prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -138,7 +138,7 @@ fn mpf_exp_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  @libelefun.mpf_exp(x, prec, rnd) catch {
+  @libelefun.exp(x, prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -149,7 +149,7 @@ fn mpf_sin_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  @libelefun.mpf_sin(x, prec, rnd) catch {
+  @libelefun.sin(x, prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -160,7 +160,7 @@ fn mpf_cos_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  @libelefun.mpf_cos(x, prec, rnd) catch {
+  @libelefun.cos(x, prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -171,7 +171,7 @@ fn mpf_cos_sin_pi_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> (@mpf.RawMpf, @mpf.RawMpf) raise GammaZetaError {
-  @libelefun.mpf_cos_sin_pi(x, prec, rnd) catch {
+  @libelefun.cos_sin_pi(x, prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -181,115 +181,106 @@ fn mpf_phi_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  @libelefun.mpf_phi(prec, rnd) catch {
+  @libelefun.phi(prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
 
 ///|
-let euler_gamma : @mpf.RawMpf = @mpf.from_man_exp(
-  254962950818844203052873526785993192115782030385265309526297679521529565N, -238,
-  0, @mpf.round_down,
+let euler_gamma : @mpf.RawMpf = @mpf.RawMpf::from_mantissa_exponent(
+  254962950818844203052873526785993192115782030385265309526297679521529565N,
+  -238,
+  0,
+  Down,
 )
 
 ///|
-pub fn mpf_bernoulli_huge(
+pub fn large_bernoulli(
   n : Int,
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   if n < 0 {
-    raise ValueError("mpf_bernoulli_huge: n must be non-negative")
+    raise ValueError("bernoulli_huge: n must be non-negative")
   }
   if n == 0 {
-    return @mpf.fone
+    return @mpf.RawMpf::one()
   }
   if n == 1 {
-    return @mpf.from_man_exp(-1N, -1, prec, rnd)
+    return @mpf.RawMpf::from_mantissa_exponent(-1N, -1, prec, rnd)
   }
   if (n & 1) == 1 {
-    return @mpf.fzero
+    return @mpf.RawMpf::zero()
   }
   let p = wp(prec) + 10
   let piprec = p + int_bit_length(n)
-  let mut v = mpf_gamma_int(n + 1, p, @mpf.round_nearest)
-  v = @mpf.mpf_mul(v, zeta_eta_series(n, p), p, @mpf.round_nearest)
-  v = @mpf.mpf_mul(
-    v,
-    mpf_pow_int_checked(
-      mpf_pi_checked(piprec, @mpf.round_nearest),
-      -n,
-      p,
-      @mpf.round_nearest,
-    ),
+  let mut v = gamma_integer(n + 1, p, Nearest)
+  v = v.mul(zeta_eta_series(n, p), p, Nearest)
+  v = v.mul(
+    mpf_pow_int_checked(mpf_pi_checked(piprec, Nearest), -n, p, Nearest),
     p,
-    @mpf.round_nearest,
+    Nearest,
   )
-  v = @mpf.mpf_shift(v, 1 - n)
+  v = v.scale_pow2(1 - n)
   if (n & 3) == 0 {
-    v = @mpf.mpf_neg(v, p, @mpf.round_nearest)
+    v = v.negated(p, Nearest)
   }
-  @mpf.mpf_pos(v, prec, rnd)
+  v.rounded(prec, rnd)
 }
 
 ///|
-pub fn mpf_factorial(
+pub fn factorial(
   n : Int,
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   if n < 0 {
-    raise ValueError("mpf_factorial: n must be non-negative")
+    raise ValueError("factorial: n must be non-negative")
   }
   if n <= 1 {
-    return @mpf.fone
+    return @mpf.RawMpf::one()
   }
-  let mut acc = @mpf.fone
+  let mut acc = @mpf.RawMpf::one()
   for i in 2..<=n {
-    acc = @mpf.mpf_mul_int(acc, i, 0, @mpf.round_down)
+    acc = acc.mul_int(i, 0, Down)
   }
-  @mpf.mpf_pos(acc, prec, rnd)
+  acc.rounded(prec, rnd)
 }
 
 ///|
-pub fn mpf_bernoulli(
+pub fn bernoulli(
   n : Int,
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   if n < 0 {
-    raise ValueError("mpf_bernoulli: n must be non-negative")
+    raise ValueError("bernoulli: n must be non-negative")
   }
   if n == 1 {
-    return @mpf.from_man_exp(-1N, -1, prec, rnd)
+    return @mpf.RawMpf::from_mantissa_exponent(-1N, -1, prec, rnd)
   }
   if n > 1 && (n & 1) == 1 {
-    return @mpf.fzero
+    return @mpf.RawMpf::zero()
   }
   if n >= 80 {
-    return mpf_bernoulli_huge(n, prec, rnd)
+    return large_bernoulli(n, prec, rnd)
   }
   let p = wp(prec)
-  let a = Array::make(n + 1, @mpf.fzero)
+  let a = Array::make(n + 1, @mpf.RawMpf::zero())
   for m in 0..<=n {
     a[m] = mpf_div_checked(
-      @mpf.fone,
-      @mpf.from_int(m + 1),
+      @mpf.RawMpf::one(),
+      @mpf.RawMpf::from_int(m + 1),
       p,
-      @mpf.round_nearest,
+      Nearest,
     )
     let mut j = m
     while j > 0 {
-      a[j - 1] = @mpf.mpf_mul_int(
-        @mpf.mpf_sub(a[j - 1], a[j], p, @mpf.round_nearest),
-        j,
-        p,
-        @mpf.round_nearest,
-      )
+      a[j - 1] = a[j - 1].sub(a[j], p, Nearest).mul_int(j, p, Nearest)
       j -= 1
     }
   }
-  @mpf.mpf_pos(a[0], prec, rnd)
+  a[0].rounded(prec, rnd)
 }
 
 ///|
@@ -298,35 +289,20 @@ fn zeta_even_via_bernoulli(
   p : Int,
 ) -> @mpf.RawMpf raise GammaZetaError {
   let k = n / 2
-  let b = mpf_bernoulli(n, p, @mpf.round_nearest)
-  let two_pi = @mpf.mpf_mul_int(
-    mpf_pi_checked(p, @mpf.round_nearest),
-    2,
-    p,
-    @mpf.round_nearest,
-  )
-  let numer = @mpf.mpf_mul(
-    b,
-    mpf_pow_int_checked(two_pi, n, p, @mpf.round_nearest),
-    p,
-    @mpf.round_nearest,
-  )
-  let denom = @mpf.mpf_mul_int(
-    mpf_factorial(n, p, @mpf.round_nearest),
-    2,
-    p,
-    @mpf.round_nearest,
-  )
-  let mut z = mpf_div_checked(numer, denom, p, @mpf.round_nearest)
+  let b = bernoulli(n, p, Nearest)
+  let two_pi = mpf_pi_checked(p, Nearest).mul_int(2, p, Nearest)
+  let numer = b.mul(mpf_pow_int_checked(two_pi, n, p, Nearest), p, Nearest)
+  let denom = factorial(n, p, Nearest).mul_int(2, p, Nearest)
+  let mut z = mpf_div_checked(numer, denom, p, Nearest)
   if (k & 1) == 0 {
-    z = @mpf.mpf_neg(z, p, @mpf.round_nearest)
+    z = z.negated(p, Nearest)
   }
   z
 }
 
 ///|
 fn zeta_eta_series(n : Int, p : Int) -> @mpf.RawMpf raise GammaZetaError {
-  let mut eta = @mpf.fzero
+  let mut eta = @mpf.RawMpf::zero()
   let mut max_terms = 64 + p * 3
   if n <= 3 {
     max_terms += p * 8
@@ -348,60 +324,58 @@ fn zeta_eta_series(n : Int, p : Int) -> @mpf.RawMpf raise GammaZetaError {
     let odd = 2 * k - 1
     let even = 2 * k
     let odd_term = mpf_div_checked(
-      @mpf.fone,
-      mpf_pow_int_checked(@mpf.from_int(odd), n, p, @mpf.round_nearest),
+      @mpf.RawMpf::one(),
+      mpf_pow_int_checked(@mpf.RawMpf::from_int(odd), n, p, Nearest),
       p,
-      @mpf.round_nearest,
+      Nearest,
     )
     let even_term = mpf_div_checked(
-      @mpf.fone,
-      mpf_pow_int_checked(@mpf.from_int(even), n, p, @mpf.round_nearest),
+      @mpf.RawMpf::one(),
+      mpf_pow_int_checked(@mpf.RawMpf::from_int(even), n, p, Nearest),
       p,
-      @mpf.round_nearest,
+      Nearest,
     )
-    let term = @mpf.mpf_sub(odd_term, even_term, p, @mpf.round_nearest)
-    eta = @mpf.mpf_add(eta, term, p, @mpf.round_nearest)
-    if tiny_enough(@mpf.mpf_abs(term, p, @mpf.round_nearest), conv_bits) &&
-      k > 8 {
+    let term = odd_term.sub(even_term, p, Nearest)
+    eta = eta.add(term, p, Nearest)
+    if tiny_enough(term.abs(p, Nearest), conv_bits) && k > 8 {
       break
     }
     k += 1
   }
-  let denom = @mpf.mpf_sub(
-    @mpf.fone,
-    @mpf.from_man_exp(1N, 1 - n, 0, @mpf.round_down),
+  let denom = @mpf.RawMpf::one().sub(
+    @mpf.RawMpf::from_mantissa_exponent(1N, 1 - n, 0, Down),
     p,
-    @mpf.round_nearest,
+    Nearest,
   )
-  mpf_div_checked(eta, denom, p, @mpf.round_nearest)
+  mpf_div_checked(eta, denom, p, Nearest)
 }
 
 ///|
-pub fn mpf_zeta_int(
+pub fn zeta_integer(
   n : Int,
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   if n <= 1 {
-    raise ValueError("mpf_zeta_int: n must be > 1")
+    raise ValueError("zeta_int: n must be > 1")
   }
   let p = wp(prec) + 16
   let z = if (n & 1) == 0 {
     zeta_even_via_bernoulli(n, p)
   } else if n <= 7 || p >= 220 {
-    zeta_euler_maclaurin_real(@mpf.from_int(n), p)
+    zeta_euler_maclaurin_real(@mpf.RawMpf::from_int(n), p)
   } else {
     zeta_eta_series(n, p)
   }
-  @mpf.mpf_pos(z, prec, rnd)
+  z.rounded(prec, rnd)
 }
 
 ///|
 fn maybe_integer(x : @mpf.RawMpf) -> Int? {
-  if !@mpf.is_finite(x) {
+  if !x.is_finite() {
     return None
   }
-  if @mpf.is_zero(x) {
+  if x.is_zero() {
     return Some(0)
   }
   if x.exp >= 0 {
@@ -410,7 +384,7 @@ fn maybe_integer(x : @mpf.RawMpf) -> Int? {
       return None
     }
     let n = v.to_int()
-    if @mpf.mpf_eq(x, @mpf.from_int(if x.sign == 1 { -n } else { n })) {
+    if x == @mpf.RawMpf::from_int(if x.sign == 1 { -n } else { n }) {
       return Some(if x.sign == 1 { -n } else { n })
     }
     None
@@ -422,48 +396,15 @@ fn maybe_integer(x : @mpf.RawMpf) -> Int? {
 ///|
 fn gamma_lanczos_coeff(i : Int, p : Int) -> @mpf.RawMpf raise GammaZetaError {
   match i {
-    0 =>
-      mpf_from_str_checked(
-        "0.99999999999980993",
-        prec=p,
-        rnd=@mpf.round_nearest,
-      )
-    1 =>
-      mpf_from_str_checked("676.5203681218851", prec=p, rnd=@mpf.round_nearest)
-    2 =>
-      mpf_from_str_checked(
-        "-1259.1392167224028",
-        prec=p,
-        rnd=@mpf.round_nearest,
-      )
-    3 =>
-      mpf_from_str_checked("771.32342877765313", prec=p, rnd=@mpf.round_nearest)
-    4 =>
-      mpf_from_str_checked(
-        "-176.61502916214059",
-        prec=p,
-        rnd=@mpf.round_nearest,
-      )
-    5 =>
-      mpf_from_str_checked("12.507343278686905", prec=p, rnd=@mpf.round_nearest)
-    6 =>
-      mpf_from_str_checked(
-        "-0.13857109526572012",
-        prec=p,
-        rnd=@mpf.round_nearest,
-      )
-    7 =>
-      mpf_from_str_checked(
-        "0.0000099843695780195716",
-        prec=p,
-        rnd=@mpf.round_nearest,
-      )
-    _ =>
-      mpf_from_str_checked(
-        "0.00000015056327351493116",
-        prec=p,
-        rnd=@mpf.round_nearest,
-      )
+    0 => mpf_from_str_checked("0.99999999999980993", prec=p, rnd=Nearest)
+    1 => mpf_from_str_checked("676.5203681218851", prec=p, rnd=Nearest)
+    2 => mpf_from_str_checked("-1259.1392167224028", prec=p, rnd=Nearest)
+    3 => mpf_from_str_checked("771.32342877765313", prec=p, rnd=Nearest)
+    4 => mpf_from_str_checked("-176.61502916214059", prec=p, rnd=Nearest)
+    5 => mpf_from_str_checked("12.507343278686905", prec=p, rnd=Nearest)
+    6 => mpf_from_str_checked("-0.13857109526572012", prec=p, rnd=Nearest)
+    7 => mpf_from_str_checked("0.0000099843695780195716", prec=p, rnd=Nearest)
+    _ => mpf_from_str_checked("0.00000015056327351493116", prec=p, rnd=Nearest)
   }
 }
 
@@ -472,316 +413,240 @@ fn gamma_lanczos_positive(
   x : @mpf.RawMpf,
   p : Int,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  let z1 = @mpf.mpf_sub(x, @mpf.fone, p, @mpf.round_nearest)
+  let z1 = x.sub(@mpf.RawMpf::one(), p, Nearest)
   let mut series = gamma_lanczos_coeff(0, p)
   for i in 1..<9 {
-    series = @mpf.mpf_add(
-      series,
+    series = series.add(
       mpf_div_checked(
         gamma_lanczos_coeff(i, p),
-        @mpf.mpf_add(z1, @mpf.from_int(i), p, @mpf.round_nearest),
+        z1.add(@mpf.RawMpf::from_int(i), p, Nearest),
         p,
-        @mpf.round_nearest,
+        Nearest,
       ),
       p,
-      @mpf.round_nearest,
+      Nearest,
     )
   }
-  let t = @mpf.mpf_add(
-    z1,
-    mpf_from_str_checked("7.5", prec=p, rnd=@mpf.round_nearest),
-    p,
-    @mpf.round_nearest,
-  )
+  let t = z1.add(mpf_from_str_checked("7.5", prec=p, rnd=Nearest), p, Nearest)
   let pow_term = mpf_pow_checked(
     t,
-    @mpf.mpf_add(
-      z1,
-      mpf_from_str_checked("0.5", prec=p, rnd=@mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    ),
+    z1.add(mpf_from_str_checked("0.5", prec=p, rnd=Nearest), p, Nearest),
     p,
-    @mpf.round_nearest,
+    Nearest,
   )
-  let exp_term = mpf_exp_checked(
-    @mpf.mpf_neg(t, p, @mpf.round_nearest),
-    p,
-    @mpf.round_nearest,
-  )
-  @mpf.mpf_mul(
-    mpf_from_str_checked(
-      "2.5066282746310005024157652848110452",
-      prec=p,
-      rnd=@mpf.round_nearest,
-    ),
-    @mpf.mpf_mul(
-      pow_term,
-      @mpf.mpf_mul(exp_term, series, p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    ),
-    p,
-    @mpf.round_nearest,
-  )
+  let exp_term = mpf_exp_checked(t.negated(p, Nearest), p, Nearest)
+  mpf_from_str_checked(
+    "2.5066282746310005024157652848110452",
+    prec=p,
+    rnd=Nearest,
+  ).mul(pow_term.mul(exp_term.mul(series, p, Nearest), p, Nearest), p, Nearest)
 }
 
 ///|
-pub fn mpf_gamma(
+pub fn gamma(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  if @mpf.is_nan(x) {
-    return @mpf.fnan
+  if x.is_nan() {
+    return @mpf.RawMpf::nan()
   }
-  if @mpf.is_inf(x) {
+  if x.is_infinite() {
     if x.sign == 1 {
-      return @mpf.fnan
+      return @mpf.RawMpf::nan()
     } else {
-      return @mpf.finf
+      return @mpf.RawMpf::infinity()
     }
   }
   match maybe_integer(x) {
     Some(n) => {
       if n <= 0 {
-        raise PoleError("mpf_gamma: pole at non-positive integer")
+        raise PoleError("gamma: pole at non-positive integer")
       }
-      return mpf_factorial(n - 1, prec, rnd)
+      return factorial(n - 1, prec, rnd)
     }
     None => ()
   }
   let p = wp(prec)
-  let half = @mpf.from_man_exp(1N, -1, 0, @mpf.round_down)
-  if @mpf.mpf_eq(x, half) {
-    return mpf_sqrt_checked(mpf_pi_checked(p, @mpf.round_nearest), prec, rnd)
+  let half = @mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down)
+  if x == half {
+    return mpf_sqrt_checked(mpf_pi_checked(p, Nearest), prec, rnd)
   }
-  if @mpf.mpf_eq(x, @mpf.mpf_neg(half, 0, @mpf.round_down)) {
-    let root_pi = mpf_sqrt_checked(
-      mpf_pi_checked(p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    )
-    return @mpf.mpf_mul_int(
-      @mpf.mpf_neg(root_pi, p, @mpf.round_nearest),
-      2,
-      prec,
-      rnd,
-    )
+  if x == half.negated(0, Down) {
+    let root_pi = mpf_sqrt_checked(mpf_pi_checked(p, Nearest), p, Nearest)
+    return root_pi.negated(p, Nearest).mul_int(2, prec, rnd)
   }
   if x.sign == 1 {
-    let pi = mpf_pi_checked(p, @mpf.round_nearest)
-    let sin_term = mpf_sin_checked(
-      @mpf.mpf_mul(pi, x, p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    )
-    if @mpf.is_zero(sin_term) {
-      raise PoleError("mpf_gamma: pole at non-positive integer")
+    let pi = mpf_pi_checked(p, Nearest)
+    let sin_term = mpf_sin_checked(pi.mul(x, p, Nearest), p, Nearest)
+    if sin_term.is_zero() {
+      raise PoleError("gamma: pole at non-positive integer")
     }
-    let gamma_term = mpf_gamma(
-      @mpf.mpf_sub(@mpf.fone, x, p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    )
-    return @mpf.mpf_pos(
-      mpf_div_checked(
-        pi,
-        @mpf.mpf_mul(sin_term, gamma_term, p, @mpf.round_nearest),
-        p,
-        @mpf.round_nearest,
-      ),
-      prec,
-      rnd,
+    let gamma_term = gamma(@mpf.RawMpf::one().sub(x, p, Nearest), p, Nearest)
+    return mpf_div_checked(pi, sin_term.mul(gamma_term, p, Nearest), p, Nearest).rounded(
+      prec, rnd,
     )
   }
-  @mpf.mpf_pos(gamma_lanczos_positive(x, p), prec, rnd)
+  gamma_lanczos_positive(x, p).rounded(prec, rnd)
 }
 
 ///|
-pub fn mpf_rgamma(
+pub fn rgamma(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   let p = wp(prec) + 8
-  let g = mpf_gamma(x, p, @mpf.round_nearest)
-  @mpf.mpf_pos(mpf_div_checked(@mpf.fone, g, p, @mpf.round_nearest), prec, rnd)
+  let g = gamma(x, p, Nearest)
+  mpf_div_checked(@mpf.RawMpf::one(), g, p, Nearest).rounded(prec, rnd)
 }
 
 ///|
-pub fn mpf_loggamma(
+pub fn loggamma(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   let p = wp(prec) + 8
-  let g = mpf_gamma(x, p, @mpf.round_nearest)
-  @mpf.mpf_pos(mpf_log_checked(g, p, @mpf.round_nearest), prec, rnd)
+  let g = gamma(x, p, Nearest)
+  mpf_log_checked(g, p, Nearest).rounded(prec, rnd)
 }
 
 ///|
-pub fn mpf_gamma_int(
+pub fn gamma_integer(
   n : Int,
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   if n <= 0 {
-    raise ValueError("mpf_gamma_int: n must be positive")
+    raise ValueError("gamma_int: n must be positive")
   }
-  mpf_factorial(n - 1, prec, rnd)
+  factorial(n - 1, prec, rnd)
 }
 
 ///|
 fn harmonic_int(n : Int, p : Int) -> @mpf.RawMpf raise GammaZetaError {
   if n <= 0 {
-    return @mpf.fzero
+    return @mpf.RawMpf::zero()
   }
-  let mut sum = @mpf.fzero
+  let mut sum = @mpf.RawMpf::zero()
   for k in 1..<=n {
-    sum = @mpf.mpf_add(
-      sum,
-      mpf_div_checked(@mpf.fone, @mpf.from_int(k), p, @mpf.round_nearest),
+    sum = sum.add(
+      mpf_div_checked(@mpf.RawMpf::one(), @mpf.RawMpf::from_int(k), p, Nearest),
       p,
-      @mpf.round_nearest,
+      Nearest,
     )
   }
   sum
 }
 
 ///|
-pub fn mpf_psi0(
+pub fn digamma(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  if @mpf.is_nan(x) {
-    return @mpf.fnan
+  if x.is_nan() {
+    return @mpf.RawMpf::nan()
   }
-  if @mpf.is_inf(x) {
+  if x.is_infinite() {
     if x.sign == 1 {
-      return @mpf.fnan
+      return @mpf.RawMpf::nan()
     }
-    return @mpf.finf
+    return @mpf.RawMpf::infinity()
   }
   match maybe_integer(x) {
     Some(n) => {
       if n <= 0 {
-        raise PoleError("mpf_psi0: poles at non-positive integers")
+        raise PoleError("digamma: poles at non-positive integers")
       }
       let p = wp(prec) + 8
-      return @mpf.mpf_pos(
-        @mpf.mpf_sub(
-          harmonic_int(n - 1, p),
-          @mpf.mpf_pos(euler_gamma, p, @mpf.round_nearest),
-          p,
-          @mpf.round_nearest,
-        ),
-        prec,
-        rnd,
-      )
+      return harmonic_int(n - 1, p)
+        .sub(euler_gamma.rounded(p, Nearest), p, Nearest)
+        .rounded(prec, rnd)
     }
     None => ()
   }
-  if @mpf.is_zero(x) {
-    raise DomainError("mpf_psi0: non-positive input is unsupported")
+  if x.is_zero() {
+    raise DomainError("digamma: non-positive input is unsupported")
   }
   if x.sign == 1 {
     let p = wp(prec) + 24
-    let one_minus_x = @mpf.mpf_sub(@mpf.fone, x, p, @mpf.round_nearest)
-    let psi_ref = mpf_psi0(one_minus_x, p, @mpf.round_nearest)
-    let pi = mpf_pi_checked(p, @mpf.round_nearest)
-    let (cos_pix, sin_pix) = mpf_cos_sin_pi_checked(x, p, @mpf.round_nearest)
-    let cot_pix = mpf_div_checked(cos_pix, sin_pix, p, @mpf.round_nearest)
-    let corr = @mpf.mpf_mul(pi, cot_pix, p, @mpf.round_nearest)
-    return @mpf.mpf_pos(
-      @mpf.mpf_sub(psi_ref, corr, p, @mpf.round_nearest),
-      prec,
-      rnd,
-    )
+    let one_minus_x = @mpf.RawMpf::one().sub(x, p, Nearest)
+    let psi_ref = digamma(one_minus_x, p, Nearest)
+    let pi = mpf_pi_checked(p, Nearest)
+    let (cos_pix, sin_pix) = mpf_cos_sin_pi_checked(x, p, Nearest)
+    let cot_pix = mpf_div_checked(cos_pix, sin_pix, p, Nearest)
+    let corr = pi.mul(cot_pix, p, Nearest)
+    return psi_ref.sub(corr, p, Nearest).rounded(prec, rnd)
   }
   let p = wp(prec) + 40
-  let mut y = @mpf.mpf_pos(x, p, @mpf.round_nearest)
-  let mut acc = @mpf.fzero
-  while @mpf.mpf_lt(y, @mpf.from_int(8)) {
-    acc = @mpf.mpf_sub(
-      acc,
-      mpf_div_checked(@mpf.fone, y, p, @mpf.round_nearest),
+  let mut y = x.rounded(p, Nearest)
+  let mut acc = @mpf.RawMpf::zero()
+  while y < @mpf.RawMpf::from_int(8) {
+    acc = acc.sub(
+      mpf_div_checked(@mpf.RawMpf::one(), y, p, Nearest),
       p,
-      @mpf.round_nearest,
+      Nearest,
     )
-    y = @mpf.mpf_add(y, @mpf.fone, p, @mpf.round_nearest)
+    y = y.add(@mpf.RawMpf::one(), p, Nearest)
   }
-  let inv = mpf_div_checked(@mpf.fone, y, p, @mpf.round_nearest)
-  let inv2 = @mpf.mpf_mul(inv, inv, p, @mpf.round_nearest)
-  let inv4 = @mpf.mpf_mul(inv2, inv2, p, @mpf.round_nearest)
-  let inv6 = @mpf.mpf_mul(inv4, inv2, p, @mpf.round_nearest)
-  let series = @mpf.mpf_add(
-    mpf_log_checked(y, p, @mpf.round_nearest),
-    @mpf.mpf_sub(
-      @mpf.mpf_neg(@mpf.mpf_shift(inv, -1), p, @mpf.round_nearest),
-      mpf_div_checked(inv2, @mpf.from_int(12), p, @mpf.round_nearest),
+  let inv = mpf_div_checked(@mpf.RawMpf::one(), y, p, Nearest)
+  let inv2 = inv.mul(inv, p, Nearest)
+  let inv4 = inv2.mul(inv2, p, Nearest)
+  let inv6 = inv4.mul(inv2, p, Nearest)
+  let series = mpf_log_checked(y, p, Nearest).add(
+    inv
+    .scale_pow2(-1)
+    .negated(p, Nearest)
+    .sub(
+      mpf_div_checked(inv2, @mpf.RawMpf::from_int(12), p, Nearest),
       p,
-      @mpf.round_nearest,
+      Nearest,
     ),
     p,
-    @mpf.round_nearest,
+    Nearest,
   )
-  let series = @mpf.mpf_add(
-    series,
-    @mpf.mpf_sub(
-      mpf_div_checked(inv4, @mpf.from_int(120), p, @mpf.round_nearest),
-      mpf_div_checked(inv6, @mpf.from_int(252), p, @mpf.round_nearest),
+  let series = series.add(
+    mpf_div_checked(inv4, @mpf.RawMpf::from_int(120), p, Nearest).sub(
+      mpf_div_checked(inv6, @mpf.RawMpf::from_int(252), p, Nearest),
       p,
-      @mpf.round_nearest,
+      Nearest,
     ),
     p,
-    @mpf.round_nearest,
+    Nearest,
   )
-  @mpf.mpf_pos(@mpf.mpf_add(series, acc, p, @mpf.round_nearest), prec, rnd)
+  series.add(acc, p, Nearest).rounded(prec, rnd)
 }
 
 ///|
-pub fn mpf_harmonic(
+pub fn harmonic(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  if @mpf.is_nan(x) {
-    return @mpf.fnan
+  if x.is_nan() {
+    return @mpf.RawMpf::nan()
   }
-  if @mpf.is_inf(x) {
+  if x.is_infinite() {
     if x.sign == 1 {
-      return @mpf.fnan
+      return @mpf.RawMpf::nan()
     }
-    return @mpf.finf
+    return @mpf.RawMpf::infinity()
   }
   match maybe_integer(x) {
     Some(n) => {
       if n < 0 {
-        raise PoleError("mpf_harmonic: poles at negative integers")
+        raise PoleError("harmonic: poles at negative integers")
       }
       let p = wp(prec) + 8
-      return @mpf.mpf_pos(harmonic_int(n, p), prec, rnd)
+      return harmonic_int(n, p).rounded(prec, rnd)
     }
     None => ()
   }
   let p = wp(prec) + 16
-  let psi = mpf_psi0(
-    @mpf.mpf_add(x, @mpf.fone, p, @mpf.round_nearest),
-    p,
-    @mpf.round_nearest,
-  )
-  @mpf.mpf_pos(
-    @mpf.mpf_add(
-      psi,
-      @mpf.mpf_pos(euler_gamma, p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    ),
-    prec,
-    rnd,
-  )
+  let psi = digamma(x.add(@mpf.RawMpf::one(), p, Nearest), p, Nearest)
+  psi.add(euler_gamma.rounded(p, Nearest), p, Nearest).rounded(prec, rnd)
 }
 
 ///|
@@ -808,60 +673,37 @@ fn fib_int(n : Int) -> BigInt {
 }
 
 ///|
-pub fn mpf_fibonacci(
+pub fn fibonacci(
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  if @mpf.is_nan(x) || @mpf.is_inf(x) {
-    return @mpf.fnan
+  if x.is_nan() || x.is_infinite() {
+    return @mpf.RawMpf::nan()
   }
   match maybe_integer(x) {
-    Some(n) => @mpf.from_man_exp(fib_int(n), 0, prec, rnd)
+    Some(n) => @mpf.RawMpf::from_mantissa_exponent(fib_int(n), 0, prec, rnd)
     None => {
       let p = wp(prec) + 24
-      let phi = mpf_phi_checked(p, @mpf.round_nearest)
-      let sqrt5 = mpf_sqrt_checked(@mpf.from_int(5), p, @mpf.round_nearest)
-      let phix = mpf_pow_checked(phi, x, p, @mpf.round_nearest)
-      let phimx = mpf_pow_checked(
-        phi,
-        @mpf.mpf_neg(x, p, @mpf.round_nearest),
-        p,
-        @mpf.round_nearest,
-      )
+      let phi = mpf_phi_checked(p, Nearest)
+      let sqrt5 = mpf_sqrt_checked(@mpf.RawMpf::from_int(5), p, Nearest)
+      let phix = mpf_pow_checked(phi, x, p, Nearest)
+      let phimx = mpf_pow_checked(phi, x.negated(p, Nearest), p, Nearest)
       let cospix = mpf_cos_checked(
-        @mpf.mpf_mul(
-          mpf_pi_checked(p, @mpf.round_nearest),
-          x,
-          p,
-          @mpf.round_nearest,
-        ),
+        mpf_pi_checked(p, Nearest).mul(x, p, Nearest),
         p,
-        @mpf.round_nearest,
+        Nearest,
       )
-      let numer = @mpf.mpf_sub(
-        phix,
-        @mpf.mpf_mul(cospix, phimx, p, @mpf.round_nearest),
-        p,
-        @mpf.round_nearest,
-      )
-      @mpf.mpf_pos(
-        mpf_div_checked(numer, sqrt5, p, @mpf.round_nearest),
-        prec,
-        rnd,
-      )
+      let numer = phix.sub(cospix.mul(phimx, p, Nearest), p, Nearest)
+      mpf_div_checked(numer, sqrt5, p, Nearest).rounded(prec, rnd)
     }
   }
 }
 
 ///|
 fn zeta_eta_real(s : @mpf.RawMpf, p : Int) -> @mpf.RawMpf raise GammaZetaError {
-  let pole_dist = @mpf.mpf_abs(
-    @mpf.mpf_sub(s, @mpf.fone, p, @mpf.round_nearest),
-    p,
-    @mpf.round_nearest,
-  )
-  let pole_bits = if @mpf.is_zero(pole_dist) {
+  let pole_dist = s.sub(@mpf.RawMpf::one(), p, Nearest).abs(p, Nearest)
+  let pole_bits = if pole_dist.is_zero() {
     p + 16
   } else {
     let bits = -(pole_dist.exp + pole_dist.bc)
@@ -882,23 +724,22 @@ fn zeta_eta_real(s : @mpf.RawMpf, p : Int) -> @mpf.RawMpf raise GammaZetaError {
   if conv_bits > p + 384 {
     conv_bits = p + 384
   }
-  let mut eta = @mpf.fzero
+  let mut eta = @mpf.RawMpf::zero()
   let mut k = 1
   while k < max_terms {
     let term_abs = mpf_div_checked(
-      @mpf.fone,
-      mpf_pow_checked(@mpf.from_int(k), s, p, @mpf.round_nearest),
+      @mpf.RawMpf::one(),
+      mpf_pow_checked(@mpf.RawMpf::from_int(k), s, p, Nearest),
       p,
-      @mpf.round_nearest,
+      Nearest,
     )
     let term = if (k & 1) == 1 {
       term_abs
     } else {
-      @mpf.mpf_neg(term_abs, p, @mpf.round_nearest)
+      term_abs.negated(p, Nearest)
     }
-    eta = @mpf.mpf_add(eta, term, p, @mpf.round_nearest)
-    if tiny_enough(@mpf.mpf_abs(term_abs, p, @mpf.round_nearest), conv_bits) &&
-      k > 24 {
+    eta = eta.add(term, p, Nearest)
+    if tiny_enough(term_abs.abs(p, Nearest), conv_bits) && k > 24 {
       break
     }
     k += 1
@@ -911,12 +752,8 @@ fn zeta_euler_maclaurin_real(
   s : @mpf.RawMpf,
   p : Int,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  let pole_dist = @mpf.mpf_abs(
-    @mpf.mpf_sub(s, @mpf.fone, p, @mpf.round_nearest),
-    p,
-    @mpf.round_nearest,
-  )
-  let pole_bits = if @mpf.is_zero(pole_dist) {
+  let pole_dist = s.sub(@mpf.RawMpf::one(), p, Nearest).abs(p, Nearest)
+  let pole_bits = if pole_dist.is_zero() {
     p + 16
   } else {
     let bits = -(pole_dist.exp + pole_dist.bc)
@@ -941,82 +778,60 @@ fn zeta_euler_maclaurin_real(
   if terms > 256 {
     terms = 256
   }
-  let n_mpf = @mpf.from_int(n)
-  let mut sum = @mpf.fzero
+  let n_mpf = @mpf.RawMpf::from_int(n)
+  let mut sum = @mpf.RawMpf::zero()
   for k in 1..<n {
-    sum = @mpf.mpf_add(
-      sum,
+    sum = sum.add(
       mpf_div_checked(
-        @mpf.fone,
-        mpf_pow_checked(@mpf.from_int(k), s, p, @mpf.round_nearest),
+        @mpf.RawMpf::one(),
+        mpf_pow_checked(@mpf.RawMpf::from_int(k), s, p, Nearest),
         p,
-        @mpf.round_nearest,
+        Nearest,
       ),
       p,
-      @mpf.round_nearest,
+      Nearest,
     )
   }
-  let n_pow_s = mpf_pow_checked(n_mpf, s, p, @mpf.round_nearest)
-  let n_neg_s = mpf_div_checked(@mpf.fone, n_pow_s, p, @mpf.round_nearest)
+  let n_pow_s = mpf_pow_checked(n_mpf, s, p, Nearest)
+  let n_neg_s = mpf_div_checked(@mpf.RawMpf::one(), n_pow_s, p, Nearest)
   let tail_integral = mpf_div_checked(
-    @mpf.mpf_mul(n_mpf, n_neg_s, p, @mpf.round_nearest),
-    @mpf.mpf_sub(s, @mpf.fone, p, @mpf.round_nearest),
+    n_mpf.mul(n_neg_s, p, Nearest),
+    s.sub(@mpf.RawMpf::one(), p, Nearest),
     p,
-    @mpf.round_nearest,
+    Nearest,
   )
-  let tail_half = @mpf.mpf_mul(
-    @mpf.from_man_exp(1N, -1, 0, @mpf.round_down),
+  let tail_half = @mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down).mul(
     n_neg_s,
     p,
-    @mpf.round_nearest,
+    Nearest,
   )
-  let mut corr = @mpf.fzero
+  let mut corr = @mpf.RawMpf::zero()
   for m in 1..<=terms {
     let two_m = 2 * m
-    let mut poch = @mpf.fone
+    let mut poch = @mpf.RawMpf::one()
     for r in 0..<(two_m - 1) {
-      poch = @mpf.mpf_mul(
-        poch,
-        @mpf.mpf_add(s, @mpf.from_int(r), p, @mpf.round_nearest),
-        p,
-        @mpf.round_nearest,
-      )
+      poch = poch.mul(s.add(@mpf.RawMpf::from_int(r), p, Nearest), p, Nearest)
     }
     let coeff = mpf_div_checked(
-      mpf_bernoulli(two_m, p, @mpf.round_nearest),
-      mpf_factorial(two_m, p, @mpf.round_nearest),
+      bernoulli(two_m, p, Nearest),
+      factorial(two_m, p, Nearest),
       p,
-      @mpf.round_nearest,
+      Nearest,
     )
     let mut n_pow = n_neg_s
     for _ in 0..<(two_m - 1) {
-      n_pow = mpf_div_checked(n_pow, n_mpf, p, @mpf.round_nearest)
+      n_pow = mpf_div_checked(n_pow, n_mpf, p, Nearest)
     }
-    let corr_term = @mpf.mpf_mul(
-      coeff,
-      @mpf.mpf_mul(poch, n_pow, p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    )
-    corr = @mpf.mpf_add(corr, corr_term, p, @mpf.round_nearest)
-    if m >= 4 &&
-      tiny_enough(
-        @mpf.mpf_abs(corr_term, p, @mpf.round_nearest),
-        p + 12 + pole_bits,
-      ) {
+    let corr_term = coeff.mul(poch.mul(n_pow, p, Nearest), p, Nearest)
+    corr = corr.add(corr_term, p, Nearest)
+    if m >= 4 && tiny_enough(corr_term.abs(p, Nearest), p + 12 + pole_bits) {
       break
     }
   }
-  @mpf.mpf_add(
-    sum,
-    @mpf.mpf_add(
-      tail_integral,
-      @mpf.mpf_add(tail_half, corr, p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    ),
+  sum.add(
+    tail_integral.add(tail_half.add(corr, p, Nearest), p, Nearest),
     p,
-    @mpf.round_nearest,
+    Nearest,
   )
 }
 
@@ -1025,35 +840,30 @@ fn zeta_alt_factor(
   s : @mpf.RawMpf,
   p : Int,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  @mpf.mpf_sub(
-    @mpf.fone,
+  @mpf.RawMpf::one().sub(
     mpf_pow_checked(
-      @mpf.from_int(2),
-      @mpf.mpf_sub(@mpf.fone, s, p, @mpf.round_nearest),
+      @mpf.RawMpf::from_int(2),
+      @mpf.RawMpf::one().sub(s, p, Nearest),
       p,
-      @mpf.round_nearest,
+      Nearest,
     ),
     p,
-    @mpf.round_nearest,
+    Nearest,
   )
 }
 
 ///|
 fn zeta_negative_int(n : Int, p : Int) -> @mpf.RawMpf raise GammaZetaError {
   if (n & 1) == 0 {
-    return @mpf.fzero
+    return @mpf.RawMpf::zero()
   }
   let m = -n
-  @mpf.mpf_neg(
-    mpf_div_checked(
-      mpf_bernoulli(m + 1, p, @mpf.round_nearest),
-      @mpf.from_int(m + 1),
-      p,
-      @mpf.round_nearest,
-    ),
+  mpf_div_checked(
+    bernoulli(m + 1, p, Nearest),
+    @mpf.RawMpf::from_int(m + 1),
     p,
-    @mpf.round_nearest,
-  )
+    Nearest,
+  ).negated(p, Nearest)
 }
 
 ///|
@@ -1061,61 +871,54 @@ fn zeta_reflection_real(
   s : @mpf.RawMpf,
   p : Int,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  let pi = mpf_pi_checked(p, @mpf.round_nearest)
-  let one_minus_s = @mpf.mpf_sub(@mpf.fone, s, p, @mpf.round_nearest)
-  let two_pow_s = mpf_pow_checked(@mpf.from_int(2), s, p, @mpf.round_nearest)
+  let pi = mpf_pi_checked(p, Nearest)
+  let one_minus_s = @mpf.RawMpf::one().sub(s, p, Nearest)
+  let two_pow_s = mpf_pow_checked(@mpf.RawMpf::from_int(2), s, p, Nearest)
   let pi_pow = mpf_pow_checked(
     pi,
-    @mpf.mpf_sub(s, @mpf.fone, p, @mpf.round_nearest),
+    s.sub(@mpf.RawMpf::one(), p, Nearest),
     p,
-    @mpf.round_nearest,
+    Nearest,
   )
   let sin_term = mpf_sin_checked(
-    @mpf.mpf_shift(@mpf.mpf_mul(pi, s, p, @mpf.round_nearest), -1),
+    pi.mul(s, p, Nearest).scale_pow2(-1),
     p,
-    @mpf.round_nearest,
+    Nearest,
   )
-  let gamma_term = mpf_gamma(one_minus_s, p, @mpf.round_nearest)
-  let zeta_term = mpf_zeta(one_minus_s, p, @mpf.round_nearest)
-  @mpf.mpf_mul(
-    two_pow_s,
-    @mpf.mpf_mul(
-      pi_pow,
-      @mpf.mpf_mul(
-        sin_term,
-        @mpf.mpf_mul(gamma_term, zeta_term, p, @mpf.round_nearest),
-        p,
-        @mpf.round_nearest,
-      ),
+  let gamma_term = gamma(one_minus_s, p, Nearest)
+  let zeta_term = zeta(one_minus_s, p, Nearest)
+  two_pow_s.mul(
+    pi_pow.mul(
+      sin_term.mul(gamma_term.mul(zeta_term, p, Nearest), p, Nearest),
       p,
-      @mpf.round_nearest,
+      Nearest,
     ),
     p,
-    @mpf.round_nearest,
+    Nearest,
   )
 }
 
 ///|
-pub fn mpf_zeta(
+pub fn zeta(
   s : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
   alt? : Bool = false,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  if @mpf.is_nan(s) {
-    return @mpf.fnan
+  if s.is_nan() {
+    return @mpf.RawMpf::nan()
   }
-  if @mpf.is_inf(s) {
+  if s.is_infinite() {
     if s.sign == 1 {
-      return @mpf.fnan
+      return @mpf.RawMpf::nan()
     }
-    return @mpf.fone
+    return @mpf.RawMpf::one()
   }
-  if @mpf.is_zero(s) {
+  if s.is_zero() {
     return if alt {
-      @mpf.from_man_exp(1N, -1, prec, rnd)
+      @mpf.RawMpf::from_mantissa_exponent(1N, -1, prec, rnd)
     } else {
-      @mpf.from_man_exp(-1N, -1, prec, rnd)
+      @mpf.RawMpf::from_mantissa_exponent(-1N, -1, prec, rnd)
     }
   }
   match maybe_integer(s) {
@@ -1123,39 +926,28 @@ pub fn mpf_zeta(
       if n == 1 {
         if alt {
           let p = wp(prec) + 16
-          let ln2 = mpf_log_checked(@mpf.from_int(2), p, @mpf.round_nearest)
-          return @mpf.mpf_pos(ln2, prec, rnd)
+          let ln2 = mpf_log_checked(@mpf.RawMpf::from_int(2), p, Nearest)
+          return ln2.rounded(prec, rnd)
         }
-        raise PoleError("mpf_zeta: pole at s=1")
+        raise PoleError("zeta: pole at s=1")
       }
       if n > 1 {
         let p = wp(prec) + 16
-        let z = mpf_zeta_int(n, p, @mpf.round_nearest)
+        let z = zeta_integer(n, p, Nearest)
         if alt {
-          let factor = zeta_alt_factor(@mpf.from_int(n), p)
-          return @mpf.mpf_pos(
-            @mpf.mpf_mul(z, factor, p, @mpf.round_nearest),
-            prec,
-            rnd,
-          )
+          let factor = zeta_alt_factor(@mpf.RawMpf::from_int(n), p)
+          return z.mul(factor, p, Nearest).rounded(prec, rnd)
         }
-        return @mpf.mpf_pos(z, prec, rnd)
+        return z.rounded(prec, rnd)
       }
       let p = wp(prec) + 24
       let z = zeta_negative_int(n, p)
       if alt {
-        return @mpf.mpf_pos(
-          @mpf.mpf_mul(
-            z,
-            zeta_alt_factor(@mpf.from_int(n), p),
-            p,
-            @mpf.round_nearest,
-          ),
-          prec,
-          rnd,
-        )
+        return z
+          .mul(zeta_alt_factor(@mpf.RawMpf::from_int(n), p), p, Nearest)
+          .rounded(prec, rnd)
       }
-      return @mpf.mpf_pos(z, prec, rnd)
+      return z.rounded(prec, rnd)
     }
     None => ()
   }
@@ -1163,29 +955,16 @@ pub fn mpf_zeta(
     let p = wp(prec) + 28
     let z = zeta_reflection_real(s, p)
     if alt {
-      return @mpf.mpf_pos(
-        @mpf.mpf_mul(z, zeta_alt_factor(s, p), p, @mpf.round_nearest),
-        prec,
-        rnd,
-      )
+      return z.mul(zeta_alt_factor(s, p), p, Nearest).rounded(prec, rnd)
     }
-    return @mpf.mpf_pos(z, prec, rnd)
+    return z.rounded(prec, rnd)
   }
   let p = wp(prec) + 24
-  let pole_dist = @mpf.mpf_abs(
-    @mpf.mpf_sub(s, @mpf.fone, p, @mpf.round_nearest),
-    p,
-    @mpf.round_nearest,
-  )
-  let half = @mpf.from_man_exp(1N, -1, 0, @mpf.round_down)
-  if @mpf.mpf_lt(@mpf.fzero, s) &&
-    (@mpf.mpf_lt(@mpf.fone, s) || @mpf.mpf_lt(pole_dist, half)) {
-    let pole_dist = @mpf.mpf_abs(
-      @mpf.mpf_sub(s, @mpf.fone, p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    )
-    let pole_bits = if @mpf.is_zero(pole_dist) {
+  let pole_dist = s.sub(@mpf.RawMpf::one(), p, Nearest).abs(p, Nearest)
+  let half = @mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down)
+  if @mpf.RawMpf::zero() < s && (@mpf.RawMpf::one() < s || pole_dist < half) {
+    let pole_dist = s.sub(@mpf.RawMpf::one(), p, Nearest).abs(p, Nearest)
+    let pole_bits = if pole_dist.is_zero() {
       p + 16
     } else {
       let bits = -(pole_dist.exp + pole_dist.bc)
@@ -1201,28 +980,26 @@ pub fn mpf_zeta(
     }
     let z = zeta_euler_maclaurin_real(s, p_work)
     if alt {
-      return @mpf.mpf_pos(
-        @mpf.mpf_mul(z, zeta_alt_factor(s, p_work), p_work, @mpf.round_nearest),
-        prec,
-        rnd,
-      )
+      return z
+        .mul(zeta_alt_factor(s, p_work), p_work, Nearest)
+        .rounded(prec, rnd)
     }
-    return @mpf.mpf_pos(z, prec, rnd)
+    return z.rounded(prec, rnd)
   }
   let eta = zeta_eta_real(s, p)
   if alt {
-    return @mpf.mpf_pos(eta, prec, rnd)
+    return eta.rounded(prec, rnd)
   }
   let denom = zeta_alt_factor(s, p)
-  if @mpf.is_zero(denom) {
-    raise PoleError("mpf_zeta: pole at s=1")
+  if denom.is_zero() {
+    raise PoleError("zeta: pole at s=1")
   }
-  @mpf.mpf_pos(mpf_div_checked(eta, denom, p, @mpf.round_nearest), prec, rnd)
+  mpf_div_checked(eta, denom, p, Nearest).rounded(prec, rnd)
 }
 
 ///|
 fn const_str(
-  v : String,
+  v : StringView,
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
@@ -1230,22 +1007,22 @@ fn const_str(
 }
 
 ///|
-pub fn mpf_altzeta(
+pub fn eta(
   s : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  mpf_zeta(s, prec, rnd, alt=true)
+  zeta(s, prec, rnd, alt=true)
 }
 
 ///|
 fn factorial_small_mpf(n : Int, p : Int) -> @mpf.RawMpf {
   if n <= 1 {
-    return @mpf.fone
+    return @mpf.RawMpf::one()
   }
-  let mut acc = @mpf.fone
+  let mut acc = @mpf.RawMpf::one()
   for i in 2..<=n {
-    acc = @mpf.mpf_mul_int(acc, i, p, @mpf.round_nearest)
+    acc = acc.mul_int(i, p, Nearest)
   }
   acc
 }
@@ -1270,128 +1047,109 @@ fn hurwitz_power_sum_em(
   if terms > 24 {
     terms = 24
   }
-  let mut sum = @mpf.fzero
+  let mut sum = @mpf.RawMpf::zero()
   for k in 0..<n {
-    sum = @mpf.mpf_add(
-      sum,
+    sum = sum.add(
       mpf_div_checked(
-        @mpf.fone,
+        @mpf.RawMpf::one(),
         mpf_pow_int_checked(
-          @mpf.mpf_add(x, @mpf.from_int(k), p, @mpf.round_nearest),
+          x.add(@mpf.RawMpf::from_int(k), p, Nearest),
           s,
           p,
-          @mpf.round_nearest,
+          Nearest,
         ),
         p,
-        @mpf.round_nearest,
+        Nearest,
       ),
       p,
-      @mpf.round_nearest,
+      Nearest,
     )
   }
-  let xn = @mpf.mpf_add(x, @mpf.from_int(n), p, @mpf.round_nearest)
+  let xn = x.add(@mpf.RawMpf::from_int(n), p, Nearest)
   let tail_int = mpf_div_checked(
-    mpf_pow_int_checked(xn, 1 - s, p, @mpf.round_nearest),
-    @mpf.from_int(s - 1),
+    mpf_pow_int_checked(xn, 1 - s, p, Nearest),
+    @mpf.RawMpf::from_int(s - 1),
     p,
-    @mpf.round_nearest,
+    Nearest,
   )
-  let tail_half = @mpf.mpf_shift(
-    mpf_div_checked(
-      @mpf.fone,
-      mpf_pow_int_checked(xn, s, p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    ),
-    -1,
-  )
-  let mut corr = @mpf.fzero
+  let tail_half = mpf_div_checked(
+    @mpf.RawMpf::one(),
+    mpf_pow_int_checked(xn, s, p, Nearest),
+    p,
+    Nearest,
+  ).scale_pow2(-1)
+  let mut corr = @mpf.RawMpf::zero()
   for r in 1..<=terms {
     let two_r = 2 * r
-    let mut poch = @mpf.fone
+    let mut poch = @mpf.RawMpf::one()
     for j in 0..<(two_r - 1) {
-      poch = @mpf.mpf_mul_int(poch, s + j, p, @mpf.round_nearest)
+      poch = poch.mul_int(s + j, p, Nearest)
     }
     let coeff = mpf_div_checked(
-      mpf_bernoulli(two_r, p, @mpf.round_nearest),
-      mpf_factorial(two_r, p, @mpf.round_nearest),
+      bernoulli(two_r, p, Nearest),
+      factorial(two_r, p, Nearest),
       p,
-      @mpf.round_nearest,
+      Nearest,
     )
-    let xpow = mpf_pow_int_checked(xn, -(s + two_r - 1), p, @mpf.round_nearest)
-    let term = @mpf.mpf_mul(
-      coeff,
-      @mpf.mpf_mul(poch, xpow, p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    )
-    corr = @mpf.mpf_add(corr, term, p, @mpf.round_nearest)
-    if r >= 3 && tiny_enough(@mpf.mpf_abs(term, p, @mpf.round_nearest), p + 8) {
+    let xpow = mpf_pow_int_checked(xn, -(s + two_r - 1), p, Nearest)
+    let term = coeff.mul(poch.mul(xpow, p, Nearest), p, Nearest)
+    corr = corr.add(term, p, Nearest)
+    if r >= 3 && tiny_enough(term.abs(p, Nearest), p + 8) {
       break
     }
   }
-  @mpf.mpf_add(
-    sum,
-    @mpf.mpf_add(
-      tail_int,
-      @mpf.mpf_add(tail_half, corr, p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    ),
-    p,
-    @mpf.round_nearest,
-  )
+  sum.add(tail_int.add(tail_half.add(corr, p, Nearest), p, Nearest), p, Nearest)
 }
 
 ///|
-pub fn mpf_psi(
+pub fn polygamma(
   m : Int,
   x : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
   if m < 0 {
-    raise ValueError("mpf_psi: m must be non-negative")
+    raise ValueError("psi: m must be non-negative")
   }
   if m == 0 {
-    return mpf_psi0(x, prec, rnd)
+    return digamma(x, prec, rnd)
   }
-  if @mpf.is_nan(x) {
-    return @mpf.fnan
+  if x.is_nan() {
+    return @mpf.RawMpf::nan()
   }
-  if @mpf.is_inf(x) {
+  if x.is_infinite() {
     if x.sign == 1 {
-      return @mpf.fnan
+      return @mpf.RawMpf::nan()
     }
-    return @mpf.fzero
+    return @mpf.RawMpf::zero()
   }
-  if @mpf.is_zero(x) {
-    raise PoleError("mpf_psi: poles at non-positive integers")
+  if x.is_zero() {
+    raise PoleError("psi: poles at non-positive integers")
   }
   match maybe_integer(x) {
     Some(n) =>
       if n <= 0 {
-        raise PoleError("mpf_psi: poles at non-positive integers")
+        raise PoleError("psi: poles at non-positive integers")
       }
     None => ()
   }
   let p = wp(prec) + 24
-  let mut y = @mpf.mpf_pos(x, p, @mpf.round_nearest)
-  let mut corr = @mpf.fzero
+  let mut y = x.rounded(p, Nearest)
+  let mut corr = @mpf.RawMpf::zero()
   let fact = factorial_small_mpf(m, p)
   if y.sign == 1 {
     while y.sign == 1 {
       let mut term = mpf_div_checked(
         fact,
-        mpf_pow_checked(y, @mpf.from_int(m + 1), p, @mpf.round_nearest),
+        mpf_pow_checked(y, @mpf.RawMpf::from_int(m + 1), p, Nearest),
         p,
-        @mpf.round_nearest,
+        Nearest,
       )
       if (m & 1) == 1 {
-        term = @mpf.mpf_neg(term, p, @mpf.round_nearest)
+        term = term.negated(p, Nearest)
       }
-      corr = @mpf.mpf_add(corr, term, p, @mpf.round_nearest)
-      let next_y = @mpf.mpf_add(y, @mpf.fone, p, @mpf.round_nearest)
+      corr = corr.add(term, p, Nearest)
+      let next_y = y.add(@mpf.RawMpf::one(), p, Nearest)
       // Guard against non-progress loops when |y| is too large for +1 to change
       // at the current working precision.
       if next_y == y {
@@ -1401,18 +1159,18 @@ pub fn mpf_psi(
     }
   }
   let sum = hurwitz_power_sum_em(y, m + 1, p)
-  let mut val = @mpf.mpf_mul(fact, sum, p, @mpf.round_nearest)
+  let mut val = fact.mul(sum, p, Nearest)
   if (m & 1) == 0 {
-    val = @mpf.mpf_neg(val, p, @mpf.round_nearest)
+    val = val.negated(p, Nearest)
   }
-  if !@mpf.is_zero(corr) {
-    val = @mpf.mpf_sub(val, corr, p, @mpf.round_nearest)
+  if !corr.is_zero() {
+    val = val.sub(corr, p, Nearest)
   }
-  @mpf.mpf_pos(val, prec, rnd)
+  val.rounded(prec, rnd)
 }
 
 ///|
-pub fn mpf_apery(
+pub fn apery(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
@@ -1422,7 +1180,7 @@ pub fn mpf_apery(
 }
 
 ///|
-pub fn mpf_catalan(
+pub fn catalan(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
@@ -1432,7 +1190,7 @@ pub fn mpf_catalan(
 }
 
 ///|
-pub fn mpf_euler(
+pub fn euler(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
@@ -1442,7 +1200,7 @@ pub fn mpf_euler(
 }
 
 ///|
-pub fn mpf_glaisher(
+pub fn glaisher(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
@@ -1452,7 +1210,7 @@ pub fn mpf_glaisher(
 }
 
 ///|
-pub fn mpf_khinchin(
+pub fn khinchin(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
@@ -1462,7 +1220,7 @@ pub fn mpf_khinchin(
 }
 
 ///|
-pub fn mpf_mertens(
+pub fn mertens(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
@@ -1472,7 +1230,7 @@ pub fn mpf_mertens(
 }
 
 ///|
-pub fn mpf_twinprime(
+pub fn twin_prime_constant(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
@@ -1482,7 +1240,7 @@ pub fn mpf_twinprime(
 }
 
 ///|
-pub fn mpf_zetasum(
+pub fn zeta_sum(
   s : @mpf.RawMpf,
   prec : Int,
   rnd : @mpf.RoundMode,
@@ -1490,18 +1248,18 @@ pub fn mpf_zetasum(
   terms? : Int = 1000,
 ) -> @mpf.RawMpf raise GammaZetaError {
   if terms <= 0 {
-    return @mpf.fzero
+    return @mpf.RawMpf::zero()
   }
   let p = wp(prec) + 24
-  let mut sum = @mpf.fzero
+  let mut sum = @mpf.RawMpf::zero()
   for i in 0..<terms {
     let k = start + i
     if k <= 0 {
       continue
     }
-    let den = mpf_pow_checked(@mpf.from_int(k), s, p, @mpf.round_nearest)
-    let term = mpf_div_checked(@mpf.fone, den, p, @mpf.round_nearest)
-    sum = @mpf.mpf_add(sum, term, p, @mpf.round_nearest)
+    let den = mpf_pow_checked(@mpf.RawMpf::from_int(k), s, p, Nearest)
+    let term = mpf_div_checked(@mpf.RawMpf::one(), den, p, Nearest)
+    sum = sum.add(term, p, Nearest)
   }
-  @mpf.mpf_pos(sum, prec, rnd)
+  sum.rounded(prec, rnd)
 }

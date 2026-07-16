@@ -1,15 +1,15 @@
 ///|
 test "linalg lu_solve/inverse/det/rank subset from mpmath test_linalg" {
-  let ctx = new(260, @mpf.round_nearest)
+  let ctx = MPContext::new(260, Nearest)
   let a = ctx.matrix_from_rows([
-    [ctx.make_int(3), ctx.make_int(1), ctx.make_int(6)],
-    [ctx.make_int(2), ctx.make_int(1), ctx.make_int(3)],
-    [ctx.make_int(1), ctx.make_int(1), ctx.make_int(1)],
+    [ctx.from_int(3), ctx.from_int(1), ctx.from_int(6)],
+    [ctx.from_int(2), ctx.from_int(1), ctx.from_int(3)],
+    [ctx.from_int(1), ctx.from_int(1), ctx.from_int(1)],
   ])
   let b : Array[@mpf.RawMpf] = [
-    ctx.make_int(2),
-    ctx.make_int(7),
-    ctx.make_int(4),
+    ctx.from_int(2),
+    ctx.from_int(7),
+    ctx.from_int(4),
   ]
   let x = ctx.lu_solve(a, b)
   assert_close_mpf_str(x[0], "19", "1e-16")
@@ -23,33 +23,33 @@ test "linalg lu_solve/inverse/det/rank subset from mpmath test_linalg" {
   let prod = ctx.matrix_mul(a, inv)
   let eye = ctx.eye(3)
   let err = ctx.matrix_norm_inf(ctx.matrix_sub(prod, eye))
-  assert_true(@mpf.mpf_lt(err, @mpf.from_str("1e-12")))
+  assert_true(err < @mpf.RawMpf::parse("1e-12"))
 
   let a11 = ctx.matrix_from_rows([
-    [ctx.make_int(4), ctx.make_int(0), ctx.make_int(-2)],
-    [ctx.make_int(2), ctx.make_int(0), ctx.make_int(-4)],
-    [ctx.make_int(2), ctx.make_int(0), ctx.make_float("5.5")],
+    [ctx.from_int(4), ctx.from_int(0), ctx.from_int(-2)],
+    [ctx.from_int(2), ctx.from_int(0), ctx.from_int(-4)],
+    [ctx.from_int(2), ctx.from_int(0), ctx.parse("5.5")],
   ])
   @debug.assert_eq(ctx.rank(a11), 2)
 }
 
 ///|
 test "matrix ops and linalg error subset" {
-  let ctx = new(220, @mpf.round_nearest)
+  let ctx = MPContext::new(220, Nearest)
   let m = ctx.matrix_from_rows([
-    [ctx.make_int(1), ctx.make_int(2)],
-    [ctx.make_int(3), ctx.make_int(4)],
+    [ctx.from_int(1), ctx.from_int(2)],
+    [ctx.from_int(3), ctx.from_int(4)],
   ])
-  let v = ctx.matrix_vec_mul(m, [ctx.make_int(1), ctx.make_int(-1)])
+  let v = ctx.matrix_vec_mul(m, [ctx.from_int(1), ctx.from_int(-1)])
   @debug.assert_eq(v.length(), 2)
   assert_close_mpf_str(v[0], "-1", "1e-14")
   assert_close_mpf_str(v[1], "-1", "1e-14")
 
   let a_rect = ctx.matrix_from_rows([
-    [ctx.make_int(1), ctx.make_int(2), ctx.make_int(3)],
-    [ctx.make_int(4), ctx.make_int(5), ctx.make_int(6)],
+    [ctx.from_int(1), ctx.from_int(2), ctx.from_int(3)],
+    [ctx.from_int(4), ctx.from_int(5), ctx.from_int(6)],
   ])
-  try ctx.lu_solve(a_rect, [ctx.make_int(1), ctx.make_int(1)]) catch {
+  try ctx.lu_solve(a_rect, [ctx.from_int(1), ctx.from_int(1)]) catch {
     ValueError(_) => ()
     _ => fail("unexpected error type")
   } noraise {

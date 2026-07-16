@@ -3,42 +3,34 @@ fn assert_prefix(v : @mpf.RawMpf, dps : Int, prefix : String) -> Unit raise {
   let _ = dps
   // mpmath/mbmath may render decimals with different formatting
   // (fixed vs scientific, trailing zeros), so compare numerically.
-  let expected = @mpf.from_str(prefix)
-  let diff = @mpf.mpf_abs(
-    @mpf.mpf_sub(v, expected, 260, @mpf.round_nearest),
-    260,
-    @mpf.round_nearest,
-  )
-  if !@mpf.mpf_lt(diff, @mpf.from_str("1e-12")) {
-    fail(
-      "numeric mismatch expected=\{prefix} actual=\{@mpf.to_str_opts(v, dps=18)}",
-    )
+  let expected = @mpf.RawMpf::parse(prefix)
+  let diff = v.sub(expected, 260, Nearest).abs(260, Nearest)
+  if !(diff < @mpf.RawMpf::parse("1e-12")) {
+    fail("numeric mismatch expected=\{prefix} actual=\{v.format(dps=18)}")
   }
 }
 
 ///|
 test "mpmath bulk exp special values" {
+  assert_true(exp(@mpf.RawMpf::zero(), 180, Nearest) == @mpf.RawMpf::one())
   assert_true(
-    @mpf.mpf_eq(mpf_exp(@mpf.fzero, 180, @mpf.round_nearest), @mpf.fone),
+    exp(@mpf.RawMpf::infinity(), 180, Nearest) == @mpf.RawMpf::infinity(),
   )
   assert_true(
-    @mpf.mpf_eq(mpf_exp(@mpf.finf, 180, @mpf.round_nearest), @mpf.finf),
+    exp(@mpf.RawMpf::negative_infinity(), 180, Nearest) == @mpf.RawMpf::zero(),
   )
-  assert_true(
-    @mpf.mpf_eq(mpf_exp(@mpf.fninf, 180, @mpf.round_nearest), @mpf.fzero),
-  )
-  assert_true(@mpf.is_nan(mpf_exp(@mpf.fnan, 180, @mpf.round_nearest)))
+  assert_true(exp(@mpf.RawMpf::nan(), 180, Nearest).is_nan())
 }
 
 ///|
 test "mpmath bulk exp x=1 and x=-1" {
   assert_prefix(
-    mpf_exp(@mpf.fone, 220, @mpf.round_nearest),
+    exp(@mpf.RawMpf::one(), 220, Nearest),
     18,
     "2.71828182845904523",
   )
   assert_prefix(
-    mpf_exp(@mpf.from_int(-1), 220, @mpf.round_nearest),
+    exp(@mpf.RawMpf::from_int(-1), 220, Nearest),
     18,
     "0.36787944117144232",
   )
@@ -46,41 +38,39 @@ test "mpmath bulk exp x=1 and x=-1" {
 
 ///|
 test "mpmath bulk ln baseline and inf" {
-  assert_true(
-    @mpf.mpf_eq(mpf_ln(@mpf.fone, 220, @mpf.round_nearest), @mpf.fzero),
-  )
+  assert_true(ln(@mpf.RawMpf::one(), 220, Nearest) == @mpf.RawMpf::zero())
   assert_prefix(
-    mpf_ln(@mpf.from_int(2), 220, @mpf.round_nearest),
+    ln(@mpf.RawMpf::from_int(2), 220, Nearest),
     18,
     "0.69314718055994530",
   )
   assert_prefix(
-    mpf_ln(@mpf.from_int(10), 220, @mpf.round_nearest),
+    ln(@mpf.RawMpf::from_int(10), 220, Nearest),
     18,
     "2.30258509299404568",
   )
   assert_true(
-    @mpf.mpf_eq(mpf_ln(@mpf.finf, 220, @mpf.round_nearest), @mpf.finf),
+    ln(@mpf.RawMpf::infinity(), 220, Nearest) == @mpf.RawMpf::infinity(),
   )
 }
 
 ///|
 test "mpmath bulk log alias" {
-  let x = @mpf.from_str("1.5")
-  let a = mpf_log(x, 220, @mpf.round_nearest)
-  let b = mpf_ln(x, 220, @mpf.round_nearest)
-  assert_true(@mpf.mpf_eq(a, b))
+  let x = @mpf.RawMpf::parse("1.5")
+  let a = log(x, 220, Nearest)
+  let b = ln(x, 220, Nearest)
+  assert_true(a == b)
 }
 
 ///|
 test "mpmath bulk log1p values" {
   assert_prefix(
-    mpf_log1p(@mpf.from_str("0.5"), 220, @mpf.round_nearest),
+    log1p(@mpf.RawMpf::parse("0.5"), 220, Nearest),
     18,
     "0.40546510810816438",
   )
   assert_prefix(
-    mpf_log1p(@mpf.from_str("1e-10"), 240, @mpf.round_nearest),
+    log1p(@mpf.RawMpf::parse("1e-10"), 240, Nearest),
     18,
     "0.00000000009999999",
   )
@@ -88,76 +78,76 @@ test "mpmath bulk log1p values" {
 
 ///|
 test "mpmath bulk trig values around 0.5" {
-  let x = @mpf.from_str("0.5")
-  assert_prefix(mpf_sin(x, 220, @mpf.round_nearest), 18, "0.47942553860420300")
-  assert_prefix(mpf_cos(x, 220, @mpf.round_nearest), 18, "0.87758256189037271")
-  assert_prefix(mpf_tan(x, 220, @mpf.round_nearest), 18, "0.54630248984379051")
+  let x = @mpf.RawMpf::parse("0.5")
+  assert_prefix(sin(x, 220, Nearest), 18, "0.47942553860420300")
+  assert_prefix(cos(x, 220, Nearest), 18, "0.87758256189037271")
+  assert_prefix(tan(x, 220, Nearest), 18, "0.54630248984379051")
 }
 
 ///|
 test "mpmath bulk trig values around 2" {
-  let x = @mpf.from_int(2)
-  assert_prefix(mpf_sin(x, 220, @mpf.round_nearest), 18, "0.90929742682568169")
-  assert_prefix(mpf_cos(x, 220, @mpf.round_nearest), 18, "-0.4161468365471423")
-  assert_prefix(mpf_tan(x, 220, @mpf.round_nearest), 18, "-2.1850398632615189")
+  let x = @mpf.RawMpf::from_int(2)
+  assert_prefix(sin(x, 220, Nearest), 18, "0.90929742682568169")
+  assert_prefix(cos(x, 220, Nearest), 18, "-0.4161468365471423")
+  assert_prefix(tan(x, 220, Nearest), 18, "-2.1850398632615189")
 }
 
 ///|
 test "mpmath bulk trig x=inf produces nan" {
-  assert_true(@mpf.is_nan(mpf_sin(@mpf.finf, 220, @mpf.round_nearest)))
-  assert_true(@mpf.is_nan(mpf_cos(@mpf.finf, 220, @mpf.round_nearest)))
-  assert_true(@mpf.is_nan(mpf_tan(@mpf.finf, 220, @mpf.round_nearest)))
+  assert_true(sin(@mpf.RawMpf::infinity(), 220, Nearest).is_nan())
+  assert_true(cos(@mpf.RawMpf::infinity(), 220, Nearest).is_nan())
+  assert_true(tan(@mpf.RawMpf::infinity(), 220, Nearest).is_nan())
 }
 
 ///|
 test "mpmath bulk hyperbolic values around 0.5" {
-  let x = @mpf.from_str("0.5")
-  assert_prefix(mpf_sinh(x, 220, @mpf.round_nearest), 18, "0.52109530549374736")
-  assert_prefix(mpf_cosh(x, 220, @mpf.round_nearest), 18, "1.12762596520638078")
-  assert_prefix(mpf_tanh(x, 220, @mpf.round_nearest), 18, "0.46211715726000975")
+  let x = @mpf.RawMpf::parse("0.5")
+  assert_prefix(sinh(x, 220, Nearest), 18, "0.52109530549374736")
+  assert_prefix(cosh(x, 220, Nearest), 18, "1.12762596520638078")
+  assert_prefix(tanh(x, 220, Nearest), 18, "0.46211715726000975")
 }
 
 ///|
 test "mpmath bulk hyperbolic values around 2" {
-  let x = @mpf.from_int(2)
-  assert_prefix(mpf_sinh(x, 220, @mpf.round_nearest), 18, "3.62686040784701876")
-  assert_prefix(mpf_cosh(x, 220, @mpf.round_nearest), 18, "3.76219569108363145")
-  assert_prefix(mpf_tanh(x, 220, @mpf.round_nearest), 18, "0.96402758007581688")
+  let x = @mpf.RawMpf::from_int(2)
+  assert_prefix(sinh(x, 220, Nearest), 18, "3.62686040784701876")
+  assert_prefix(cosh(x, 220, Nearest), 18, "3.76219569108363145")
+  assert_prefix(tanh(x, 220, Nearest), 18, "0.96402758007581688")
 }
 
 ///|
 test "mpmath bulk hyperbolic infinities" {
   assert_true(
-    @mpf.mpf_eq(mpf_sinh(@mpf.finf, 220, @mpf.round_nearest), @mpf.finf),
+    sinh(@mpf.RawMpf::infinity(), 220, Nearest) == @mpf.RawMpf::infinity(),
   )
   assert_true(
-    @mpf.mpf_eq(mpf_sinh(@mpf.fninf, 220, @mpf.round_nearest), @mpf.fninf),
+    sinh(@mpf.RawMpf::negative_infinity(), 220, Nearest) ==
+    @mpf.RawMpf::negative_infinity(),
   )
   assert_true(
-    @mpf.mpf_eq(mpf_cosh(@mpf.finf, 220, @mpf.round_nearest), @mpf.finf),
+    cosh(@mpf.RawMpf::infinity(), 220, Nearest) == @mpf.RawMpf::infinity(),
   )
+  assert_true(tanh(@mpf.RawMpf::infinity(), 220, Nearest) == @mpf.RawMpf::one())
   assert_true(
-    @mpf.mpf_eq(mpf_tanh(@mpf.finf, 220, @mpf.round_nearest), @mpf.fone),
-  )
-  assert_true(
-    @mpf.mpf_eq(mpf_tanh(@mpf.fninf, 220, @mpf.round_nearest), @mpf.fnone),
+    tanh(@mpf.RawMpf::negative_infinity(), 220, Nearest) ==
+    @mpf.RawMpf::negative_one(),
   )
 }
 
 ///|
 test "mpmath bulk atan values" {
   assert_prefix(
-    mpf_atan(@mpf.from_str("0.5"), 220, @mpf.round_nearest),
+    atan(@mpf.RawMpf::parse("0.5"), 220, Nearest),
     18,
     "0.46364760900080611",
   )
   assert_prefix(
-    mpf_atan(@mpf.from_int(2), 220, @mpf.round_nearest),
+    atan(@mpf.RawMpf::from_int(2), 220, Nearest),
     18,
     "1.10714871779409050",
   )
   assert_prefix(
-    mpf_atan(@mpf.from_int(-2), 220, @mpf.round_nearest),
+    atan(@mpf.RawMpf::from_int(-2), 220, Nearest),
     18,
     "-1.1071487177940905",
   )
@@ -166,17 +156,17 @@ test "mpmath bulk atan values" {
 ///|
 test "mpmath bulk atan2 values" {
   assert_prefix(
-    mpf_atan2(@mpf.from_int(1), @mpf.from_int(1), 220, @mpf.round_nearest),
+    atan2(@mpf.RawMpf::from_int(1), @mpf.RawMpf::from_int(1), 220, Nearest),
     18,
     "0.78539816339744830",
   )
   assert_prefix(
-    mpf_atan2(@mpf.from_int(-2), @mpf.from_int(3), 220, @mpf.round_nearest),
+    atan2(@mpf.RawMpf::from_int(-2), @mpf.RawMpf::from_int(3), 220, Nearest),
     18,
     "-0.5880026035475675",
   )
   assert_prefix(
-    mpf_atan2(@mpf.from_int(2), @mpf.from_int(-3), 220, @mpf.round_nearest),
+    atan2(@mpf.RawMpf::from_int(2), @mpf.RawMpf::from_int(-3), 220, Nearest),
     18,
     "2.55359005004222568",
   )
@@ -185,27 +175,27 @@ test "mpmath bulk atan2 values" {
 ///|
 test "mpmath bulk inverse trig and hyperbolic values" {
   assert_prefix(
-    mpf_asin(@mpf.from_str("0.5"), 220, @mpf.round_nearest),
+    asin(@mpf.RawMpf::parse("0.5"), 220, Nearest),
     18,
     "0.52359877559829887",
   )
   assert_prefix(
-    mpf_acos(@mpf.from_str("0.5"), 220, @mpf.round_nearest),
+    acos(@mpf.RawMpf::parse("0.5"), 220, Nearest),
     18,
     "1.04719755119659774",
   )
   assert_prefix(
-    mpf_asinh(@mpf.fone, 220, @mpf.round_nearest),
+    asinh(@mpf.RawMpf::one(), 220, Nearest),
     18,
     "0.88137358701954302",
   )
   assert_prefix(
-    mpf_acosh(@mpf.from_int(2), 220, @mpf.round_nearest),
+    acosh(@mpf.RawMpf::from_int(2), 220, Nearest),
     18,
     "1.31695789692481670",
   )
   assert_prefix(
-    mpf_atanh(@mpf.from_str("0.5"), 220, @mpf.round_nearest),
+    atanh(@mpf.RawMpf::parse("0.5"), 220, Nearest),
     18,
     "0.54930614433405484",
   )
@@ -214,22 +204,22 @@ test "mpmath bulk inverse trig and hyperbolic values" {
 ///|
 test "mpmath bulk pow and roots values" {
   assert_prefix(
-    mpf_pow(@mpf.from_int(2), @mpf.from_str("0.5"), 220, @mpf.round_nearest),
+    pow(@mpf.RawMpf::from_int(2), @mpf.RawMpf::parse("0.5"), 220, Nearest),
     18,
     "1.41421356237309504",
   )
   assert_prefix(
-    mpf_pow(@mpf.from_int(2), @mpf.from_str("1.5"), 220, @mpf.round_nearest),
+    pow(@mpf.RawMpf::from_int(2), @mpf.RawMpf::parse("1.5"), 220, Nearest),
     18,
     "2.82842712474619009",
   )
   assert_prefix(
-    mpf_nthroot(@mpf.from_int(2), 5, 220, @mpf.round_nearest),
+    nthroot(@mpf.RawMpf::from_int(2), 5, 220, Nearest),
     18,
     "1.14869835499703500",
   )
   assert_prefix(
-    mpf_cbrt(@mpf.from_int(2), 220, @mpf.round_nearest),
+    cbrt(@mpf.RawMpf::from_int(2), 220, Nearest),
     18,
     "1.25992104989487316",
   )
@@ -237,7 +227,7 @@ test "mpmath bulk pow and roots values" {
 
 ///|
 test "mpmath bulk constants e ln2 ln10" {
-  assert_prefix(mpf_e(220, @mpf.round_nearest), 18, "2.71828182845904523")
-  assert_prefix(mpf_ln2(220, @mpf.round_nearest), 18, "0.69314718055994530")
-  assert_prefix(mpf_ln10(220, @mpf.round_nearest), 18, "2.30258509299404568")
+  assert_prefix(e(220, Nearest), 18, "2.71828182845904523")
+  assert_prefix(ln2(220, Nearest), 18, "0.69314718055994530")
+  assert_prefix(ln10(220, Nearest), 18, "2.30258509299404568")
 }

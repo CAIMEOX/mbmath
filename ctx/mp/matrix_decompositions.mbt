@@ -14,7 +14,7 @@ fn MPContext::linear_algebra_tolerance(
 ) -> @mpf.RawMpf {
   ignore(self)
   let shift = if prec > 220 { -70 } else if prec > 140 { -56 } else { -44 }
-  @mpf.from_man_exp(1N, shift, 0, @mpf.round_down)
+  @mpf.RawMpf::from_mantissa_exponent(1N, shift, 0, Down)
 }
 
 ///|
@@ -23,14 +23,9 @@ fn vector_dot_product(
   ys : ArrayView[@mpf.RawMpf],
   prec : Int,
 ) -> @mpf.RawMpf {
-  let mut s = @mpf.fzero
+  let mut s = @mpf.RawMpf::zero()
   for i in 0..<xs.length() {
-    s = @mpf.mpf_add(
-      s,
-      @mpf.mpf_mul(xs[i], ys[i], prec, @mpf.round_nearest),
-      prec,
-      @mpf.round_nearest,
-    )
+    s = s.add(xs[i].mul(ys[i], prec, Nearest), prec, Nearest)
   }
   s
 }
@@ -41,10 +36,10 @@ fn vector_norm(
   prec : Int,
 ) -> @mpf.RawMpf raise MPError {
   let s = vector_dot_product(xs, xs, prec)
-  if @mpf.mpf_sign(s) < 0 {
+  if s.signum() < 0 {
     raise DomainError("linear algebra: negative norm square")
   }
-  @mpf.mpf_sqrt(s, prec, @mpf.round_nearest) catch {
+  s.sqrt(prec, Nearest) catch {
     err => raise from_mpf_error(err)
   }
 }
@@ -73,7 +68,7 @@ fn set_matrix_column(
 fn basis_vector(n : Int, idx : Int) -> Array[@mpf.RawMpf] {
   let v : Array[@mpf.RawMpf] = []
   for i in 0..<n {
-    v.push(if i == idx { @mpf.fone } else { @mpf.fzero })
+    v.push(if i == idx { @mpf.RawMpf::one() } else { @mpf.RawMpf::zero() })
   }
   v
 }
@@ -86,7 +81,7 @@ fn scale_vector(
 ) -> Array[@mpf.RawMpf] {
   let out : Array[@mpf.RawMpf] = []
   for x in v {
-    out.push(@mpf.mpf_mul(s, x, prec, @mpf.round_nearest))
+    out.push(s.mul(x, prec, Nearest))
   }
   out
 }
@@ -99,12 +94,7 @@ fn subtract_scaled_vector(
   prec : Int,
 ) -> Unit {
   for i in 0..<v.length() {
-    v[i] = @mpf.mpf_sub(
-      v[i],
-      @mpf.mpf_mul(c, q[i], prec, @mpf.round_nearest),
-      prec,
-      @mpf.round_nearest,
-    )
+    v[i] = v[i].sub(c.mul(q[i], prec, Nearest), prec, Nearest)
   }
 }
 
@@ -115,36 +105,35 @@ fn normalize_vector(
   prec : Int,
 ) -> (@mpf.RawMpf, Array[@mpf.RawMpf]) raise MPError {
   let nrm = vector_norm(v, prec)
-  if @mpf.mpf_le(nrm, tol) {
+  if nrm <= tol {
     let z : Array[@mpf.RawMpf] = []
     for _ in 0..<v.length() {
-      z.push(@mpf.fzero)
+      z.push(@mpf.RawMpf::zero())
     }
     return (nrm, z)
   }
-  let inv = checked_mpf_div(@mpf.fone, nrm, prec, @mpf.round_nearest)
+  let inv = checked_mpf_div(@mpf.RawMpf::one(), nrm, prec, Nearest)
   (nrm, scale_vector(v, inv, prec))
 }
 
 ///|
 pub fn MPContext::matrix_norm_1(self : MPContext, a : MpfMatrix) -> @mpf.RawMpf {
   let p = self.working_precision()
-  let mut best = @mpf.fzero
+  let mut best = @mpf.RawMpf::zero()
   for j in 0..<a.cols {
-    let mut col_sum = @mpf.fzero
+    let mut col_sum = @mpf.RawMpf::zero()
     for i in 0..<a.rows {
-      col_sum = @mpf.mpf_add(
-        col_sum,
-        @mpf.mpf_abs(a.data[matrix_offset(a.cols, i, j)], p, @mpf.round_nearest),
+      col_sum = col_sum.add(
+        a.data[matrix_offset(a.cols, i, j)].abs(p, Nearest),
         p,
-        @mpf.round_nearest,
+        Nearest,
       )
     }
-    if @mpf.mpf_gt(col_sum, best) {
+    if col_sum > best {
       best = col_sum
     }
   }
-  @mpf.mpf_pos(best, self.precision(), self.round_mode())
+  best.rounded(self.precision(), self.round_mode())
 }
 
 ///|
@@ -153,19 +142,12 @@ pub fn MPContext::matrix_norm_fro(
   a : MpfMatrix,
 ) -> @mpf.RawMpf raise MPError {
   let p = self.working_precision()
-  let mut ss = @mpf.fzero
+  let mut ss = @mpf.RawMpf::zero()
   for x in a.data {
-    ss = @mpf.mpf_add(
-      ss,
-      @mpf.mpf_mul(x, x, p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    )
+    ss = ss.add(x.mul(x, p, Nearest), p, Nearest)
   }
-  let nrm = @mpf.mpf_sqrt(ss, p, @mpf.round_nearest) catch {
-    err => raise from_mpf_error(err)
-  }
-  @mpf.mpf_pos(nrm, self.precision(), self.round_mode())
+  let nrm = ss.sqrt(p, Nearest) catch { err => raise from_mpf_error(err) }
+  nrm.rounded(self.precision(), self.round_mode())
 }
 
 ///|
@@ -179,7 +161,7 @@ pub fn MPContext::qr(
   let n = a.cols
   let p = self.working_precision()
   let tol_abs = match tol {
-    Some(v) => @mpf.mpf_abs(v, p, @mpf.round_nearest)
+    Some(v) => v.abs(p, Nearest)
     None => self.linear_algebra_tolerance(p)
   }
   let k = min_int(m, n)
@@ -226,7 +208,7 @@ pub fn MPContext::qr(
     }
     let (_, qn0) = normalize_vector(v, tol_abs, p)
     let mut qn = qn0
-    if @mpf.mpf_le(vector_norm(qn, p), tol_abs) {
+    if vector_norm(qn, p) <= tol_abs {
       let mut picked = false
       for probe in 0..<m {
         let cand = basis_vector(m, probe)
@@ -235,7 +217,7 @@ pub fn MPContext::qr(
           subtract_scaled_vector(cand, qi, c, p)
         }
         let (_, qp) = normalize_vector(cand, tol_abs, p)
-        if @mpf.mpf_gt(vector_norm(qp, p), tol_abs) {
+        if vector_norm(qp, p) > tol_abs {
           qn = qp
           picked = true
           break
@@ -281,57 +263,43 @@ pub fn MPContext::qr_solve(
   }
   let p = self.working_precision()
   let tol_abs = match tol {
-    Some(v) => @mpf.mpf_abs(v, p, @mpf.round_nearest)
+    Some(v) => v.abs(p, Nearest)
     None => self.linear_algebra_tolerance(p)
   }
   let (q, r) = self.qr(a, tol=tol_abs)
-  let y = make_filled_matrix_data(1, n, @mpf.fzero)
+  let y = make_filled_matrix_data(1, n, @mpf.RawMpf::zero())
   for i in 0..<n {
     let qi = extract_matrix_column(q, i)
     y[i] = vector_dot_product(qi, b, p)
   }
-  let x = make_filled_matrix_data(1, n, @mpf.fzero)
+  let x = make_filled_matrix_data(1, n, @mpf.RawMpf::zero())
   for t in 0..<n {
     let i = n - 1 - t
     let mut s = y[i]
     for j in (i + 1)..<n {
-      s = @mpf.mpf_sub(
-        s,
-        @mpf.mpf_mul(
-          r.data[matrix_offset(r.cols, i, j)],
-          x[j],
-          p,
-          @mpf.round_nearest,
-        ),
+      s = s.sub(
+        r.data[matrix_offset(r.cols, i, j)].mul(x[j], p, Nearest),
         p,
-        @mpf.round_nearest,
+        Nearest,
       )
     }
     let rii = r.data[matrix_offset(r.cols, i, i)]
-    if @mpf.mpf_le(@mpf.mpf_abs(rii, p, @mpf.round_nearest), tol_abs) {
+    if rii.abs(p, Nearest) <= tol_abs {
       raise DomainError("qr_solve: rank-deficient matrix")
     }
-    x[i] = @mpf.mpf_pos(
-      checked_mpf_div(s, rii, p, @mpf.round_nearest),
+    x[i] = checked_mpf_div(s, rii, p, Nearest).rounded(
       self.precision(),
       self.round_mode(),
     )
   }
   let ax = self.matrix_vec_mul(a, x)
-  let mut ss = @mpf.fzero
+  let mut ss = @mpf.RawMpf::zero()
   for i in 0..<m {
-    let ri = @mpf.mpf_sub(ax[i], b[i], p, @mpf.round_nearest)
-    ss = @mpf.mpf_add(
-      ss,
-      @mpf.mpf_mul(ri, ri, p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    )
+    let ri = ax[i].sub(b[i], p, Nearest)
+    ss = ss.add(ri.mul(ri, p, Nearest), p, Nearest)
   }
-  let rn = @mpf.mpf_sqrt(ss, p, @mpf.round_nearest) catch {
-    err => raise from_mpf_error(err)
-  }
-  (x, @mpf.mpf_pos(rn, self.precision(), self.round_mode()))
+  let rn = ss.sqrt(p, Nearest) catch { err => raise from_mpf_error(err) }
+  (x, rn.rounded(self.precision(), self.round_mode()))
 }
 
 ///|
@@ -346,7 +314,7 @@ pub fn MPContext::cholesky(
   let n = a.rows
   let p = self.working_precision()
   let tol_abs = match tol {
-    Some(v) => @mpf.mpf_abs(v, p, @mpf.round_nearest)
+    Some(v) => v.abs(p, Nearest)
     None => self.linear_algebra_tolerance(p)
   }
   let l = self.matrix(n, n)
@@ -354,45 +322,43 @@ pub fn MPContext::cholesky(
     for j in 0..<=i {
       let mut s = a.data[matrix_offset(a.cols, i, j)]
       for k in 0..<j {
-        s = @mpf.mpf_sub(
-          s,
-          @mpf.mpf_mul(
-            l.data[matrix_offset(l.cols, i, k)],
+        s = s.sub(
+          l.data[matrix_offset(l.cols, i, k)].mul(
             l.data[matrix_offset(l.cols, j, k)],
             p,
-            @mpf.round_nearest,
+            Nearest,
           ),
           p,
-          @mpf.round_nearest,
+          Nearest,
         )
       }
       if i == j {
-        if @mpf.mpf_lt(s, @mpf.fzero) &&
-          @mpf.mpf_gt(@mpf.mpf_abs(s, p, @mpf.round_nearest), tol_abs) {
+        if s < @mpf.RawMpf::zero() && s.abs(p, Nearest) > tol_abs {
           raise DomainError("cholesky: matrix is not positive definite")
         }
-        if @mpf.mpf_lt(s, @mpf.fzero) {
-          s = @mpf.fzero
+        if s < @mpf.RawMpf::zero() {
+          s = @mpf.RawMpf::zero()
         }
-        l.data[matrix_offset(l.cols, i, j)] = @mpf.mpf_sqrt(
-          s, p, @mpf.round_nearest,
-        ) catch {
+        l.data[matrix_offset(l.cols, i, j)] = s.sqrt(p, Nearest) catch {
           err => raise from_mpf_error(err)
         }
       } else {
         let ljj = l.data[matrix_offset(l.cols, j, j)]
-        if @mpf.mpf_le(@mpf.mpf_abs(ljj, p, @mpf.round_nearest), tol_abs) {
+        if ljj.abs(p, Nearest) <= tol_abs {
           raise DomainError("cholesky: matrix is singular")
         }
         l.data[matrix_offset(l.cols, i, j)] = checked_mpf_div(
-          s, ljj, p, @mpf.round_nearest,
+          s,
+          ljj,
+          p,
+          Nearest,
         )
       }
     }
   }
   for i in 0..<n {
     for j in (i + 1)..<n {
-      l.data[matrix_offset(l.cols, i, j)] = @mpf.fzero
+      l.data[matrix_offset(l.cols, i, j)] = @mpf.RawMpf::zero()
     }
   }
   l
@@ -417,49 +383,31 @@ pub fn MPContext::cholesky_solve(
     Some(t) => self.cholesky(a, tol=t)
     None => self.cholesky(a)
   }
-  let y = make_filled_matrix_data(1, n, @mpf.fzero)
+  let y = make_filled_matrix_data(1, n, @mpf.RawMpf::zero())
   for i in 0..<n {
     let mut s = b[i]
     for j in 0..<i {
-      s = @mpf.mpf_sub(
-        s,
-        @mpf.mpf_mul(
-          l.data[matrix_offset(l.cols, i, j)],
-          y[j],
-          p,
-          @mpf.round_nearest,
-        ),
+      s = s.sub(
+        l.data[matrix_offset(l.cols, i, j)].mul(y[j], p, Nearest),
         p,
-        @mpf.round_nearest,
+        Nearest,
       )
     }
     let lii = l.data[matrix_offset(l.cols, i, i)]
-    y[i] = checked_mpf_div(s, lii, p, @mpf.round_nearest)
+    y[i] = checked_mpf_div(s, lii, p, Nearest)
   }
-  let x = make_filled_matrix_data(1, n, @mpf.fzero)
+  let x = make_filled_matrix_data(1, n, @mpf.RawMpf::zero())
   for t in 0..<n {
     let i = n - 1 - t
     let mut s = y[i]
     for j in (i + 1)..<n {
-      s = @mpf.mpf_sub(
-        s,
-        @mpf.mpf_mul(
-          l.data[matrix_offset(l.cols, j, i)],
-          x[j],
-          p,
-          @mpf.round_nearest,
-        ),
+      s = s.sub(
+        l.data[matrix_offset(l.cols, j, i)].mul(x[j], p, Nearest),
         p,
-        @mpf.round_nearest,
+        Nearest,
       )
     }
-    x[i] = @mpf.mpf_pos(
-      checked_mpf_div(
-        s,
-        l.data[matrix_offset(l.cols, i, i)],
-        p,
-        @mpf.round_nearest,
-      ),
+    x[i] = checked_mpf_div(s, l.data[matrix_offset(l.cols, i, i)], p, Nearest).rounded(
       self.precision(),
       self.round_mode(),
     )
@@ -482,7 +430,7 @@ pub fn MPContext::hessenberg(
   }
   let p = self.working_precision()
   let tol_abs = match tol {
-    Some(v) => @mpf.mpf_abs(v, p, @mpf.round_nearest)
+    Some(v) => v.abs(p, Nearest)
     None => self.linear_algebra_tolerance(p)
   }
   let h = copy_mpf_vector(a.data)
@@ -495,119 +443,83 @@ pub fn MPContext::hessenberg(
       x.push(h[matrix_offset(n, k + 1 + i, k)])
     }
     let normx = vector_norm(x, p)
-    if @mpf.mpf_le(normx, tol_abs) {
+    if normx <= tol_abs {
       continue
     }
-    let alpha = if @mpf.mpf_sign(x[0]) >= 0 {
-      @mpf.mpf_neg(normx, p, @mpf.round_nearest)
+    let alpha = if x[0].signum() >= 0 {
+      normx.negated(p, Nearest)
     } else {
       normx
     }
     let u = copy_mpf_vector(x)
-    u[0] = @mpf.mpf_sub(u[0], alpha, p, @mpf.round_nearest)
+    u[0] = u[0].sub(alpha, p, Nearest)
     let (_, u_norm) = normalize_vector(u, tol_abs, p)
-    if @mpf.mpf_le(vector_norm(u_norm, p), tol_abs) {
+    if vector_norm(u_norm, p) <= tol_abs {
       continue
     }
     for j in k..<n {
-      let mut dot = @mpf.fzero
+      let mut dot = @mpf.RawMpf::zero()
       for i in 0..<m {
-        dot = @mpf.mpf_add(
-          dot,
-          @mpf.mpf_mul(
-            u_norm[i],
-            h[matrix_offset(n, k + 1 + i, j)],
-            p,
-            @mpf.round_nearest,
-          ),
+        dot = dot.add(
+          u_norm[i].mul(h[matrix_offset(n, k + 1 + i, j)], p, Nearest),
           p,
-          @mpf.round_nearest,
+          Nearest,
         )
       }
       for i in 0..<m {
         let idx = matrix_offset(n, k + 1 + i, j)
-        h[idx] = @mpf.mpf_sub(
-          h[idx],
-          @mpf.mpf_mul_int(
-            @mpf.mpf_mul(u_norm[i], dot, p, @mpf.round_nearest),
-            2,
-            p,
-            @mpf.round_nearest,
-          ),
+        h[idx] = h[idx].sub(
+          u_norm[i].mul(dot, p, Nearest).mul_int(2, p, Nearest),
           p,
-          @mpf.round_nearest,
+          Nearest,
         )
       }
     }
     for i in 0..<n {
-      let mut dot = @mpf.fzero
+      let mut dot = @mpf.RawMpf::zero()
       for t in 0..<m {
-        dot = @mpf.mpf_add(
-          dot,
-          @mpf.mpf_mul(
-            h[matrix_offset(n, i, k + 1 + t)],
-            u_norm[t],
-            p,
-            @mpf.round_nearest,
-          ),
+        dot = dot.add(
+          h[matrix_offset(n, i, k + 1 + t)].mul(u_norm[t], p, Nearest),
           p,
-          @mpf.round_nearest,
+          Nearest,
         )
       }
       for t in 0..<m {
         let idx = matrix_offset(n, i, k + 1 + t)
-        h[idx] = @mpf.mpf_sub(
-          h[idx],
-          @mpf.mpf_mul_int(
-            @mpf.mpf_mul(dot, u_norm[t], p, @mpf.round_nearest),
-            2,
-            p,
-            @mpf.round_nearest,
-          ),
+        h[idx] = h[idx].sub(
+          dot.mul(u_norm[t], p, Nearest).mul_int(2, p, Nearest),
           p,
-          @mpf.round_nearest,
+          Nearest,
         )
       }
     }
     for i in 0..<n {
-      let mut dot = @mpf.fzero
+      let mut dot = @mpf.RawMpf::zero()
       for t in 0..<m {
-        dot = @mpf.mpf_add(
-          dot,
-          @mpf.mpf_mul(
-            q[matrix_offset(n, i, k + 1 + t)],
-            u_norm[t],
-            p,
-            @mpf.round_nearest,
-          ),
+        dot = dot.add(
+          q[matrix_offset(n, i, k + 1 + t)].mul(u_norm[t], p, Nearest),
           p,
-          @mpf.round_nearest,
+          Nearest,
         )
       }
       for t in 0..<m {
         let idx = matrix_offset(n, i, k + 1 + t)
-        q[idx] = @mpf.mpf_sub(
-          q[idx],
-          @mpf.mpf_mul_int(
-            @mpf.mpf_mul(dot, u_norm[t], p, @mpf.round_nearest),
-            2,
-            p,
-            @mpf.round_nearest,
-          ),
+        q[idx] = q[idx].sub(
+          dot.mul(u_norm[t], p, Nearest).mul_int(2, p, Nearest),
           p,
-          @mpf.round_nearest,
+          Nearest,
         )
       }
     }
     for i in (k + 2)..<n {
-      h[matrix_offset(n, i, k)] = @mpf.fzero
+      h[matrix_offset(n, i, k)] = @mpf.RawMpf::zero()
     }
   }
   let q_out = self.matrix(n, n)
   let h_out = self.matrix(n, n)
   for i in 0..<(n * n) {
-    q_out.data[i] = @mpf.mpf_pos(q[i], self.precision(), self.round_mode())
-    h_out.data[i] = @mpf.mpf_pos(h[i], self.precision(), self.round_mode())
+    q_out.data[i] = q[i].rounded(self.precision(), self.round_mode())
+    h_out.data[i] = h[i].rounded(self.precision(), self.round_mode())
   }
   (q_out, h_out)
 }
@@ -628,7 +540,7 @@ pub fn MPContext::schur(
   }
   let p = self.working_precision()
   let tol_abs = match tol {
-    Some(v) => @mpf.mpf_abs(v, p, @mpf.round_nearest)
+    Some(v) => v.abs(p, Nearest)
     None => self.linear_algebra_tolerance(p)
   }
   let (q0, h0) = self.hessenberg(a, tol=tol_abs)
@@ -639,20 +551,16 @@ pub fn MPContext::schur(
     let (qk, rk) = self.qr(t, full=true, tol=tol_abs)
     t = self.matrix_mul(rk, qk)
     qtot = self.matrix_mul(qtot, qk)
-    let mut off = @mpf.fzero
+    let mut off = @mpf.RawMpf::zero()
     for i in 1..<n {
       for j in 0..<i {
-        let v = @mpf.mpf_abs(
-          t.data[matrix_offset(n, i, j)],
-          p,
-          @mpf.round_nearest,
-        )
-        if @mpf.mpf_gt(v, off) {
+        let v = t.data[matrix_offset(n, i, j)].abs(p, Nearest)
+        if v > off {
           off = v
         }
       }
     }
-    if @mpf.mpf_le(off, tol_abs) {
+    if off <= tol_abs {
       return (qtot, t)
     }
   }
@@ -670,7 +578,7 @@ fn MPContext::inverse_iteration_eigenvector(
   let n = a.rows
   let x : Array[@mpf.RawMpf] = []
   for _ in 0..<n {
-    x.push(@mpf.fone)
+    x.push(@mpf.RawMpf::one())
   }
   let (_, x0) = normalize_vector(x, tol, prec)
   let mut cur = x0
@@ -681,36 +589,24 @@ fn MPContext::inverse_iteration_eigenvector(
       for j in 0..<n {
         b.data[matrix_offset(n, i, j)] = a.data[matrix_offset(a.cols, i, j)]
       }
-      b.data[matrix_offset(n, i, i)] = @mpf.mpf_sub(
-        @mpf.mpf_add(
-          b.data[matrix_offset(n, i, i)],
-          mu,
-          prec,
-          @mpf.round_nearest,
-        ),
-        lambda,
-        prec,
-        @mpf.round_nearest,
-      )
+      b.data[matrix_offset(n, i, i)] = b.data[matrix_offset(n, i, i)]
+        .add(mu, prec, Nearest)
+        .sub(lambda, prec, Nearest)
     }
     try self.lu_solve(b, cur) catch {
-      _ => mu = @mpf.mpf_mul_int(mu, 10, prec, @mpf.round_nearest)
+      _ => mu = mu.mul_int(10, prec, Nearest)
     } noraise {
       y => {
         let (_, next) = normalize_vector(y, tol, prec)
-        let mut diff = @mpf.fzero
+        let mut diff = @mpf.RawMpf::zero()
         for i in 0..<n {
-          let d = @mpf.mpf_abs(
-            @mpf.mpf_sub(next[i], cur[i], prec, @mpf.round_nearest),
-            prec,
-            @mpf.round_nearest,
-          )
-          if @mpf.mpf_gt(d, diff) {
+          let d = next[i].sub(cur[i], prec, Nearest).abs(prec, Nearest)
+          if d > diff {
             diff = d
           }
         }
         cur = next
-        if @mpf.mpf_le(diff, tol) {
+        if diff <= tol {
           return cur
         }
       }
@@ -732,25 +628,20 @@ pub fn MPContext::eig(
   let n = a.rows
   let p = self.working_precision()
   let tol_abs = match tol {
-    Some(v) => @mpf.mpf_abs(v, p, @mpf.round_nearest)
+    Some(v) => v.abs(p, Nearest)
     None => self.linear_algebra_tolerance(p)
   }
   let (_q, t) = self.schur(a, tol=tol_abs, max_steps~)
   for i in 1..<n {
-    let sub = @mpf.mpf_abs(
-      t.data[matrix_offset(n, i, i - 1)],
-      p,
-      @mpf.round_nearest,
-    )
-    if @mpf.mpf_gt(sub, @mpf.mpf_mul_int(tol_abs, 8, p, @mpf.round_nearest)) {
+    let sub = t.data[matrix_offset(n, i, i - 1)].abs(p, Nearest)
+    if sub > tol_abs.mul_int(8, p, Nearest) {
       raise ComplexResult("eig: complex eigenvalues not supported")
     }
   }
   let vals : Array[@mpf.RawMpf] = []
   for i in 0..<n {
     vals.push(
-      @mpf.mpf_pos(
-        t.data[matrix_offset(n, i, i)],
+      t.data[matrix_offset(n, i, i)].rounded(
         self.precision(),
         self.round_mode(),
       ),
@@ -789,7 +680,7 @@ pub fn MPContext::svd(
   let n = a.cols
   let p = self.working_precision()
   let tol_abs = match tol {
-    Some(v) => @mpf.mpf_abs(v, p, @mpf.round_nearest)
+    Some(v) => v.abs(p, Nearest)
     None => self.linear_algebra_tolerance(p)
   }
   let k = min_int(m, n)
@@ -806,25 +697,25 @@ pub fn MPContext::svd(
     for t in 0..<k {
       let idx = k - 1 - t
       let mut lam = evals[idx]
-      if @mpf.mpf_lt(lam, @mpf.fzero) {
-        if @mpf.mpf_gt(@mpf.mpf_abs(lam, p, @mpf.round_nearest), tol_abs) {
+      if lam < @mpf.RawMpf::zero() {
+        if lam.abs(p, Nearest) > tol_abs {
           raise DomainError("svd: negative eigenvalue in A^T A")
         }
-        lam = @mpf.fzero
+        lam = @mpf.RawMpf::zero()
       }
-      let sigma = @mpf.mpf_sqrt(lam, p, @mpf.round_nearest) catch {
+      let sigma = lam.sqrt(p, Nearest) catch {
         err => raise from_mpf_error(err)
       }
-      sigmas.push(@mpf.mpf_pos(sigma, self.precision(), self.round_mode()))
+      sigmas.push(sigma.rounded(self.precision(), self.round_mode()))
       let vi = extract_matrix_column(evecs, idx)
       for j in 0..<n {
         v.data[matrix_offset(v.cols, t, j)] = vi[j]
       }
-      if @mpf.mpf_le(sigma, tol_abs) {
+      if sigma <= tol_abs {
         continue
       }
       let avi = self.matrix_vec_mul(a, vi)
-      let inv = checked_mpf_div(@mpf.fone, sigma, p, @mpf.round_nearest)
+      let inv = checked_mpf_div(@mpf.RawMpf::one(), sigma, p, Nearest)
       let ui = scale_vector(avi, inv, p)
       set_matrix_column(u, t, ui)
     }
@@ -839,23 +730,23 @@ pub fn MPContext::svd(
     for t in 0..<k {
       let idx = k - 1 - t
       let mut lam = evals[idx]
-      if @mpf.mpf_lt(lam, @mpf.fzero) {
-        if @mpf.mpf_gt(@mpf.mpf_abs(lam, p, @mpf.round_nearest), tol_abs) {
+      if lam < @mpf.RawMpf::zero() {
+        if lam.abs(p, Nearest) > tol_abs {
           raise DomainError("svd: negative eigenvalue in A A^T")
         }
-        lam = @mpf.fzero
+        lam = @mpf.RawMpf::zero()
       }
-      let sigma = @mpf.mpf_sqrt(lam, p, @mpf.round_nearest) catch {
+      let sigma = lam.sqrt(p, Nearest) catch {
         err => raise from_mpf_error(err)
       }
-      sigmas.push(@mpf.mpf_pos(sigma, self.precision(), self.round_mode()))
+      sigmas.push(sigma.rounded(self.precision(), self.round_mode()))
       let ui = extract_matrix_column(uvecs, idx)
       set_matrix_column(u, t, ui)
-      if @mpf.mpf_le(sigma, tol_abs) {
+      if sigma <= tol_abs {
         continue
       }
       let atui = self.matrix_vec_mul(at, ui)
-      let inv = checked_mpf_div(@mpf.fone, sigma, p, @mpf.round_nearest)
+      let inv = checked_mpf_div(@mpf.RawMpf::one(), sigma, p, Nearest)
       let vi = scale_vector(atui, inv, p)
       for j in 0..<n {
         v.data[matrix_offset(v.cols, t, j)] = vi[j]
@@ -869,7 +760,7 @@ pub fn MPContext::svd(
 pub fn MPContext::cond(
   self : MPContext,
   a : MpfMatrix,
-  norm? : String = "inf",
+  norm? : StringView = "inf",
 ) -> @mpf.RawMpf raise MPError {
   if a.rows != a.cols {
     raise ValueError("cond: matrix must be square")
@@ -890,5 +781,5 @@ pub fn MPContext::cond(
     "fro" => self.matrix_norm_fro(ainv)
     _ => raise ValueError("cond: unknown norm '\{norm}'")
   }
-  @mpf.mpf_mul(an, bn, self.working_precision(), @mpf.round_nearest)
+  an.mul(bn, self.working_precision(), Nearest)
 }

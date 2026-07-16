@@ -49,13 +49,13 @@ import {
 ## Quick Start
 
 ```moonbit
-let ctx = @mp.new(256, @mpf.round_nearest)
-let two = ctx.make_int(2)
+let ctx = @mp.MPContext::new(256, @mpf.Nearest)
+let two = ctx.from_int(2)
 let root = ctx.sqrt(two)
 println(ctx.to_string(root, dps=50))
 ```
 
-The precision passed to `@mp.new` is measured in bits. Low-level `libmp` functions also accept precision and rounding explicitly, which makes numerical behavior reproducible and allows directed rounding for interval calculations.
+The precision passed to `MPContext::new` is measured in bits. Low-level values use methods such as `x.add(y, precision, rounding)`, while constructors and parsers are associated with their owning types, for example `RawMpf::from_int` and `RawMpf::parse`. This keeps numerical behavior reproducible and allows directed rounding for interval calculations.
 
 Operations with invalid domains, poles, malformed input, or failed convergence raise package-specific suberrors. Callers can let these errors propagate or handle them with MoonBit's `catch` syntax.
 

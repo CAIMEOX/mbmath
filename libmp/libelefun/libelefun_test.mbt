@@ -31,127 +31,123 @@ fn assert_mpf_close_to_text(
   let exp10 = if exp_has_digits { exp_sign * exp_value } else { 0 }
   let cmp_digits = if dps > frac_digits + 2 { dps } else { frac_digits + 2 }
   let cmp_prec = cmp_digits * 4 + 80
-  let expected = @mpf.from_str(
-    expected_text,
-    prec=cmp_prec,
-    rnd=@mpf.round_nearest,
-  )
-  let tol = @mpf.from_str(
+  let expected = @mpf.RawMpf::parse(expected_text, prec=cmp_prec, rnd=Nearest)
+  let tol = @mpf.RawMpf::parse(
     "1e" + (exp10 - frac_digits).to_string(),
     prec=cmp_prec,
-    rnd=@mpf.round_nearest,
+    rnd=Nearest,
   )
-  let err = @mpf.mpf_abs(
-    @mpf.mpf_sub(got, expected, cmp_prec, @mpf.round_nearest),
-    cmp_prec,
-    @mpf.round_nearest,
-  )
-  assert_true(@mpf.mpf_le(err, tol))
+  let err = got.sub(expected, cmp_prec, Nearest).abs(cmp_prec, Nearest)
+  assert_true(err <= tol)
 }
 
 ///|
-test "mpf_atan2 basic quadrants" {
-  let q1 = mpf_atan2(@mpf.from_int(1), @mpf.from_int(1), 80, @mpf.round_nearest)
-  assert_mpf_close_to_text(q1, "0.78539816339", 12)
-  let q2 = mpf_atan2(
-    @mpf.from_int(1),
-    @mpf.from_int(-1),
+test "atan2 basic quadrants" {
+  let q1 = atan2(
+    @mpf.RawMpf::from_int(1),
+    @mpf.RawMpf::from_int(1),
     80,
-    @mpf.round_nearest,
+    Nearest,
+  )
+  assert_mpf_close_to_text(q1, "0.78539816339", 12)
+  let q2 = atan2(
+    @mpf.RawMpf::from_int(1),
+    @mpf.RawMpf::from_int(-1),
+    80,
+    Nearest,
   )
   assert_mpf_close_to_text(q2, "2.35619449019", 12)
-  let q3 = mpf_atan2(
-    @mpf.from_int(-1),
-    @mpf.from_int(-1),
+  let q3 = atan2(
+    @mpf.RawMpf::from_int(-1),
+    @mpf.RawMpf::from_int(-1),
     80,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_to_text(q3, "-2.35619449019", 12)
 }
 
 ///|
-test "mpf_pi baseline" {
-  let pi = mpf_pi(80, @mpf.round_nearest)
+test "pi baseline" {
+  let pi = pi(80, Nearest)
   assert_mpf_close_to_text(pi, "3.14159265358979", 15)
 }
 
 ///|
-test "mpf_atan baseline" {
-  let a = mpf_atan(@mpf.from_int(1), 100, @mpf.round_nearest)
+test "atan baseline" {
+  let a = atan(@mpf.RawMpf::from_int(1), 100, Nearest)
   assert_mpf_close_to_text(a, "0.7853981633974483", 16)
-  let b = mpf_atan(@mpf.from_int(-1), 100, @mpf.round_nearest)
+  let b = atan(@mpf.RawMpf::from_int(-1), 100, Nearest)
   assert_mpf_close_to_text(b, "-0.7853981633974483", 16)
 }
 
 ///|
-test "mpf_exp baseline" {
-  @debug.assert_eq(mpf_exp(@mpf.fzero, 80, @mpf.round_nearest), @mpf.fone)
-  let e = mpf_exp(@mpf.fone, 120, @mpf.round_nearest)
+test "exp baseline" {
+  @debug.assert_eq(exp(@mpf.RawMpf::zero(), 80, Nearest), @mpf.RawMpf::one())
+  let e = exp(@mpf.RawMpf::one(), 120, Nearest)
   assert_mpf_close_to_text(e, "2.718281828459045", 16)
-  let inv_e = mpf_exp(@mpf.from_int(-1), 120, @mpf.round_nearest)
+  let inv_e = exp(@mpf.RawMpf::from_int(-1), 120, Nearest)
   assert_mpf_close_to_text(inv_e, "0.3678794411714423", 16)
 }
 
 ///|
-test "mpf_ln baseline" {
-  @debug.assert_eq(mpf_ln(@mpf.fone, 80, @mpf.round_nearest), @mpf.fzero)
-  @debug.assert_eq(mpf_ln(@mpf.fzero, 80, @mpf.round_nearest), @mpf.fninf)
-  let ln2 = mpf_ln(@mpf.from_int(2), 120, @mpf.round_nearest)
+test "ln baseline" {
+  @debug.assert_eq(ln(@mpf.RawMpf::one(), 80, Nearest), @mpf.RawMpf::zero())
+  @debug.assert_eq(
+    ln(@mpf.RawMpf::zero(), 80, Nearest),
+    @mpf.RawMpf::negative_infinity(),
+  )
+  let ln2 = ln(@mpf.RawMpf::from_int(2), 120, Nearest)
   assert_mpf_close_to_text(ln2, "0.6931471805599453", 16)
-  let e = mpf_exp(@mpf.fone, 120, @mpf.round_nearest)
-  let back = mpf_ln(e, 120, @mpf.round_nearest)
+  let e = exp(@mpf.RawMpf::one(), 120, Nearest)
+  let back = ln(e, 120, Nearest)
   assert_mpf_close_to_text(back, "1.0", 12)
 }
 
 ///|
-test "mpf_log1p and constant helpers subset" {
-  let l_small = mpf_log1p(@mpf.from_str("1e-10"), 180, @mpf.round_nearest)
+test "log1p and constant helpers subset" {
+  let l_small = log1p(@mpf.RawMpf::parse("1e-10"), 180, Nearest)
   assert_mpf_close_to_text(l_small, "9.999999999500000e-11", 18)
   @debug.assert_eq(
-    mpf_log1p(@mpf.from_int(-1), 120, @mpf.round_nearest),
-    @mpf.fninf,
+    log1p(@mpf.RawMpf::from_int(-1), 120, Nearest),
+    @mpf.RawMpf::negative_infinity(),
   )
-  let sp = mpf_sqrtpi(160, @mpf.round_nearest)
+  let sp = sqrt_pi(160, Nearest)
   assert_mpf_close_to_text(sp, "1.772453850905516", 16)
-  let lsp = mpf_ln_sqrt2pi(160, @mpf.round_nearest)
+  let lsp = ln_sqrt_2pi(160, Nearest)
   assert_mpf_close_to_text(lsp, "0.918938533204672", 16)
 }
 
 ///|
-test "panic mpf_ln non-positive" {
-  ignore(mpf_ln(@mpf.from_int(-1), 80, @mpf.round_nearest))
+test "panic ln non-positive" {
+  ignore(ln(@mpf.RawMpf::from_int(-1), 80, Nearest))
 }
 
 ///|
-test "panic mpf_log1p below -1" {
-  ignore(mpf_log1p(@mpf.from_str("-1.25"), 80, @mpf.round_nearest))
+test "panic log1p below -1" {
+  ignore(log1p(@mpf.RawMpf::parse("-1.25"), 80, Nearest))
 }
 
 ///|
 test "mpmath diff subset for libelefun" {
   // Expected values are generated from mpmath with mp.dps=80.
   assert_mpf_close_to_text(
-    mpf_atan(@mpf.from_str("0.1"), 140, @mpf.round_nearest),
+    atan(@mpf.RawMpf::parse("0.1"), 140, Nearest),
     "0.099668652491",
     14,
   )
   assert_mpf_close_to_text(
-    mpf_atan2(@mpf.from_int(-2), @mpf.from_int(3), 140, @mpf.round_nearest),
+    atan2(@mpf.RawMpf::from_int(-2), @mpf.RawMpf::from_int(3), 140, Nearest),
     "-0.588002603547",
     14,
   )
+  assert_mpf_close_to_text(pi(140, Nearest), "3.141592653589793", 16)
   assert_mpf_close_to_text(
-    mpf_pi(140, @mpf.round_nearest),
-    "3.141592653589793",
-    16,
-  )
-  assert_mpf_close_to_text(
-    mpf_exp(@mpf.from_str("0.5"), 140, @mpf.round_nearest),
+    exp(@mpf.RawMpf::parse("0.5"), 140, Nearest),
     "1.648721270700",
     14,
   )
   assert_mpf_close_to_text(
-    mpf_ln(@mpf.from_int(3), 140, @mpf.round_nearest),
+    ln(@mpf.RawMpf::from_int(3), 140, Nearest),
     "1.098612288668",
     14,
   )
@@ -159,114 +155,62 @@ test "mpmath diff subset for libelefun" {
 
 ///|
 test "mpf trig and hyperbolic subset" {
-  let x = @mpf.from_str("0.5")
-  assert_mpf_close_to_text(
-    mpf_sin(x, 140, @mpf.round_nearest),
-    "0.479425538604",
-    14,
-  )
-  assert_mpf_close_to_text(
-    mpf_cos(x, 140, @mpf.round_nearest),
-    "0.877582561890",
-    14,
-  )
-  assert_mpf_close_to_text(
-    mpf_tan(x, 140, @mpf.round_nearest),
-    "0.546302489843",
-    14,
-  )
-  assert_mpf_close_to_text(
-    mpf_sinh(x, 140, @mpf.round_nearest),
-    "0.521095305493",
-    14,
-  )
-  assert_mpf_close_to_text(
-    mpf_cosh(x, 140, @mpf.round_nearest),
-    "1.127625965206",
-    14,
-  )
-  assert_mpf_close_to_text(
-    mpf_tanh(x, 140, @mpf.round_nearest),
-    "0.462117157260",
-    14,
-  )
+  let x = @mpf.RawMpf::parse("0.5")
+  assert_mpf_close_to_text(sin(x, 140, Nearest), "0.479425538604", 14)
+  assert_mpf_close_to_text(cos(x, 140, Nearest), "0.877582561890", 14)
+  assert_mpf_close_to_text(tan(x, 140, Nearest), "0.546302489843", 14)
+  assert_mpf_close_to_text(sinh(x, 140, Nearest), "0.521095305493", 14)
+  assert_mpf_close_to_text(cosh(x, 140, Nearest), "1.127625965206", 14)
+  assert_mpf_close_to_text(tanh(x, 140, Nearest), "0.462117157260", 14)
 }
 
 ///|
 test "mpf inverse subset" {
-  let half = @mpf.from_str("0.5")
+  let half = @mpf.RawMpf::parse("0.5")
+  assert_mpf_close_to_text(asin(half, 140, Nearest), "0.523598775598", 14)
+  assert_mpf_close_to_text(acos(half, 140, Nearest), "1.047197551196", 14)
   assert_mpf_close_to_text(
-    mpf_asin(half, 140, @mpf.round_nearest),
-    "0.523598775598",
-    14,
-  )
-  assert_mpf_close_to_text(
-    mpf_acos(half, 140, @mpf.round_nearest),
-    "1.047197551196",
-    14,
-  )
-  assert_mpf_close_to_text(
-    mpf_asinh(@mpf.fone, 140, @mpf.round_nearest),
+    asinh(@mpf.RawMpf::one(), 140, Nearest),
     "0.881373587019",
     14,
   )
   assert_mpf_close_to_text(
-    mpf_acosh(@mpf.from_int(2), 140, @mpf.round_nearest),
+    acosh(@mpf.RawMpf::from_int(2), 140, Nearest),
     "1.316957896924",
     14,
   )
-  assert_mpf_close_to_text(
-    mpf_atanh(half, 140, @mpf.round_nearest),
-    "0.549306144334",
-    14,
-  )
+  assert_mpf_close_to_text(atanh(half, 140, Nearest), "0.549306144334", 14)
 }
 
 ///|
 test "mpf pow and constants subset" {
   assert_mpf_close_to_text(
-    mpf_pow(@mpf.from_int(2), @mpf.from_str("0.5"), 140, @mpf.round_nearest),
+    pow(@mpf.RawMpf::from_int(2), @mpf.RawMpf::parse("0.5"), 140, Nearest),
     "1.414213562373",
     14,
   )
   assert_mpf_close_to_text(
-    mpf_nthroot(@mpf.from_int(2), 5, 140, @mpf.round_nearest),
+    nthroot(@mpf.RawMpf::from_int(2), 5, 140, Nearest),
     "1.148698354997",
     14,
   )
   @debug.assert_eq(
-    mpf_nthroot(@mpf.from_int(-8), 3, 120, @mpf.round_nearest),
-    @mpf.from_int(-2),
+    nthroot(@mpf.RawMpf::from_int(-8), 3, 120, Nearest),
+    @mpf.RawMpf::from_int(-2),
   )
   assert_mpf_close_to_text(
-    mpf_cbrt(@mpf.from_int(2), 140, @mpf.round_nearest),
+    cbrt(@mpf.RawMpf::from_int(2), 140, Nearest),
     "1.259921049894",
     14,
   )
-  assert_mpf_close_to_text(mpf_e(140, @mpf.round_nearest), "2.718281828459", 14)
-  assert_mpf_close_to_text(
-    mpf_ln2(140, @mpf.round_nearest),
-    "0.693147180559",
-    14,
-  )
-  assert_mpf_close_to_text(
-    mpf_ln10(140, @mpf.round_nearest),
-    "2.302585092994",
-    14,
-  )
-  assert_mpf_close_to_text(
-    mpf_phi(140, @mpf.round_nearest),
-    "1.618033988749",
-    14,
-  )
-  assert_mpf_close_to_text(
-    mpf_degree(140, @mpf.round_nearest),
-    "0.017453292519",
-    14,
-  )
+  assert_mpf_close_to_text(e(140, Nearest), "2.718281828459", 14)
+  assert_mpf_close_to_text(ln2(140, Nearest), "0.693147180559", 14)
+  assert_mpf_close_to_text(ln10(140, Nearest), "2.302585092994", 14)
+  assert_mpf_close_to_text(phi(140, Nearest), "1.618033988749", 14)
+  assert_mpf_close_to_text(degree(140, Nearest), "0.017453292519", 14)
 }
 
 ///|
 test "panic inverse domain" {
-  ignore(mpf_asin(@mpf.from_int(2), 80, @mpf.round_nearest))
+  ignore(asin(@mpf.RawMpf::from_int(2), 80, Nearest))
 }

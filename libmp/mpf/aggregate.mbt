@@ -8,7 +8,7 @@ fn signed_man_for_aggregate(x : RawMpf) -> BigInt {
 }
 
 ///|
-pub fn mpf_sum(
+pub fn RawMpf::sum(
   xs : ArrayView[RawMpf],
   prec : Int,
   rnd : RoundMode,
@@ -19,16 +19,16 @@ pub fn mpf_sum(
   let max_extra_prec = if prec > 0 { prec * 2 } else { 1000000 }
   let mut special : RawMpf? = None
   for x0 in xs {
-    let x = if absolute { mpf_abs(x0, 0, round_down) } else { x0 }
-    if !is_finite(x) {
+    let x = if absolute { x0.abs(0, Down) } else { x0 }
+    if !x.is_finite() {
       let prev = match special {
-        None => fzero
+        None => RawMpf::zero()
         Some(v) => v
       }
-      special = Some(mpf_add(prev, x, 1, round_nearest))
+      special = Some(prev.add(x, 1, Nearest))
       continue
     }
-    if is_zero(x) {
+    if x.is_zero() {
       continue
     }
     let xm = signed_man_for_aggregate(x)
@@ -58,31 +58,31 @@ pub fn mpf_sum(
   }
   match special {
     Some(v) => v
-    None => from_man_exp(man, exp, prec, rnd)
+    None => RawMpf::from_mantissa_exponent(man, exp, prec, rnd)
   }
 }
 
 ///|
-pub fn mpf_mod(
+pub fn RawMpf::modulo(
   x : RawMpf,
   y : RawMpf,
   prec : Int,
   rnd : RoundMode,
 ) -> RawMpf raise MpfError {
-  if (!is_finite(x) && !is_zero(x)) || (!is_finite(y) && !is_zero(y)) {
-    if is_inf(y) {
+  if (!x.is_finite() && !x.is_zero()) || (!y.is_finite() && !y.is_zero()) {
+    if y.is_infinite() {
       return x
     }
-    return fnan
+    return RawMpf::nan()
   }
-  if is_zero(y) {
-    raise DivisionByZero("mpf_mod: modulo by zero")
+  if y.is_zero() {
+    raise DivisionByZero("RawMpf::modulo: modulo by zero")
   }
   if x.sign == y.sign && y.exp > x.exp + x.bc {
-    return mpf_pos(x, prec, rnd)
+    return x.rounded(prec, rnd)
   }
   if y.man == 1N && x.exp > y.exp + y.bc {
-    return fzero
+    return RawMpf::zero()
   }
   let base = if x.exp < y.exp { x.exp } else { y.exp }
   let sm = signed_man_for_aggregate(x) << (x.exp - base)
@@ -96,28 +96,23 @@ pub fn mpf_mod(
     sign = 1
     man = -man
   }
-  normalize(sign, man, base, man.bit_length(), prec, rnd)
+  RawMpf::from_raw_parts(sign, man, base, man.bit_length(), prec, rnd)
 }
 
 ///|
-pub fn mpf_hypot(
+pub fn RawMpf::hypot(
   x : RawMpf,
   y : RawMpf,
   prec : Int,
   rnd : RoundMode,
 ) -> RawMpf raise MpfError {
-  if y == fzero {
-    return mpf_abs(x, prec, rnd)
+  if y == RawMpf::zero() {
+    return x.abs(prec, rnd)
   }
-  if x == fzero {
-    return mpf_abs(y, prec, rnd)
+  if x == RawMpf::zero() {
+    return y.abs(prec, rnd)
   }
   let wp = if prec > 0 { prec + 4 } else { 0 }
-  let hypot2 = mpf_add(
-    mpf_mul(x, x, 0, round_down),
-    mpf_mul(y, y, 0, round_down),
-    wp,
-    round_nearest,
-  )
-  mpf_sqrt(hypot2, prec, rnd)
+  let hypot2 = x.mul(x, 0, Down).add(y.mul(y, 0, Down), wp, Nearest)
+  hypot2.sqrt(prec, rnd)
 }

@@ -7,77 +7,77 @@ import {
 }
 
 // Values
-pub fn mpf_acos(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn acos(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_acosh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn acosh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_asin(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn asin(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_asinh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn asinh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_atan(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn atan(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_atan2(@mpf.RawMpf, @mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn atan2(@mpf.RawMpf, @mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_atanh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn atanh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_cbrt(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn cbrt(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_cos(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn cos(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_cos_pi(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn cos_pi(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_cos_sin(@mpf.RawMpf, Int, @mpf.RoundMode, which? : Int, pi? : Bool) -> (@mpf.RawMpf, @mpf.RawMpf) raise LibElefunError
+pub fn cos_sin(@mpf.RawMpf, Int, @mpf.RoundMode, which? : Int, times_pi? : Bool) -> (@mpf.RawMpf, @mpf.RawMpf) raise LibElefunError
 
-pub fn mpf_cos_sin_pi(@mpf.RawMpf, Int, @mpf.RoundMode) -> (@mpf.RawMpf, @mpf.RawMpf) raise LibElefunError
+pub fn cos_sin_pi(@mpf.RawMpf, Int, @mpf.RoundMode) -> (@mpf.RawMpf, @mpf.RawMpf) raise LibElefunError
 
-pub fn mpf_cosh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn cosh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_cosh_sinh(@mpf.RawMpf, Int, @mpf.RoundMode, tanh? : Bool) -> (@mpf.RawMpf, @mpf.RawMpf) raise LibElefunError
+pub fn cosh_sinh(@mpf.RawMpf, Int, @mpf.RoundMode, only_tanh? : Bool) -> (@mpf.RawMpf, @mpf.RawMpf) raise LibElefunError
 
-pub fn mpf_degree(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn degree(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_e(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn e(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_exp(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn exp(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_expj(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn exp_i(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_expjpi(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn exp_i_pi(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_ln(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn ln(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_ln10(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn ln10(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_ln2(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn ln2(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_ln_sqrt2pi(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn ln_sqrt_2pi(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_log(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn log(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_log1p(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn log1p(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_log_hypot(@mpf.RawMpf, @mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn log_hypot(@mpf.RawMpf, @mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_nthroot(@mpf.RawMpf, Int, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn nthroot(@mpf.RawMpf, Int, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_phi(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn phi(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_pi(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn pi(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_pow(@mpf.RawMpf, @mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn pow(@mpf.RawMpf, @mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_sin(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn sin(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_sin_pi(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn sin_pi(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_sinh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn sinh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_sqrtpi(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn sqrt_pi(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_tan(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn tan(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
-pub fn mpf_tanh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+pub fn tanh(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
 // Errors
 pub(all) suberror LibElefunError {

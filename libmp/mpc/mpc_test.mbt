@@ -38,25 +38,21 @@ fn assert_mpf_close_with_dps(
   dps : Int,
 ) -> Unit raise {
   let prec = mpc_dps_to_prec(dps)
-  let expected = @mpf.from_str(expected_text, prec~, rnd=@mpf.round_nearest)
-  let err = @mpf.mpf_abs(
-    @mpf.mpf_sub(x, expected, prec, @mpf.round_nearest),
-    prec,
-    @mpf.round_nearest,
-  )
+  let expected = @mpf.RawMpf::parse(expected_text, prec~, rnd=Nearest)
+  let err = x.sub(expected, prec, Nearest).abs(prec, Nearest)
   let digits = mpc_mantissa_digit_count(expected_text)
   let sig_digits = if digits <= 1 { 0 } else { digits - 1 }
   let rel_tol = if sig_digits == 0 {
-    @mpf.fone
+    @mpf.RawMpf::one()
   } else {
-    @mpf.from_str("1e-\{sig_digits}", prec~, rnd=@mpf.round_nearest)
+    @mpf.RawMpf::parse("1e-\{sig_digits}", prec~, rnd=Nearest)
   }
-  let mut scale = @mpf.mpf_abs(expected, prec, @mpf.round_nearest)
-  if @mpf.mpf_lt(scale, @mpf.fone) {
-    scale = @mpf.fone
+  let mut scale = expected.abs(prec, Nearest)
+  if scale < @mpf.RawMpf::one() {
+    scale = @mpf.RawMpf::one()
   }
-  let tol = @mpf.mpf_mul(scale, rel_tol, prec, @mpf.round_nearest)
-  assert_true(@mpf.mpf_le(err, tol))
+  let tol = scale.mul(rel_tol, prec, Nearest)
+  assert_true(err <= tol)
 }
 
 ///|
@@ -72,267 +68,271 @@ fn mpf_to_fixed_signed_for_test(x : @mpf.RawMpf, prec : Int) -> BigInt {
 
 ///|
 test "mpc add/sub/mul" {
-  let z = from_parts(@mpf.from_int(1), @mpf.from_int(2))
-  let w = from_parts(@mpf.from_int(3), @mpf.from_int(-4))
+  let z = RawMpc::new(@mpf.RawMpf::from_int(1), @mpf.RawMpf::from_int(2))
+  let w = RawMpc::new(@mpf.RawMpf::from_int(3), @mpf.RawMpf::from_int(-4))
   assert_parts(
-    mpc_add(z, w, 30, @mpf.round_nearest),
-    @mpf.from_int(4),
-    @mpf.from_int(-2),
+    z.add(w, 30, Nearest),
+    @mpf.RawMpf::from_int(4),
+    @mpf.RawMpf::from_int(-2),
   )
   assert_parts(
-    mpc_sub(z, w, 30, @mpf.round_nearest),
-    @mpf.from_int(-2),
-    @mpf.from_int(6),
+    z.sub(w, 30, Nearest),
+    @mpf.RawMpf::from_int(-2),
+    @mpf.RawMpf::from_int(6),
   )
   assert_parts(
-    mpc_mul(z, w, 30, @mpf.round_nearest),
-    @mpf.from_int(11),
-    @mpf.from_int(2),
+    z.mul(w, 30, Nearest),
+    @mpf.RawMpf::from_int(11),
+    @mpf.RawMpf::from_int(2),
   )
 }
 
 ///|
 test "mpc div basic exact case" {
-  let z = from_parts(@mpf.from_int(1), @mpf.from_int(3))
-  let w = from_parts(@mpf.from_int(1), @mpf.from_int(1))
+  let z = RawMpc::new(@mpf.RawMpf::from_int(1), @mpf.RawMpf::from_int(3))
+  let w = RawMpc::new(@mpf.RawMpf::from_int(1), @mpf.RawMpf::from_int(1))
   assert_parts(
-    mpc_div(z, w, 40, @mpf.round_nearest),
-    @mpf.from_int(2),
-    @mpf.from_int(1),
+    z.div(w, 40, Nearest),
+    @mpf.RawMpf::from_int(2),
+    @mpf.RawMpf::from_int(1),
   )
 }
 
 ///|
 test "mpc div denominator inf finite numerator returns zero" {
-  let z = from_parts(@mpf.from_int(5), @mpf.from_int(-2))
-  let w = from_parts(@mpf.finf, @mpf.fzero)
-  @debug.assert_eq(mpc_div(z, w, 40, @mpf.round_nearest), zero())
+  let z = RawMpc::new(@mpf.RawMpf::from_int(5), @mpf.RawMpf::from_int(-2))
+  let w = RawMpc::new(@mpf.RawMpf::infinity(), @mpf.RawMpf::zero())
+  @debug.assert_eq(z.div(w, 40, Nearest), RawMpc::zero())
 }
 
 ///|
 test "mpc predicates and unary helpers" {
-  let z = from_parts(@mpf.from_int(-3), @mpf.from_int(4))
-  assert_true(mpc_is_nonzero(z))
-  assert_false(mpc_is_nonzero(zero()))
-  assert_true(mpc_is_inf(from_parts(@mpf.finf, @mpf.from_int(1))))
-  assert_true(mpc_is_infnan(from_parts(@mpf.fzero, @mpf.fnan)))
-  assert_parts(
-    mpc_pos(z, 30, @mpf.round_nearest),
-    @mpf.from_int(-3),
-    @mpf.from_int(4),
+  let z = RawMpc::new(@mpf.RawMpf::from_int(-3), @mpf.RawMpf::from_int(4))
+  assert_true(z.is_nonzero())
+  assert_false(RawMpc::zero().is_nonzero())
+  assert_true(
+    RawMpc::new(@mpf.RawMpf::infinity(), @mpf.RawMpf::from_int(1)).is_infinite(),
+  )
+  assert_true(
+    RawMpc::new(@mpf.RawMpf::zero(), @mpf.RawMpf::nan()).is_non_finite(),
   )
   assert_parts(
-    mpc_neg(z, 30, @mpf.round_nearest),
-    @mpf.from_int(3),
-    @mpf.from_int(-4),
+    z.rounded(30, Nearest),
+    @mpf.RawMpf::from_int(-3),
+    @mpf.RawMpf::from_int(4),
   )
   assert_parts(
-    mpc_conjugate(z, 30, @mpf.round_nearest),
-    @mpf.from_int(-3),
-    @mpf.from_int(-4),
+    z.negated(30, Nearest),
+    @mpf.RawMpf::from_int(3),
+    @mpf.RawMpf::from_int(-4),
+  )
+  assert_parts(
+    z.conjugate(30, Nearest),
+    @mpf.RawMpf::from_int(-3),
+    @mpf.RawMpf::from_int(-4),
   )
 }
 
 ///|
 test "mpc real-mixed helpers" {
-  let z = from_parts(@mpf.from_int(2), @mpf.from_int(3))
+  let z = RawMpc::new(@mpf.RawMpf::from_int(2), @mpf.RawMpf::from_int(3))
   assert_parts(
-    mpc_add_mpf(z, @mpf.from_int(4), 40, @mpf.round_nearest),
-    @mpf.from_int(6),
-    @mpf.from_int(3),
+    z.add_real(@mpf.RawMpf::from_int(4), 40, Nearest),
+    @mpf.RawMpf::from_int(6),
+    @mpf.RawMpf::from_int(3),
   )
   assert_parts(
-    mpc_sub_mpf(z, @mpf.from_int(4), 40, @mpf.round_nearest),
-    @mpf.from_int(-2),
-    @mpf.from_int(3),
+    z.sub_real(@mpf.RawMpf::from_int(4), 40, Nearest),
+    @mpf.RawMpf::from_int(-2),
+    @mpf.RawMpf::from_int(3),
   )
   assert_parts(
-    mpc_mpf_sub(@mpf.from_int(4), z, 40, @mpf.round_nearest),
-    @mpf.from_int(2),
-    @mpf.from_int(-3),
+    z.subtracted_from_real(@mpf.RawMpf::from_int(4), 40, Nearest),
+    @mpf.RawMpf::from_int(2),
+    @mpf.RawMpf::from_int(-3),
   )
   assert_parts(
-    mpc_mul_mpf(z, @mpf.from_int(4), 40, @mpf.round_nearest),
-    @mpf.from_int(8),
-    @mpf.from_int(12),
+    z.mul_real(@mpf.RawMpf::from_int(4), 40, Nearest),
+    @mpf.RawMpf::from_int(8),
+    @mpf.RawMpf::from_int(12),
   )
   assert_parts(
-    mpc_div_mpf(z, @mpf.from_int(2), 40, @mpf.round_nearest),
-    @mpf.from_int(1),
-    @mpf.from_man_exp(3N, -1, 0, @mpf.round_down),
+    z.div_real(@mpf.RawMpf::from_int(2), 40, Nearest),
+    @mpf.RawMpf::from_int(1),
+    @mpf.RawMpf::from_mantissa_exponent(3N, -1, 0, Down),
   )
 }
 
 ///|
 test "mpc reciprocal and mpf_div" {
-  let z = from_parts(@mpf.from_int(1), @mpf.from_int(1))
+  let z = RawMpc::new(@mpf.RawMpf::from_int(1), @mpf.RawMpf::from_int(1))
   assert_parts(
-    mpc_reciprocal(z, 50, @mpf.round_nearest),
-    @mpf.from_man_exp(1N, -1, 0, @mpf.round_down),
-    @mpf.from_man_exp(-1N, -1, 0, @mpf.round_down),
+    z.reciprocal(50, Nearest),
+    @mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down),
+    @mpf.RawMpf::from_mantissa_exponent(-1N, -1, 0, Down),
   )
   assert_parts(
-    mpc_mpf_div(@mpf.from_int(2), z, 50, @mpf.round_nearest),
-    @mpf.from_int(1),
-    @mpf.from_int(-1),
+    z.real_divided_by(@mpf.RawMpf::from_int(2), 50, Nearest),
+    @mpf.RawMpf::from_int(1),
+    @mpf.RawMpf::from_int(-1),
   )
   @debug.assert_eq(
-    mpc_mpf_div(
-      @mpf.from_int(2),
-      from_parts(@mpf.finf, @mpf.fzero),
+    RawMpc::new(@mpf.RawMpf::infinity(), @mpf.RawMpf::zero()).real_divided_by(
+      @mpf.RawMpf::from_int(2),
       30,
-      @mpf.round_nearest,
+      Nearest,
     ),
-    zero(),
+    RawMpc::zero(),
   )
 }
 
 ///|
 test "mpc shift mul_int floor ceil nint frac" {
-  let z = from_parts(@mpf.from_str("1.5"), @mpf.from_str("-2.25"))
-  assert_parts(mpc_shift(z, 1), @mpf.from_int(3), @mpf.from_str("-4.5"))
+  let z = RawMpc::new(@mpf.RawMpf::parse("1.5"), @mpf.RawMpf::parse("-2.25"))
   assert_parts(
-    mpc_mul_int(z, -2, 50, @mpf.round_nearest),
-    @mpf.from_int(-3),
-    @mpf.from_str("4.5"),
+    z.scale_pow2(1),
+    @mpf.RawMpf::from_int(3),
+    @mpf.RawMpf::parse("-4.5"),
   )
   assert_parts(
-    mpc_floor(z, 0, @mpf.round_nearest),
-    @mpf.from_int(1),
-    @mpf.from_int(-3),
+    z.mul_int(-2, 50, Nearest),
+    @mpf.RawMpf::from_int(-3),
+    @mpf.RawMpf::parse("4.5"),
   )
   assert_parts(
-    mpc_ceil(z, 0, @mpf.round_nearest),
-    @mpf.from_int(2),
-    @mpf.from_int(-2),
+    z.floor(0, Nearest),
+    @mpf.RawMpf::from_int(1),
+    @mpf.RawMpf::from_int(-3),
   )
   assert_parts(
-    mpc_nint(z, 0, @mpf.round_nearest),
-    @mpf.from_int(2),
-    @mpf.from_int(-2),
+    z.ceil(0, Nearest),
+    @mpf.RawMpf::from_int(2),
+    @mpf.RawMpf::from_int(-2),
   )
   assert_parts(
-    mpc_frac(z, 50, @mpf.round_nearest),
-    @mpf.from_man_exp(1N, -1, 0, @mpf.round_down),
-    @mpf.from_man_exp(3N, -2, 0, @mpf.round_down),
+    z.nearest_integer(0, Nearest),
+    @mpf.RawMpf::from_int(2),
+    @mpf.RawMpf::from_int(-2),
+  )
+  assert_parts(
+    z.fractional_part(50, Nearest),
+    @mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down),
+    @mpf.RawMpf::from_mantissa_exponent(3N, -2, 0, Down),
   )
 }
 
 ///|
 test "mpc abs arg sqrt" {
-  let z = from_parts(@mpf.from_int(3), @mpf.from_int(4))
-  @debug.assert_eq(mpc_abs(z, 60, @mpf.round_nearest), @mpf.from_int(5))
-  let arg = mpc_arg(
-    from_parts(@mpf.from_int(1), @mpf.from_int(1)),
+  let z = RawMpc::new(@mpf.RawMpf::from_int(3), @mpf.RawMpf::from_int(4))
+  @debug.assert_eq(z.abs(60, Nearest), @mpf.RawMpf::from_int(5))
+  let arg = RawMpc::new(@mpf.RawMpf::from_int(1), @mpf.RawMpf::from_int(1)).arg(
     80,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(arg, "0.78539816339", 12)
   assert_parts(
-    mpc_sqrt(
-      from_parts(@mpf.from_int(3), @mpf.from_int(4)),
+    RawMpc::new(@mpf.RawMpf::from_int(3), @mpf.RawMpf::from_int(4)).sqrt(
       80,
-      @mpf.round_nearest,
+      Nearest,
     ),
-    @mpf.from_int(2),
-    @mpf.from_int(1),
+    @mpf.RawMpf::from_int(2),
+    @mpf.RawMpf::from_int(1),
   )
   assert_parts(
-    mpc_sqrt(from_parts(@mpf.from_int(-4), @mpf.fzero), 80, @mpf.round_nearest),
-    @mpf.fzero,
-    @mpf.from_int(2),
+    RawMpc::new(@mpf.RawMpf::from_int(-4), @mpf.RawMpf::zero()).sqrt(
+      80,
+      Nearest,
+    ),
+    @mpf.RawMpf::zero(),
+    @mpf.RawMpf::from_int(2),
   )
 }
 
 ///|
 test "mpc pow_int basic cases" {
-  let z = from_parts(@mpf.from_int(1), @mpf.from_int(1))
+  let z = RawMpc::new(@mpf.RawMpf::from_int(1), @mpf.RawMpf::from_int(1))
   assert_parts(
-    mpc_pow_int(z, 2, 50, @mpf.round_nearest),
-    @mpf.fzero,
-    @mpf.from_int(2),
+    z.pow_int(2, 50, Nearest),
+    @mpf.RawMpf::zero(),
+    @mpf.RawMpf::from_int(2),
   )
   assert_parts(
-    mpc_pow_int(z, 3, 50, @mpf.round_nearest),
-    @mpf.from_int(-2),
-    @mpf.from_int(2),
+    z.pow_int(3, 50, Nearest),
+    @mpf.RawMpf::from_int(-2),
+    @mpf.RawMpf::from_int(2),
   )
   assert_parts(
-    mpc_pow_int(z, -1, 50, @mpf.round_nearest),
-    @mpf.from_man_exp(1N, -1, 0, @mpf.round_down),
-    @mpf.from_man_exp(-1N, -1, 0, @mpf.round_down),
+    z.pow_int(-1, 50, Nearest),
+    @mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down),
+    @mpf.RawMpf::from_mantissa_exponent(-1N, -1, 0, Down),
   )
   assert_parts(
-    mpc_pow_int(
-      from_parts(@mpf.from_int(2), @mpf.fzero),
+    RawMpc::new(@mpf.RawMpf::from_int(2), @mpf.RawMpf::zero()).pow_int(
       -3,
       50,
-      @mpf.round_nearest,
+      Nearest,
     ),
-    @mpf.from_man_exp(1N, -3, 0, @mpf.round_down),
-    @mpf.fzero,
+    @mpf.RawMpf::from_mantissa_exponent(1N, -3, 0, Down),
+    @mpf.RawMpf::zero(),
   )
   assert_parts(
-    mpc_pow_int(
-      from_parts(@mpf.fzero, @mpf.from_int(2)),
+    RawMpc::new(@mpf.RawMpf::zero(), @mpf.RawMpf::from_int(2)).pow_int(
       2,
       50,
-      @mpf.round_nearest,
+      Nearest,
     ),
-    @mpf.from_int(-4),
-    @mpf.fzero,
+    @mpf.RawMpf::from_int(-4),
+    @mpf.RawMpf::zero(),
   )
 }
 
 ///|
 test "mpc exp/log/pow and trig-hyperbolic subset" {
-  let z = from_parts(@mpf.from_int(1), @mpf.from_int(2))
-  let e = mpc_exp(z, 140, @mpf.round_nearest)
+  let z = RawMpc::new(@mpf.RawMpf::from_int(1), @mpf.RawMpf::from_int(2))
+  let e = z.exp(140, Nearest)
   assert_mpf_close_with_dps(e.real, "-1.131204383756", 14)
   assert_mpf_close_with_dps(e.imag, "2.471726672004", 14)
-  let l = mpc_log(
-    from_parts(@mpf.from_int(3), @mpf.from_int(4)),
+  let l = RawMpc::new(@mpf.RawMpf::from_int(3), @mpf.RawMpf::from_int(4)).log(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(l.real, "1.609437912434", 14)
   assert_mpf_close_with_dps(l.imag, "0.927295218001", 14)
-  let s = mpc_sin(z, 140, @mpf.round_nearest)
+  let s = z.sin(140, Nearest)
   assert_mpf_close_with_dps(s.real, "3.165778513216", 14)
   assert_mpf_close_with_dps(s.imag, "1.959601041421", 14)
-  let c = mpc_cos(z, 140, @mpf.round_nearest)
+  let c = z.cos(140, Nearest)
   assert_mpf_close_with_dps(c.real, "2.032723007019", 14)
   assert_mpf_close_with_dps(c.imag, "-3.051897799151", 14)
-  let t = mpc_tan(z, 140, @mpf.round_nearest)
+  let t = z.tan(140, Nearest)
   assert_mpf_close_with_dps(t.real, "0.033812826079", 14)
   assert_mpf_close_with_dps(t.imag, "1.014793616146", 14)
-  let sh = mpc_sinh(z, 140, @mpf.round_nearest)
+  let sh = z.sinh(140, Nearest)
   assert_mpf_close_with_dps(sh.real, "-0.489056259041", 14)
   assert_mpf_close_with_dps(sh.imag, "1.403119250622", 14)
-  let ch = mpc_cosh(z, 140, @mpf.round_nearest)
+  let ch = z.cosh(140, Nearest)
   assert_mpf_close_with_dps(ch.real, "-0.642148124715", 14)
   assert_mpf_close_with_dps(ch.imag, "1.068607421382", 14)
-  let th = mpc_tanh(z, 140, @mpf.round_nearest)
+  let th = z.tanh(140, Nearest)
   assert_mpf_close_with_dps(th.real, "1.166736257240", 14)
   assert_mpf_close_with_dps(th.imag, "-0.243458201185", 14)
-  let p1 = mpc_pow(
-    from_parts(@mpf.from_int(2), @mpf.fzero),
-    from_parts(@mpf.fzero, @mpf.fone),
+  let p1 = RawMpc::new(@mpf.RawMpf::from_int(2), @mpf.RawMpf::zero()).pow(
+    RawMpc::new(@mpf.RawMpf::zero(), @mpf.RawMpf::one()),
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(p1.real, "0.769238901363", 14)
   assert_mpf_close_with_dps(p1.imag, "0.638961276313", 14)
-  let p2 = mpc_pow_mpf(z, @mpf.from_str("0.5"), 140, @mpf.round_nearest)
+  let p2 = z.pow_real(@mpf.RawMpf::parse("0.5"), 140, Nearest)
   assert_mpf_close_with_dps(p2.real, "1.272019649514", 14)
   assert_mpf_close_with_dps(p2.imag, "0.786151377757", 14)
-  let sq = mpc_square(z, 80, @mpf.round_nearest)
-  assert_parts(sq, @mpf.from_int(-3), @mpf.from_int(4))
+  let sq = z.square(80, Nearest)
+  assert_parts(sq, @mpf.RawMpf::from_int(-3), @mpf.RawMpf::from_int(4))
 }
 
 ///|
 test "mpc_pow_int zero negative exponent raises PoleError" {
-  try mpc_pow_int(zero(), -1, 20, @mpf.round_nearest) catch {
+  try RawMpc::zero().pow_int(-1, 20, Nearest) catch {
     PoleError(_) => ()
     _ => fail("unexpected error type")
   } noraise {
@@ -342,8 +342,8 @@ test "mpc_pow_int zero negative exponent raises PoleError" {
 
 ///|
 test "mpc_div by zero raises PoleError" {
-  let z = from_parts(@mpf.from_int(1), @mpf.from_int(1))
-  try mpc_div(z, zero(), 20, @mpf.round_nearest) catch {
+  let z = RawMpc::new(@mpf.RawMpf::from_int(1), @mpf.RawMpf::from_int(1))
+  try z.div(RawMpc::zero(), 20, Nearest) catch {
     PoleError(_) => ()
     _ => fail("unexpected error type")
   } noraise {
@@ -353,23 +353,22 @@ test "mpc_div by zero raises PoleError" {
 
 ///|
 test "panic mpc_log zero" {
-  ignore(mpc_log(zero(), 20, @mpf.round_nearest))
+  ignore(RawMpc::zero().log(20, Nearest))
 }
 
 ///|
 test "mpc to_str to_complex hash and ln alias" {
-  let z = from_parts(@mpf.from_str("1.25"), @mpf.from_str("-2.5"))
-  @debug.assert_eq(mpc_to_str(z, dps=10), "1.25 - 2.5j")
-  let (re_s, im_s) = mpc_to_complex(z, dps=10)
+  let z = RawMpc::new(@mpf.RawMpf::parse("1.25"), @mpf.RawMpf::parse("-2.5"))
+  @debug.assert_eq(z.format(dps=10), "1.25 - 2.5j")
+  let (re_s, im_s) = z.format_components(dps=10)
   @debug.assert_eq(re_s, "1.25")
   @debug.assert_eq(im_s, "-2.5")
-  let h_expect = @mpf.mpf_hash(z.real) + 1000003 * @mpf.mpf_hash(z.imag)
+  let h_expect = z.real.stable_hash() + 1000003 * z.imag.stable_hash()
   let h = if h_expect == -1 { -2 } else { h_expect }
-  @debug.assert_eq(mpc_hash(z), h)
-  let l = mpc_ln(
-    from_parts(@mpf.from_int(3), @mpf.from_int(4)),
+  @debug.assert_eq(z.stable_hash(), h)
+  let l = RawMpc::new(@mpf.RawMpf::from_int(3), @mpf.RawMpf::from_int(4)).ln(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(l.real, "1.609437912434", 14)
   assert_mpf_close_with_dps(l.imag, "0.927295218001", 14)
@@ -377,287 +376,270 @@ test "mpc to_str to_complex hash and ln alias" {
 
 ///|
 test "mpc pi-family and expj subset" {
-  let cp = mpc_cos_pi(
-    from_parts(@mpf.from_str("0.5"), @mpf.fzero),
+  let cp = RawMpc::new(@mpf.RawMpf::parse("0.5"), @mpf.RawMpf::zero()).cos_pi(
     120,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(cp.real, "0.0", 10)
-  let sp = mpc_sin_pi(
-    from_parts(@mpf.from_str("0.25"), @mpf.fzero),
+  let sp = RawMpc::new(@mpf.RawMpf::parse("0.25"), @mpf.RawMpf::zero()).sin_pi(
     120,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(sp.real, "0.7071067", 10)
-  let z = from_parts(@mpf.from_str("0.75"), @mpf.from_str("0.0"))
-  let (cz, sz) = mpc_cos_sin(z, 120, @mpf.round_nearest)
-  @debug.assert_eq(cz.imag, @mpf.fzero)
-  @debug.assert_eq(sz.imag, @mpf.fzero)
-  let (czp, szp) = mpc_cos_sin_pi(z, 120, @mpf.round_nearest)
-  @debug.assert_eq(czp.imag, @mpf.fzero)
-  @debug.assert_eq(szp.imag, @mpf.fzero)
-  let ej = mpc_expj(
-    from_parts(@libelefun.mpf_pi(140, @mpf.round_nearest), @mpf.fzero),
+  let z = RawMpc::new(@mpf.RawMpf::parse("0.75"), @mpf.RawMpf::parse("0.0"))
+  let (cz, sz) = z.cos_sin(120, Nearest)
+  @debug.assert_eq(cz.imag, @mpf.RawMpf::zero())
+  @debug.assert_eq(sz.imag, @mpf.RawMpf::zero())
+  let (czp, szp) = z.cos_sin_pi(120, Nearest)
+  @debug.assert_eq(czp.imag, @mpf.RawMpf::zero())
+  @debug.assert_eq(szp.imag, @mpf.RawMpf::zero())
+  let ej = RawMpc::new(@libelefun.pi(140, Nearest), @mpf.RawMpf::zero()).exp_i(
     120,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(ej.real, "-1.0", 10)
-  let ejp = mpc_expjpi(
-    from_parts(@mpf.from_int(1), @mpf.fzero),
+  let ejp = RawMpc::new(@mpf.RawMpf::from_int(1), @mpf.RawMpf::zero()).exp_i_pi(
     120,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(ejp.real, "-1.0", 10)
 }
 
 ///|
 test "mpc inverse trig-hyperbolic and roots subset" {
-  let a = mpc_atan(
-    from_parts(@mpf.from_int(1), @mpf.fzero),
+  let a = RawMpc::new(@mpf.RawMpf::from_int(1), @mpf.RawMpf::zero()).atan(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(a.real, "0.785398163397", 14)
-  let asn = mpc_asin(
-    from_parts(@mpf.from_str("0.5"), @mpf.fzero),
+  let asn = RawMpc::new(@mpf.RawMpf::parse("0.5"), @mpf.RawMpf::zero()).asin(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(asn.real, "0.523598775598", 14)
-  let acs = mpc_acos(
-    from_parts(@mpf.from_str("0.5"), @mpf.fzero),
+  let acs = RawMpc::new(@mpf.RawMpf::parse("0.5"), @mpf.RawMpf::zero()).acos(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(acs.real, "1.047197551196", 14)
-  let ash = mpc_asinh(
-    from_parts(@mpf.from_int(1), @mpf.fzero),
+  let ash = RawMpc::new(@mpf.RawMpf::from_int(1), @mpf.RawMpf::zero()).asinh(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(ash.real, "0.881373587019", 14)
-  let ach = mpc_acosh(
-    from_parts(@mpf.from_int(2), @mpf.fzero),
+  let ach = RawMpc::new(@mpf.RawMpf::from_int(2), @mpf.RawMpf::zero()).acosh(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(ach.real, "1.316957896924", 14)
-  let ath = mpc_atanh(
-    from_parts(@mpf.from_str("0.5"), @mpf.fzero),
+  let ath = RawMpc::new(@mpf.RawMpf::parse("0.5"), @mpf.RawMpf::zero()).atanh(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(ath.real, "0.549306144334", 14)
-  let nr = mpc_nthroot(
-    from_parts(@mpf.from_int(8), @mpf.fzero),
+  let nr = RawMpc::new(@mpf.RawMpf::from_int(8), @mpf.RawMpf::zero()).nthroot(
     3,
     120,
-    @mpf.round_nearest,
+    Nearest,
   )
-  @debug.assert_eq(nr, from_parts(@mpf.from_int(2), @mpf.fzero))
-  let cr = mpc_cbrt(
-    from_parts(@mpf.from_int(8), @mpf.fzero),
+  @debug.assert_eq(
+    nr,
+    RawMpc::new(@mpf.RawMpf::from_int(2), @mpf.RawMpf::zero()),
+  )
+  let cr = RawMpc::new(@mpf.RawMpf::from_int(8), @mpf.RawMpf::zero()).cbrt(
     120,
-    @mpf.round_nearest,
+    Nearest,
   )
-  @debug.assert_eq(cr, from_parts(@mpf.from_int(2), @mpf.fzero))
+  @debug.assert_eq(
+    cr,
+    RawMpc::new(@mpf.RawMpf::from_int(2), @mpf.RawMpf::zero()),
+  )
 }
 
 ///|
 test "mpc agm fibonacci and real-special wrappers" {
-  let fib = mpc_fibonacci(
-    from_parts(@mpf.from_int(10), @mpf.fzero),
+  let fib = RawMpc::new(@mpf.RawMpf::from_int(10), @mpf.RawMpf::zero()).fibonacci(
     120,
-    @mpf.round_nearest,
+    Nearest,
   )
-  @debug.assert_eq(fib, from_parts(@mpf.from_int(55), @mpf.fzero))
-  let agm = mpc_agm(
-    from_parts(@mpf.from_int(1), @mpf.fzero),
-    from_parts(@mpf.from_str("0.25"), @mpf.fzero),
+  @debug.assert_eq(
+    fib,
+    RawMpc::new(@mpf.RawMpf::from_int(55), @mpf.RawMpf::zero()),
+  )
+  let agm = RawMpc::new(@mpf.RawMpf::from_int(1), @mpf.RawMpf::zero()).agm(
+    RawMpc::new(@mpf.RawMpf::parse("0.25"), @mpf.RawMpf::zero()),
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(agm.real, "0.560757145071", 14)
-  let agm1 = mpc_agm1(
-    from_parts(@mpf.from_str("0.25"), @mpf.fzero),
+  let agm1 = RawMpc::new(@mpf.RawMpf::parse("0.25"), @mpf.RawMpf::zero()).agm_with_one(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(agm1.real, "0.560757145071", 14)
   @debug.assert_eq(
-    mpc_gamma(from_parts(@mpf.from_int(5), @mpf.fzero), 120, @mpf.round_nearest),
-    from_parts(@mpf.from_int(24), @mpf.fzero),
+    RawMpc::new(@mpf.RawMpf::from_int(5), @mpf.RawMpf::zero()).gamma(
+      120,
+      Nearest,
+    ),
+    RawMpc::new(@mpf.RawMpf::from_int(24), @mpf.RawMpf::zero()),
   )
-  let rg = mpc_rgamma(
-    from_parts(@mpf.from_int(5), @mpf.fzero),
+  let rg = RawMpc::new(@mpf.RawMpf::from_int(5), @mpf.RawMpf::zero()).rgamma(
     120,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(rg.real, "0.041666666666", 14)
-  let lg = mpc_loggamma(
-    from_parts(@mpf.from_int(5), @mpf.fzero),
+  let lg = RawMpc::new(@mpf.RawMpf::from_int(5), @mpf.RawMpf::zero()).loggamma(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(lg.real, "3.178053830347", 14)
-  let fac = mpc_factorial(
-    from_parts(@mpf.from_int(5), @mpf.fzero),
+  let fac = RawMpc::new(@mpf.RawMpf::from_int(5), @mpf.RawMpf::zero()).factorial(
     120,
-    @mpf.round_nearest,
+    Nearest,
   )
-  @debug.assert_eq(fac, from_parts(@mpf.from_int(120), @mpf.fzero))
-  let har = mpc_harmonic(
-    from_parts(@mpf.from_int(5), @mpf.fzero),
+  @debug.assert_eq(
+    fac,
+    RawMpc::new(@mpf.RawMpf::from_int(120), @mpf.RawMpf::zero()),
+  )
+  let har = RawMpc::new(@mpf.RawMpf::from_int(5), @mpf.RawMpf::zero()).harmonic(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(har.real, "2.283333333333", 14)
-  let p0 = mpc_psi0(
-    from_parts(@mpf.from_int(4), @mpf.fzero),
+  let p0 = RawMpc::new(@mpf.RawMpf::from_int(4), @mpf.RawMpf::zero()).digamma(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(p0.real, "1.256117668431", 14)
-  let p1 = mpc_psi(
+  let p1 = RawMpc::new(@mpf.RawMpf::from_int(2), @mpf.RawMpf::zero()).polygamma(
     1,
-    from_parts(@mpf.from_int(2), @mpf.fzero),
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
-  assert_true(@mpf.is_finite(p1.real))
-  let ei = mpc_ei(
-    from_parts(@mpf.from_str("0.5"), @mpf.fzero),
+  assert_true(p1.real.is_finite())
+  let ei = RawMpc::new(@mpf.RawMpf::parse("0.5"), @mpf.RawMpf::zero()).ei(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(ei.real, "0.454219904863", 14)
-  let e1 = mpc_e1(
-    from_parts(@mpf.from_int(1), @mpf.fzero),
+  let e1 = RawMpc::new(@mpf.RawMpf::from_int(1), @mpf.RawMpf::zero()).e1(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(e1.real, "0.219383934395", 14)
-  let si = mpc_si(
-    from_parts(@mpf.from_int(1), @mpf.fzero),
+  let si = RawMpc::new(@mpf.RawMpf::from_int(1), @mpf.RawMpf::zero()).si(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(si.real, "0.946083070367", 14)
-  let ci = mpc_ci(
-    from_parts(@mpf.from_int(1), @mpf.fzero),
+  let ci = RawMpc::new(@mpf.RawMpf::from_int(1), @mpf.RawMpf::zero()).ci(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(ci.real, "0.337403922900", 14)
-  let j0 = mpc_besseljn(
+  let j0 = RawMpc::new(@mpf.RawMpf::from_int(1), @mpf.RawMpf::zero()).bessel_j(
     0,
-    from_parts(@mpf.from_int(1), @mpf.fzero),
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(j0.real, "0.765197686557", 14)
-  let ek = mpc_ellipk(
-    from_parts(@mpf.from_str("0.25"), @mpf.fzero),
+  let ek = RawMpc::new(@mpf.RawMpf::parse("0.25"), @mpf.RawMpf::zero()).ellipk(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(ek.real, "1.685750354812", 14)
-  let ee = mpc_ellipe(
-    from_parts(@mpf.from_str("0.25"), @mpf.fzero),
+  let ee = RawMpc::new(@mpf.RawMpf::parse("0.25"), @mpf.RawMpf::zero()).ellipe(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(ee.real, "1.467462209339", 14)
 }
 
 ///|
 test "mpc zeta family subset" {
-  let z2 = mpc_zeta(
-    from_parts(@mpf.from_int(2), @mpf.fzero),
+  let z2 = RawMpc::new(@mpf.RawMpf::from_int(2), @mpf.RawMpf::zero()).zeta(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(z2.real, "1.644934066848", 14)
-  let a2 = mpc_altzeta(
-    from_parts(@mpf.from_int(2), @mpf.fzero),
+  let a2 = RawMpc::new(@mpf.RawMpf::from_int(2), @mpf.RawMpf::zero()).eta(
     140,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_mpf_close_with_dps(a2.real, "0.822467033424", 14)
-  let s10 = mpc_zetasum(
-    from_parts(@mpf.from_int(2), @mpf.fzero),
+  let s10 = RawMpc::new(@mpf.RawMpf::from_int(2), @mpf.RawMpf::zero()).zeta_sum(
     140,
-    @mpf.round_nearest,
+    Nearest,
     start=1,
     terms=10,
   )
   assert_mpf_close_with_dps(s10.real, "1.549767731166", 14)
-  let zc = mpc_zeta(
-    from_parts(@mpf.from_str("0.5"), @mpf.from_str("0.25")),
+  let zc = RawMpc::new(@mpf.RawMpf::parse("0.5"), @mpf.RawMpf::parse("0.25")).zeta(
     100,
-    @mpf.round_nearest,
+    Nearest,
   )
-  assert_true(@mpf.is_finite(zc.real))
-  assert_true(@mpf.is_finite(zc.imag))
+  assert_true(zc.real.is_finite())
+  assert_true(zc.imag.is_finite())
 }
 
 ///|
 test "mpc complex special functions subset" {
-  let z = from_parts(@mpf.from_str("0.5"), @mpf.from_str("0.25"))
-  let ei = mpc_ei(z, 140, @mpf.round_nearest)
+  let z = RawMpc::new(@mpf.RawMpf::parse("0.5"), @mpf.RawMpf::parse("0.25"))
+  let ei = z.ei(140, Nearest)
   assert_mpf_close_with_dps(ei.real, "0.5438975", 10)
   assert_mpf_close_with_dps(ei.imag, "0.7867419", 10)
-  let e1 = mpc_e1(z, 140, @mpf.round_nearest)
+  let e1 = z.e1(140, Nearest)
   assert_mpf_close_with_dps(e1.real, "0.4594499", 10)
   assert_mpf_close_with_dps(e1.imag, "-0.2675113", 10)
-  let ci = mpc_ci(z, 140, @mpf.round_nearest)
+  let ci = z.ci(140, Nearest)
   assert_mpf_close_with_dps(ci.real, "-0.0515129", 10)
   assert_mpf_close_with_dps(ci.imag, "0.4021216", 10)
-  let si = mpc_si(z, 140, @mpf.round_nearest)
+  let si = z.si(140, Nearest)
   assert_mpf_close_with_dps(si.real, "0.4982025", 10)
   assert_mpf_close_with_dps(si.imag, "0.2405181", 10)
-  let j1 = mpc_besseljn(1, z, 140, @mpf.round_nearest)
+  let j1 = z.bessel_j(1, 140, Nearest)
   assert_mpf_close_with_dps(j1.real, "0.2479511", 10)
   assert_mpf_close_with_dps(j1.imag, "0.1143621", 10)
-  let m = from_parts(@mpf.from_str("0.25"), @mpf.from_str("0.1"))
-  let ek = mpc_ellipk(m, 140, @mpf.round_nearest)
+  let m = RawMpc::new(@mpf.RawMpf::parse("0.25"), @mpf.RawMpf::parse("0.1"))
+  let ek = m.ellipk(140, Nearest)
   assert_mpf_close_with_dps(ek.real, "1.6817722", 10)
   assert_mpf_close_with_dps(ek.imag, "0.0538075", 10)
-  let ee = mpc_ellipe(m, 140, @mpf.round_nearest)
+  let ee = m.ellipe(140, Nearest)
   assert_mpf_close_with_dps(ee.real, "1.4685096", 10)
   assert_mpf_close_with_dps(ee.imag, "-0.0436005", 10)
-  let w = from_parts(@mpf.from_str("2.5"), @mpf.from_str("0.5"))
-  let g = mpc_gamma(w, 140, @mpf.round_nearest)
+  let w = RawMpc::new(@mpf.RawMpf::parse("2.5"), @mpf.RawMpf::parse("0.5"))
+  let g = w.gamma(140, Nearest)
   assert_mpf_close_with_dps(g.real, "1.1723958", 10)
   assert_mpf_close_with_dps(g.imag, "0.4365070", 10)
-  let rg = mpc_rgamma(w, 140, @mpf.round_nearest)
+  let rg = w.rgamma(140, Nearest)
   assert_mpf_close_with_dps(rg.real, "0.7491105", 10)
   assert_mpf_close_with_dps(rg.imag, "-0.2789092", 10)
-  let lg = mpc_loggamma(w, 140, @mpf.round_nearest)
+  let lg = w.loggamma(140, Nearest)
   assert_mpf_close_with_dps(lg.real, "0.2239590", 10)
   assert_mpf_close_with_dps(lg.imag, "0.3564195", 10)
-  let h = mpc_harmonic(w, 140, @mpf.round_nearest)
+  let h = w.harmonic(140, Nearest)
   assert_mpf_close_with_dps(h.real, "1.6937236", 10)
   assert_mpf_close_with_dps(h.imag, "0.1637364", 10)
-  let p0 = mpc_psi0(w, 140, @mpf.round_nearest)
+  let p0 = w.digamma(140, Nearest)
   assert_mpf_close_with_dps(p0.real, "0.7318926", 10)
   assert_mpf_close_with_dps(p0.imag, "0.2406595", 10)
-  let p1 = mpc_psi(1, w, 140, @mpf.round_nearest)
+  let p1 = w.polygamma(1, 140, Nearest)
   assert_mpf_close_with_dps(p1.real, "0.463802495540", 14)
   assert_mpf_close_with_dps(p1.imag, "-0.111892198603", 14)
-  let fac = mpc_factorial(w, 140, @mpf.round_nearest)
-  assert_true(@mpf.is_finite(fac.real))
-  assert_true(@mpf.is_finite(fac.imag))
+  let fac = w.factorial(140, Nearest)
+  assert_true(fac.real.is_finite())
+  assert_true(fac.imag.is_finite())
 }
 
 ///|
 test "mpc_ci_si_taylor subset" {
-  let re = @mpf.from_str("0.5")
-  let im = @mpf.from_str("0.25")
-  let ci_core = mpc_ci_si_taylor(re, im, 180, which=0)
+  let re = @mpf.RawMpf::parse("0.5")
+  let im = @mpf.RawMpf::parse("0.25")
+  let ci_core = RawMpc::ci_si_taylor(re, im, 180, which=0)
   assert_mpf_close_with_dps(ci_core.real, "-0.047153243510", 14)
   assert_mpf_close_with_dps(ci_core.imag, "-0.061525939930", 14)
-  let si = mpc_ci_si_taylor(re, im, 180, which=1)
+  let si = RawMpc::ci_si_taylor(re, im, 180, which=1)
   assert_mpf_close_with_dps(si.real, "0.498202520036", 14)
   assert_mpf_close_with_dps(si.imag, "0.240518169433", 14)
 }
@@ -665,93 +647,93 @@ test "mpc_ci_si_taylor subset" {
 ///|
 test "mpc_ci_si_taylor out-of-range fallback subset" {
   let p = 220
-  let z_big = from_parts(@mpf.from_str("20"), @mpf.from_str("5"))
-  let ci_series_big = mpc_ci_si_taylor(z_big.real, z_big.imag, p, which=0)
-  let si_series_big = mpc_ci_si_taylor(z_big.real, z_big.imag, p, which=1)
-  let ci_big_rebuilt = mpc_add(
-    mpc_add(
-      from_parts(@gammazeta.mpf_euler(p, @mpf.round_nearest), @mpf.fzero),
-      mpc_ln(z_big, p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    ),
-    ci_series_big,
-    p,
-    @mpf.round_nearest,
+  let z_big = RawMpc::new(@mpf.RawMpf::parse("20"), @mpf.RawMpf::parse("5"))
+  let ci_series_big = RawMpc::ci_si_taylor(z_big.real, z_big.imag, p, which=0)
+  let si_series_big = RawMpc::ci_si_taylor(z_big.real, z_big.imag, p, which=1)
+  let ci_big_rebuilt = RawMpc::new(
+      @gammazeta.euler(p, Nearest),
+      @mpf.RawMpf::zero(),
+    )
+    .add(z_big.ln(p, Nearest), p, Nearest)
+    .add(ci_series_big, p, Nearest)
+  let ci_big = z_big.ci(p, Nearest)
+  let si_big = z_big.si(p, Nearest)
+  let err_ci_big = ci_big_rebuilt.sub(ci_big, p, Nearest).abs(p, Nearest)
+  let err_si_big = si_series_big.sub(si_big, p, Nearest).abs(p, Nearest)
+  assert_true(err_ci_big.is_finite())
+  assert_true(err_si_big.is_finite())
+  let z_tiny = RawMpc::new(
+    @mpf.RawMpf::parse("1e-80"),
+    @mpf.RawMpf::parse("-2e-80"),
   )
-  let ci_big = mpc_ci(z_big, p, @mpf.round_nearest)
-  let si_big = mpc_si(z_big, p, @mpf.round_nearest)
-  let err_ci_big = mpc_abs(
-    mpc_sub(ci_big_rebuilt, ci_big, p, @mpf.round_nearest),
+  let ci_series_tiny = RawMpc::ci_si_taylor(
+    z_tiny.real,
+    z_tiny.imag,
     p,
-    @mpf.round_nearest,
+    which=0,
   )
-  let err_si_big = mpc_abs(
-    mpc_sub(si_series_big, si_big, p, @mpf.round_nearest),
+  let si_series_tiny = RawMpc::ci_si_taylor(
+    z_tiny.real,
+    z_tiny.imag,
     p,
-    @mpf.round_nearest,
+    which=1,
   )
-  assert_true(@mpf.is_finite(err_ci_big))
-  assert_true(@mpf.is_finite(err_si_big))
-  let z_tiny = from_parts(@mpf.from_str("1e-80"), @mpf.from_str("-2e-80"))
-  let ci_series_tiny = mpc_ci_si_taylor(z_tiny.real, z_tiny.imag, p, which=0)
-  let si_series_tiny = mpc_ci_si_taylor(z_tiny.real, z_tiny.imag, p, which=1)
-  let ci_tiny_abs = mpc_abs(ci_series_tiny, p, @mpf.round_nearest)
-  let si_tiny_err = mpc_abs(
-    mpc_sub(si_series_tiny, z_tiny, p, @mpf.round_nearest),
-    p,
-    @mpf.round_nearest,
-  )
-  assert_true(@mpf.mpf_lt(ci_tiny_abs, @mpf.from_str("1e-60")))
-  assert_true(@mpf.mpf_lt(si_tiny_err, @mpf.from_str("1e-60")))
+  let ci_tiny_abs = ci_series_tiny.abs(p, Nearest)
+  let si_tiny_err = si_series_tiny.sub(z_tiny, p, Nearest).abs(p, Nearest)
+  assert_true(ci_tiny_abs < @mpf.RawMpf::parse("1e-60"))
+  assert_true(si_tiny_err < @mpf.RawMpf::parse("1e-60"))
 }
 
 ///|
 test "mpc ci/si tiny and asymptotic fallback subset" {
-  let z_tiny = from_parts(@mpf.from_str("1e-30"), @mpf.from_str("2e-30"))
+  let z_tiny = RawMpc::new(
+    @mpf.RawMpf::parse("1e-30"),
+    @mpf.RawMpf::parse("2e-30"),
+  )
   let p = 220
-  let ci_tiny = mpc_ci(z_tiny, p, @mpf.round_nearest)
-  let si_tiny = mpc_si(z_tiny, p, @mpf.round_nearest)
-  let target_ci = mpc_add(
-    from_parts(@gammazeta.mpf_euler(p, @mpf.round_nearest), @mpf.fzero),
-    mpc_ln(z_tiny, p, @mpf.round_nearest),
+  let ci_tiny = z_tiny.ci(p, Nearest)
+  let si_tiny = z_tiny.si(p, Nearest)
+  let target_ci = RawMpc::new(@gammazeta.euler(p, Nearest), @mpf.RawMpf::zero()).add(
+    z_tiny.ln(p, Nearest),
     p,
-    @mpf.round_nearest,
+    Nearest,
   )
-  let ci_err = mpc_abs(
-    mpc_sub(ci_tiny, target_ci, p, @mpf.round_nearest),
-    p,
-    @mpf.round_nearest,
-  )
-  let si_err = mpc_abs(
-    mpc_sub(si_tiny, z_tiny, p, @mpf.round_nearest),
-    p,
-    @mpf.round_nearest,
-  )
-  assert_true(@mpf.mpf_lt(ci_err, @mpf.from_str("1e-25")))
-  assert_true(@mpf.mpf_lt(si_err, @mpf.from_str("1e-25")))
-  let z_big = from_parts(@mpf.from_str("5"), @mpf.from_str("3"))
-  let ci_big = mpc_ci(z_big, 180, @mpf.round_nearest)
-  let si_big = mpc_si(z_big, 180, @mpf.round_nearest)
-  assert_true(@mpf.is_finite(ci_big.real))
-  assert_true(@mpf.is_finite(ci_big.imag))
-  assert_true(@mpf.is_finite(si_big.real))
-  assert_true(@mpf.is_finite(si_big.imag))
+  let ci_err = ci_tiny.sub(target_ci, p, Nearest).abs(p, Nearest)
+  let si_err = si_tiny.sub(z_tiny, p, Nearest).abs(p, Nearest)
+  assert_true(ci_err < @mpf.RawMpf::parse("1e-25"))
+  assert_true(si_err < @mpf.RawMpf::parse("1e-25"))
+  let z_big = RawMpc::new(@mpf.RawMpf::parse("5"), @mpf.RawMpf::parse("3"))
+  let ci_big = z_big.ci(180, Nearest)
+  let si_big = z_big.si(180, Nearest)
+  assert_true(ci_big.real.is_finite())
+  assert_true(ci_big.imag.is_finite())
+  assert_true(si_big.real.is_finite())
+  assert_true(si_big.imag.is_finite())
 }
 
 ///|
 test "mpc_nthroot_fixed subset" {
   let prec = 80
-  let re = @mpf.from_str("0.5")
-  let im = @mpf.from_str("0.25")
+  let re = @mpf.RawMpf::parse("0.5")
+  let im = @mpf.RawMpf::parse("0.25")
   let a = mpf_to_fixed_signed_for_test(re, prec)
   let b = mpf_to_fixed_signed_for_test(im, prec)
-  let (re_fix, im_fix) = mpc_nthroot_fixed(a, b, 5, prec)
-  let re_v = @mpf.from_man_exp(re_fix, -(prec + 10), 180, @mpf.round_nearest)
-  let im_v = @mpf.from_man_exp(im_fix, -(prec + 10), 180, @mpf.round_nearest)
+  let (re_fix, im_fix) = RawMpc::nthroot_fixed(a, b, 5, prec)
+  let re_v = @mpf.RawMpf::from_mantissa_exponent(
+    re_fix,
+    -(prec + 10),
+    180,
+    Nearest,
+  )
+  let im_v = @mpf.RawMpf::from_mantissa_exponent(
+    im_fix,
+    -(prec + 10),
+    180,
+    Nearest,
+  )
   assert_mpf_close_with_dps(re_v, "0.886370150250", 14)
   assert_mpf_close_with_dps(im_v, "0.082429078456", 14)
-  let root = mpc_nthroot(from_parts(re, im), 5, 180, @mpf.round_nearest)
+  let root = RawMpc::new(re, im).nthroot(5, 180, Nearest)
   assert_mpf_close_with_dps(root.real, "0.886370150250", 14)
   assert_mpf_close_with_dps(root.imag, "0.082429078456", 14)
 }

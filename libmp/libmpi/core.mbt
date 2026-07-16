@@ -42,7 +42,7 @@ fn elefun_pi_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise MpiError {
-  @libelefun.mpf_pi(prec, rnd) catch {
+  @libelefun.pi(prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -53,7 +53,7 @@ fn elefun_exp_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise MpiError {
-  @libelefun.mpf_exp(x, prec, rnd) catch {
+  @libelefun.exp(x, prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -64,7 +64,7 @@ fn elefun_atan_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise MpiError {
-  @libelefun.mpf_atan(x, prec, rnd) catch {
+  @libelefun.atan(x, prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -76,7 +76,7 @@ fn elefun_atan2_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise MpiError {
-  @libelefun.mpf_atan2(y, x, prec, rnd) catch {
+  @libelefun.atan2(y, x, prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -87,7 +87,7 @@ fn elefun_cos_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise MpiError {
-  @libelefun.mpf_cos(x, prec, rnd) catch {
+  @libelefun.cos(x, prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
@@ -98,20 +98,20 @@ fn elefun_sin_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise MpiError {
-  @libelefun.mpf_sin(x, prec, rnd) catch {
+  @libelefun.sin(x, prec, rnd) catch {
     err => raise from_libelefun_error(err)
   }
 }
 
 ///|
-let fhalf : @mpf.RawMpf = @mpf.from_man_exp(1N, -1, 0, @mpf.round_down)
+let fhalf : @mpf.RawMpf = @mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down)
 
 ///|
 fn maybe_integer(x : @mpf.RawMpf) -> Int? {
-  if !@mpf.is_finite(x) {
+  if !x.is_finite() {
     return None
   }
-  if @mpf.is_zero(x) {
+  if x.is_zero() {
     return Some(0)
   }
   if x.exp < 0 {
@@ -123,7 +123,7 @@ fn maybe_integer(x : @mpf.RawMpf) -> Int? {
   }
   let n = v.to_int()
   let signed_n = if x.sign == 1 { -n } else { n }
-  if @mpf.mpf_eq(x, @mpf.from_int(signed_n)) {
+  if x == @mpf.RawMpf::from_int(signed_n) {
     Some(signed_n)
   } else {
     None
@@ -132,8 +132,8 @@ fn maybe_integer(x : @mpf.RawMpf) -> Int? {
 
 ///|
 fn nan_to_lo(x : @mpf.RawMpf) -> @mpf.RawMpf {
-  if @mpf.is_nan(x) {
-    @mpf.fninf
+  if x.is_nan() {
+    @mpf.RawMpf::negative_infinity()
   } else {
     x
   }
@@ -141,18 +141,18 @@ fn nan_to_lo(x : @mpf.RawMpf) -> @mpf.RawMpf {
 
 ///|
 fn nan_to_hi(x : @mpf.RawMpf) -> @mpf.RawMpf {
-  if @mpf.is_nan(x) {
-    @mpf.finf
+  if x.is_nan() {
+    @mpf.RawMpf::infinity()
   } else {
     x
   }
 }
 
 ///|
-pub fn mpi_make(lo : @mpf.RawMpf, hi : @mpf.RawMpf) -> RawMpi {
-  if @mpf.is_nan(lo) || @mpf.is_nan(hi) {
-    { lo: @mpf.fninf, hi: @mpf.finf }
-  } else if @mpf.mpf_le(lo, hi) {
+pub fn RawMpi::new(lo : @mpf.RawMpf, hi : @mpf.RawMpf) -> RawMpi {
+  if lo.is_nan() || hi.is_nan() {
+    { lo: @mpf.RawMpf::negative_infinity(), hi: @mpf.RawMpf::infinity() }
+  } else if lo <= hi {
     { lo, hi }
   } else {
     { lo: hi, hi: lo }
@@ -160,205 +160,212 @@ pub fn mpi_make(lo : @mpf.RawMpf, hi : @mpf.RawMpf) -> RawMpi {
 }
 
 ///|
-pub fn mpi_from_mpf(x : @mpf.RawMpf) -> RawMpi {
+pub impl Neg for RawMpi with fn neg(x) {
+  RawMpi::new(-x.hi, -x.lo)
+}
+
+///|
+pub impl Hash for RawMpi with fn hash_combine(x, hasher) {
+  hasher.combine(x.lo)
+  hasher.combine(x.hi)
+}
+
+///|
+pub fn RawMpi::point(x : @mpf.RawMpf) -> RawMpi {
   { lo: x, hi: x }
 }
 
 ///|
-pub fn mpi_eq(s : RawMpi, t : RawMpi) -> Bool {
-  s == t
-}
-
-///|
-pub fn mpi_ne(s : RawMpi, t : RawMpi) -> Bool {
-  s != t
-}
-
-///|
-pub fn mpi_lt(s : RawMpi, t : RawMpi) -> Bool raise MpiError {
-  if @mpf.mpf_lt(s.hi, t.lo) {
+pub fn RawMpi::strictly_less_than(
+  s : RawMpi,
+  t : RawMpi,
+) -> Bool raise MpiError {
+  if s.hi < t.lo {
     true
-  } else if @mpf.mpf_ge(s.lo, t.hi) {
+  } else if s.lo >= t.hi {
     false
   } else {
-    raise UnorderedError("mpi_lt: overlapping intervals are unordered")
+    raise UnorderedError(
+      "RawMpi::strictly_less_than: overlapping intervals are unordered",
+    )
   }
 }
 
 ///|
-pub fn mpi_le(s : RawMpi, t : RawMpi) -> Bool raise MpiError {
-  if @mpf.mpf_le(s.hi, t.lo) {
+pub fn RawMpi::less_or_equal(s : RawMpi, t : RawMpi) -> Bool raise MpiError {
+  if s.hi <= t.lo {
     true
-  } else if @mpf.mpf_gt(s.lo, t.hi) {
+  } else if s.lo > t.hi {
     false
   } else {
-    raise UnorderedError("mpi_le: overlapping intervals are unordered")
+    raise UnorderedError(
+      "RawMpi::less_or_equal: overlapping intervals are unordered",
+    )
   }
 }
 
 ///|
-pub fn mpi_gt(s : RawMpi, t : RawMpi) -> Bool raise MpiError {
-  mpi_lt(t, s)
+pub fn RawMpi::strictly_greater_than(
+  s : RawMpi,
+  t : RawMpi,
+) -> Bool raise MpiError {
+  t.strictly_less_than(s)
 }
 
 ///|
-pub fn mpi_ge(s : RawMpi, t : RawMpi) -> Bool raise MpiError {
-  mpi_le(t, s)
+pub fn RawMpi::greater_or_equal(s : RawMpi, t : RawMpi) -> Bool raise MpiError {
+  t.less_or_equal(s)
 }
 
 ///|
-pub fn mpi_overlap(x : RawMpi, y : RawMpi) -> Bool {
-  !(@mpf.mpf_lt(y.hi, x.lo) || @mpf.mpf_gt(y.lo, x.hi))
+pub fn RawMpi::overlaps(x : RawMpi, y : RawMpi) -> Bool {
+  !(y.hi < x.lo || y.lo > x.hi)
 }
 
 ///|
-pub fn mpi_add(s : RawMpi, t : RawMpi, prec? : Int = 0) -> RawMpi {
-  let a = nan_to_lo(@mpf.mpf_add(s.lo, t.lo, prec, @mpf.round_floor))
-  let b = nan_to_hi(@mpf.mpf_add(s.hi, t.hi, prec, @mpf.round_ceiling))
+pub fn RawMpi::add(s : RawMpi, t : RawMpi, prec? : Int = 0) -> RawMpi {
+  let a = nan_to_lo(s.lo.add(t.lo, prec, Floor))
+  let b = nan_to_hi(s.hi.add(t.hi, prec, Ceiling))
   { lo: a, hi: b }
 }
 
 ///|
-pub fn mpi_sub(s : RawMpi, t : RawMpi, prec? : Int = 0) -> RawMpi {
-  let a = nan_to_lo(@mpf.mpf_sub(s.lo, t.hi, prec, @mpf.round_floor))
-  let b = nan_to_hi(@mpf.mpf_sub(s.hi, t.lo, prec, @mpf.round_ceiling))
+pub fn RawMpi::sub(s : RawMpi, t : RawMpi, prec? : Int = 0) -> RawMpi {
+  let a = nan_to_lo(s.lo.sub(t.hi, prec, Floor))
+  let b = nan_to_hi(s.hi.sub(t.lo, prec, Ceiling))
   { lo: a, hi: b }
 }
 
 ///|
-pub fn mpi_delta(s : RawMpi, prec : Int) -> @mpf.RawMpf {
-  @mpf.mpf_sub(s.hi, s.lo, prec, @mpf.round_up)
+pub fn RawMpi::width(s : RawMpi, prec : Int) -> @mpf.RawMpf {
+  s.hi.sub(s.lo, prec, Up)
 }
 
 ///|
-pub fn mpi_mid(s : RawMpi, prec : Int) -> @mpf.RawMpf {
-  @mpf.mpf_shift(@mpf.mpf_add(s.lo, s.hi, prec, @mpf.round_nearest), -1)
+pub fn RawMpi::midpoint(s : RawMpi, prec : Int) -> @mpf.RawMpf {
+  s.lo.add(s.hi, prec, Nearest).scale_pow2(-1)
 }
 
 ///|
-pub fn mpi_pos(s : RawMpi, prec : Int) -> RawMpi {
-  {
-    lo: @mpf.mpf_pos(s.lo, prec, @mpf.round_floor),
-    hi: @mpf.mpf_pos(s.hi, prec, @mpf.round_ceiling),
-  }
+pub fn RawMpi::rounded(s : RawMpi, prec : Int) -> RawMpi {
+  { lo: s.lo.rounded(prec, Floor), hi: s.hi.rounded(prec, Ceiling) }
 }
 
 ///|
-pub fn mpi_neg(s : RawMpi, prec? : Int = 0) -> RawMpi {
-  {
-    lo: @mpf.mpf_neg(s.hi, prec, @mpf.round_floor),
-    hi: @mpf.mpf_neg(s.lo, prec, @mpf.round_ceiling),
-  }
+pub fn RawMpi::negated(s : RawMpi, prec? : Int = 0) -> RawMpi {
+  { lo: s.hi.negated(prec, Floor), hi: s.lo.negated(prec, Ceiling) }
 }
 
 ///|
-pub fn mpi_abs(s : RawMpi, prec? : Int = 0) -> RawMpi {
-  let sas = @mpf.mpf_sign(s.lo)
-  let sbs = @mpf.mpf_sign(s.hi)
+pub fn RawMpi::abs(s : RawMpi, prec? : Int = 0) -> RawMpi {
+  let sas = s.lo.signum()
+  let sbs = s.hi.signum()
   if sas >= 0 {
-    return {
-      lo: @mpf.mpf_pos(s.lo, prec, @mpf.round_floor),
-      hi: @mpf.mpf_pos(s.hi, prec, @mpf.round_ceiling),
-    }
+    return { lo: s.lo.rounded(prec, Floor), hi: s.hi.rounded(prec, Ceiling) }
   }
   if sbs >= 0 {
-    let neg_lo = @mpf.mpf_neg(s.lo, 0, @mpf.round_down)
-    let hi = if @mpf.mpf_lt(neg_lo, s.hi) {
-      @mpf.mpf_pos(s.hi, prec, @mpf.round_ceiling)
+    let neg_lo = s.lo.negated(0, Down)
+    let hi = if neg_lo < s.hi {
+      s.hi.rounded(prec, Ceiling)
     } else {
-      @mpf.mpf_pos(neg_lo, prec, @mpf.round_ceiling)
+      neg_lo.rounded(prec, Ceiling)
     }
-    return { lo: @mpf.fzero, hi }
+    return { lo: @mpf.RawMpf::zero(), hi }
   }
-  {
-    lo: @mpf.mpf_neg(s.hi, prec, @mpf.round_floor),
-    hi: @mpf.mpf_neg(s.lo, prec, @mpf.round_ceiling),
-  }
+  { lo: s.hi.negated(prec, Floor), hi: s.lo.negated(prec, Ceiling) }
 }
 
 ///|
-pub fn mpi_mul_mpf(
+pub fn RawMpi::mul_real(
   s : RawMpi,
   t : @mpf.RawMpf,
   prec : Int,
 ) -> RawMpi raise MpiError {
-  mpi_mul(s, { lo: t, hi: t }, prec~)
+  s.mul({ lo: t, hi: t }, prec~)
 }
 
 ///|
-pub fn mpi_div_mpf(
+pub fn RawMpi::div_real(
   s : RawMpi,
   t : @mpf.RawMpf,
   prec : Int,
 ) -> RawMpi raise MpiError {
-  mpi_div(s, { lo: t, hi: t }, prec)
+  s.div({ lo: t, hi: t }, prec)
 }
 
 ///|
-pub fn mpi_mul(
+pub fn RawMpi::mul(
   s : RawMpi,
   t : RawMpi,
   prec? : Int = 0,
 ) -> RawMpi raise MpiError {
-  let sas = @mpf.mpf_sign(s.lo)
-  let sbs = @mpf.mpf_sign(s.hi)
-  let tas = @mpf.mpf_sign(t.lo)
-  let tbs = @mpf.mpf_sign(t.hi)
+  let sas = s.lo.signum()
+  let sbs = s.hi.signum()
+  let tas = t.lo.signum()
+  let tbs = t.hi.signum()
   if sas == 0 && sbs == 0 {
-    if t.lo == @mpf.fninf || t.hi == @mpf.finf {
-      return { lo: @mpf.fninf, hi: @mpf.finf }
+    if t.lo == @mpf.RawMpf::negative_infinity() ||
+      t.hi == @mpf.RawMpf::infinity() {
+      return {
+        lo: @mpf.RawMpf::negative_infinity(),
+        hi: @mpf.RawMpf::infinity(),
+      }
     }
-    return mpi_zero
+    return RawMpi::zero()
   }
   if tas == 0 && tbs == 0 {
-    if s.lo == @mpf.fninf || s.hi == @mpf.finf {
-      return { lo: @mpf.fninf, hi: @mpf.finf }
+    if s.lo == @mpf.RawMpf::negative_infinity() ||
+      s.hi == @mpf.RawMpf::infinity() {
+      return {
+        lo: @mpf.RawMpf::negative_infinity(),
+        hi: @mpf.RawMpf::infinity(),
+      }
     }
-    return mpi_zero
+    return RawMpi::zero()
   }
   if sas >= 0 {
     if tas >= 0 {
-      let a = @mpf.mpf_mul(s.lo, t.lo, prec, @mpf.round_floor)
-      let b = @mpf.mpf_mul(s.hi, t.hi, prec, @mpf.round_ceiling)
+      let a = s.lo.mul(t.lo, prec, Floor)
+      let b = s.hi.mul(t.hi, prec, Ceiling)
       return {
-        lo: if @mpf.is_nan(a) {
-          @mpf.fzero
+        lo: if a.is_nan() {
+          @mpf.RawMpf::zero()
         } else {
           a
         },
-        hi: if @mpf.is_nan(b) {
-          @mpf.finf
+        hi: if b.is_nan() {
+          @mpf.RawMpf::infinity()
         } else {
           b
         },
       }
     }
     if tbs <= 0 {
-      let a = @mpf.mpf_mul(s.hi, t.lo, prec, @mpf.round_floor)
-      let b = @mpf.mpf_mul(s.lo, t.hi, prec, @mpf.round_ceiling)
+      let a = s.hi.mul(t.lo, prec, Floor)
+      let b = s.lo.mul(t.hi, prec, Ceiling)
       return {
-        lo: if @mpf.is_nan(a) {
-          @mpf.fninf
+        lo: if a.is_nan() {
+          @mpf.RawMpf::negative_infinity()
         } else {
           a
         },
-        hi: if @mpf.is_nan(b) {
-          @mpf.fzero
+        hi: if b.is_nan() {
+          @mpf.RawMpf::zero()
         } else {
           b
         },
       }
     }
-    let a = @mpf.mpf_mul(s.hi, t.lo, prec, @mpf.round_floor)
-    let b = @mpf.mpf_mul(s.hi, t.hi, prec, @mpf.round_ceiling)
+    let a = s.hi.mul(t.lo, prec, Floor)
+    let b = s.hi.mul(t.hi, prec, Ceiling)
     return {
-      lo: if @mpf.is_nan(a) {
-        @mpf.fninf
+      lo: if a.is_nan() {
+        @mpf.RawMpf::negative_infinity()
       } else {
         a
       },
-      hi: if @mpf.is_nan(b) {
-        @mpf.finf
+      hi: if b.is_nan() {
+        @mpf.RawMpf::infinity()
       } else {
         b
       },
@@ -366,183 +373,190 @@ pub fn mpi_mul(
   }
   if sbs <= 0 {
     if tas >= 0 {
-      let a = @mpf.mpf_mul(s.lo, t.hi, prec, @mpf.round_floor)
-      let b = @mpf.mpf_mul(s.hi, t.lo, prec, @mpf.round_ceiling)
+      let a = s.lo.mul(t.hi, prec, Floor)
+      let b = s.hi.mul(t.lo, prec, Ceiling)
       return {
-        lo: if @mpf.is_nan(a) {
-          @mpf.fninf
+        lo: if a.is_nan() {
+          @mpf.RawMpf::negative_infinity()
         } else {
           a
         },
-        hi: if @mpf.is_nan(b) {
-          @mpf.fzero
+        hi: if b.is_nan() {
+          @mpf.RawMpf::zero()
         } else {
           b
         },
       }
     }
     if tbs <= 0 {
-      let a = @mpf.mpf_mul(s.hi, t.hi, prec, @mpf.round_floor)
-      let b = @mpf.mpf_mul(s.lo, t.lo, prec, @mpf.round_ceiling)
+      let a = s.hi.mul(t.hi, prec, Floor)
+      let b = s.lo.mul(t.lo, prec, Ceiling)
       return {
-        lo: if @mpf.is_nan(a) {
-          @mpf.fzero
+        lo: if a.is_nan() {
+          @mpf.RawMpf::zero()
         } else {
           a
         },
-        hi: if @mpf.is_nan(b) {
-          @mpf.finf
+        hi: if b.is_nan() {
+          @mpf.RawMpf::infinity()
         } else {
           b
         },
       }
     }
-    let a = @mpf.mpf_mul(s.lo, t.hi, prec, @mpf.round_floor)
-    let b = @mpf.mpf_mul(s.lo, t.lo, prec, @mpf.round_ceiling)
+    let a = s.lo.mul(t.hi, prec, Floor)
+    let b = s.lo.mul(t.lo, prec, Ceiling)
     return {
-      lo: if @mpf.is_nan(a) {
-        @mpf.fninf
+      lo: if a.is_nan() {
+        @mpf.RawMpf::negative_infinity()
       } else {
         a
       },
-      hi: if @mpf.is_nan(b) {
-        @mpf.finf
+      hi: if b.is_nan() {
+        @mpf.RawMpf::infinity()
       } else {
         b
       },
     }
   }
   let cases : Array[@mpf.RawMpf] = [
-    @mpf.mpf_mul(s.lo, t.lo, 0, @mpf.round_down),
-    @mpf.mpf_mul(s.lo, t.hi, 0, @mpf.round_down),
-    @mpf.mpf_mul(s.hi, t.lo, 0, @mpf.round_down),
-    @mpf.mpf_mul(s.hi, t.hi, 0, @mpf.round_down),
+    s.lo.mul(t.lo, 0, Down),
+    s.lo.mul(t.hi, 0, Down),
+    s.hi.mul(t.lo, 0, Down),
+    s.hi.mul(t.hi, 0, Down),
   ]
   for v in cases {
-    if @mpf.is_nan(v) {
-      return { lo: @mpf.fninf, hi: @mpf.finf }
+    if v.is_nan() {
+      return {
+        lo: @mpf.RawMpf::negative_infinity(),
+        hi: @mpf.RawMpf::infinity(),
+      }
     }
   }
-  let (mn, mx) = @mpf.mpf_min_max(cases) catch {
+  let (mn, mx) = @mpf.RawMpf::min_max(cases) catch {
     err => raise from_mpf_error(err)
   }
-  {
-    lo: @mpf.mpf_pos(mn, prec, @mpf.round_floor),
-    hi: @mpf.mpf_pos(mx, prec, @mpf.round_ceiling),
-  }
+  { lo: mn.rounded(prec, Floor), hi: mx.rounded(prec, Ceiling) }
 }
 
 ///|
-pub fn mpi_square(s : RawMpi, prec? : Int = 0) -> RawMpi raise MpiError {
-  if @mpf.mpf_ge(s.lo, @mpf.fzero) {
+pub fn RawMpi::square(s : RawMpi, prec? : Int = 0) -> RawMpi raise MpiError {
+  if s.lo >= @mpf.RawMpf::zero() {
     return {
-      lo: @mpf.mpf_mul(s.lo, s.lo, prec, @mpf.round_floor),
-      hi: @mpf.mpf_mul(s.hi, s.hi, prec, @mpf.round_ceiling),
+      lo: s.lo.mul(s.lo, prec, Floor),
+      hi: s.hi.mul(s.hi, prec, Ceiling),
     }
   }
-  if @mpf.mpf_le(s.hi, @mpf.fzero) {
+  if s.hi <= @mpf.RawMpf::zero() {
     return {
-      lo: @mpf.mpf_mul(s.hi, s.hi, prec, @mpf.round_floor),
-      hi: @mpf.mpf_mul(s.lo, s.lo, prec, @mpf.round_ceiling),
+      lo: s.hi.mul(s.hi, prec, Floor),
+      hi: s.lo.mul(s.lo, prec, Ceiling),
     }
   }
-  let neg_lo = @mpf.mpf_neg(s.lo, 0, @mpf.round_down)
-  let (_, mx) = @mpf.mpf_min_max([neg_lo, s.hi]) catch {
+  let neg_lo = s.lo.negated(0, Down)
+  let (_, mx) = @mpf.RawMpf::min_max([neg_lo, s.hi]) catch {
     err => raise from_mpf_error(err)
   }
-  { lo: @mpf.fzero, hi: @mpf.mpf_mul(mx, mx, prec, @mpf.round_ceiling) }
+  { lo: @mpf.RawMpf::zero(), hi: mx.mul(mx, prec, Ceiling) }
 }
 
 ///|
-pub fn mpi_div(s : RawMpi, t : RawMpi, prec : Int) -> RawMpi raise MpiError {
-  let sas = @mpf.mpf_sign(s.lo)
-  let sbs = @mpf.mpf_sign(s.hi)
-  let tas = @mpf.mpf_sign(t.lo)
-  let tbs = @mpf.mpf_sign(t.hi)
+pub fn RawMpi::div(s : RawMpi, t : RawMpi, prec : Int) -> RawMpi raise MpiError {
+  let sas = s.lo.signum()
+  let sbs = s.hi.signum()
+  let tas = t.lo.signum()
+  let tbs = t.hi.signum()
   if sas == 0 && sbs == 0 {
     if (tas < 0 && tbs > 0) || tas == 0 || tbs == 0 {
-      return { lo: @mpf.fninf, hi: @mpf.finf }
+      return {
+        lo: @mpf.RawMpf::negative_infinity(),
+        hi: @mpf.RawMpf::infinity(),
+      }
     }
-    return mpi_zero
+    return RawMpi::zero()
   }
   if tas < 0 && tbs > 0 {
-    return { lo: @mpf.fninf, hi: @mpf.finf }
+    return { lo: @mpf.RawMpf::negative_infinity(), hi: @mpf.RawMpf::infinity() }
   }
   if tas < 0 {
-    return mpi_div(mpi_neg(s), mpi_neg(t), prec)
+    return s.negated().div(t.negated(), prec)
   }
   if tas == 0 {
     if sas < 0 && sbs > 0 {
-      return { lo: @mpf.fninf, hi: @mpf.finf }
+      return {
+        lo: @mpf.RawMpf::negative_infinity(),
+        hi: @mpf.RawMpf::infinity(),
+      }
     }
     if tas == tbs {
-      return { lo: @mpf.fninf, hi: @mpf.finf }
+      return {
+        lo: @mpf.RawMpf::negative_infinity(),
+        hi: @mpf.RawMpf::infinity(),
+      }
     }
     if sas >= 0 {
-      let lo = @mpf.mpf_div(s.lo, t.hi, prec, @mpf.round_floor) catch {
+      let lo = s.lo.div(t.hi, prec, Floor) catch {
         err => raise from_mpf_error(err)
       }
-      return { lo, hi: @mpf.finf }
+      return { lo, hi: @mpf.RawMpf::infinity() }
     }
-    let hi = @mpf.mpf_div(s.hi, t.hi, prec, @mpf.round_ceiling) catch {
+    let hi = s.hi.div(t.hi, prec, Ceiling) catch {
       err => raise from_mpf_error(err)
     }
-    return { lo: @mpf.fninf, hi }
+    return { lo: @mpf.RawMpf::negative_infinity(), hi }
   }
   if sas >= 0 {
-    let a = @mpf.mpf_div(s.lo, t.hi, prec, @mpf.round_floor) catch {
+    let a = s.lo.div(t.hi, prec, Floor) catch {
       err => raise from_mpf_error(err)
     }
-    let b = @mpf.mpf_div(s.hi, t.lo, prec, @mpf.round_ceiling) catch {
+    let b = s.hi.div(t.lo, prec, Ceiling) catch {
       err => raise from_mpf_error(err)
     }
     return {
-      lo: if @mpf.is_nan(a) {
-        @mpf.fzero
+      lo: if a.is_nan() {
+        @mpf.RawMpf::zero()
       } else {
         a
       },
-      hi: if @mpf.is_nan(b) {
-        @mpf.finf
+      hi: if b.is_nan() {
+        @mpf.RawMpf::infinity()
       } else {
         b
       },
     }
   }
   if sbs <= 0 {
-    let a = @mpf.mpf_div(s.lo, t.lo, prec, @mpf.round_floor) catch {
+    let a = s.lo.div(t.lo, prec, Floor) catch {
       err => raise from_mpf_error(err)
     }
-    let b = @mpf.mpf_div(s.hi, t.hi, prec, @mpf.round_ceiling) catch {
+    let b = s.hi.div(t.hi, prec, Ceiling) catch {
       err => raise from_mpf_error(err)
     }
     return {
-      lo: if @mpf.is_nan(a) {
-        @mpf.fninf
+      lo: if a.is_nan() {
+        @mpf.RawMpf::negative_infinity()
       } else {
         a
       },
-      hi: if @mpf.is_nan(b) {
-        @mpf.fzero
+      hi: if b.is_nan() {
+        @mpf.RawMpf::zero()
       } else {
         b
       },
     }
   }
-  let a = @mpf.mpf_div(s.lo, t.lo, prec, @mpf.round_floor) catch {
-    err => raise from_mpf_error(err)
-  }
-  let b = @mpf.mpf_div(s.hi, t.lo, prec, @mpf.round_ceiling) catch {
+  let a = s.lo.div(t.lo, prec, Floor) catch { err => raise from_mpf_error(err) }
+  let b = s.hi.div(t.lo, prec, Ceiling) catch {
     err => raise from_mpf_error(err)
   }
   {
-    lo: if @mpf.is_nan(a) {
-      @mpf.fninf
+    lo: if a.is_nan() {
+      @mpf.RawMpf::negative_infinity()
     } else {
       a
     },
-    hi: if @mpf.is_nan(b) {
-      @mpf.finf
+    hi: if b.is_nan() {
+      @mpf.RawMpf::infinity()
     } else {
       b
     },
@@ -550,122 +564,119 @@ pub fn mpi_div(s : RawMpi, t : RawMpi, prec : Int) -> RawMpi raise MpiError {
 }
 
 ///|
-pub fn mpi_pi(prec : Int) -> RawMpi raise MpiError {
+pub fn RawMpi::pi(prec : Int) -> RawMpi raise MpiError {
+  { lo: elefun_pi_checked(prec, Floor), hi: elefun_pi_checked(prec, Ceiling) }
+}
+
+///|
+pub fn RawMpi::exp(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
   {
-    lo: elefun_pi_checked(prec, @mpf.round_floor),
-    hi: elefun_pi_checked(prec, @mpf.round_ceiling),
+    lo: elefun_exp_checked(s.lo, prec, Floor),
+    hi: elefun_exp_checked(s.hi, prec, Ceiling),
   }
 }
 
 ///|
-pub fn mpi_exp(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
-  {
-    lo: elefun_exp_checked(s.lo, prec, @mpf.round_floor),
-    hi: elefun_exp_checked(s.hi, prec, @mpf.round_ceiling),
-  }
-}
-
-///|
-pub fn mpi_log(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
-  let lo = @libelefun.mpf_ln(s.lo, prec, @mpf.round_floor) catch {
+pub fn RawMpi::log(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
+  let lo = @libelefun.ln(s.lo, prec, Floor) catch {
     err => raise from_libelefun_error(err)
   }
-  let hi = @libelefun.mpf_ln(s.hi, prec, @mpf.round_ceiling) catch {
+  let hi = @libelefun.ln(s.hi, prec, Ceiling) catch {
     err => raise from_libelefun_error(err)
   }
   { lo, hi }
 }
 
 ///|
-pub fn mpi_sqrt(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
-  let lo = @mpf.mpf_sqrt(s.lo, prec, @mpf.round_floor) catch {
-    err => raise from_mpf_error(err)
-  }
-  let hi = @mpf.mpf_sqrt(s.hi, prec, @mpf.round_ceiling) catch {
-    err => raise from_mpf_error(err)
-  }
+pub fn RawMpi::sqrt(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
+  let lo = s.lo.sqrt(prec, Floor) catch { err => raise from_mpf_error(err) }
+  let hi = s.hi.sqrt(prec, Ceiling) catch { err => raise from_mpf_error(err) }
   { lo, hi }
 }
 
 ///|
-pub fn mpi_atan(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
+pub fn RawMpi::atan(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
   {
-    lo: elefun_atan_checked(s.lo, prec, @mpf.round_floor),
-    hi: elefun_atan_checked(s.hi, prec, @mpf.round_ceiling),
+    lo: elefun_atan_checked(s.lo, prec, Floor),
+    hi: elefun_atan_checked(s.hi, prec, Ceiling),
   }
 }
 
 ///|
-pub fn mpi_pow_int(s : RawMpi, n : Int, prec : Int) -> RawMpi raise MpiError {
+pub fn RawMpi::pow_int(
+  s : RawMpi,
+  n : Int,
+  prec : Int,
+) -> RawMpi raise MpiError {
   if n < 0 {
-    return mpi_div(mpi_one, mpi_pow_int(s, -n, prec + 20), prec)
+    return RawMpi::one().div(s.pow_int(-n, prec + 20), prec)
   }
   if n == 0 {
-    return mpi_one
+    return RawMpi::one()
   }
   if n == 1 {
     return s
   }
   if n == 2 {
-    return mpi_square(s, prec~)
+    return s.square(prec~)
   }
   if (n & 1) == 1 {
-    let lo = @mpf.mpf_pow_int(s.lo, n, prec, @mpf.round_floor) catch {
+    let lo = s.lo.pow_int(n, prec, Floor) catch {
       err => raise from_mpf_error(err)
     }
-    let hi = @mpf.mpf_pow_int(s.hi, n, prec, @mpf.round_ceiling) catch {
+    let hi = s.hi.pow_int(n, prec, Ceiling) catch {
       err => raise from_mpf_error(err)
     }
     return { lo, hi }
   }
-  let sas = @mpf.mpf_sign(s.lo)
-  let sbs = @mpf.mpf_sign(s.hi)
+  let sas = s.lo.signum()
+  let sbs = s.hi.signum()
   if sas >= 0 {
-    let lo = @mpf.mpf_pow_int(s.lo, n, prec, @mpf.round_floor) catch {
+    let lo = s.lo.pow_int(n, prec, Floor) catch {
       err => raise from_mpf_error(err)
     }
-    let hi = @mpf.mpf_pow_int(s.hi, n, prec, @mpf.round_ceiling) catch {
+    let hi = s.hi.pow_int(n, prec, Ceiling) catch {
       err => raise from_mpf_error(err)
     }
     return { lo, hi }
   }
   if sbs <= 0 {
-    let lo = @mpf.mpf_pow_int(s.hi, n, prec, @mpf.round_floor) catch {
+    let lo = s.hi.pow_int(n, prec, Floor) catch {
       err => raise from_mpf_error(err)
     }
-    let hi = @mpf.mpf_pow_int(s.lo, n, prec, @mpf.round_ceiling) catch {
+    let hi = s.lo.pow_int(n, prec, Ceiling) catch {
       err => raise from_mpf_error(err)
     }
     return { lo, hi }
   }
-  let neg_lo = @mpf.mpf_neg(s.lo, 0, @mpf.round_down)
-  let hi = if @mpf.mpf_ge(neg_lo, s.hi) {
-    @mpf.mpf_pow_int(neg_lo, n, prec, @mpf.round_ceiling) catch {
+  let neg_lo = s.lo.negated(0, Down)
+  let hi = if neg_lo >= s.hi {
+    neg_lo.pow_int(n, prec, Ceiling) catch {
       err => raise from_mpf_error(err)
     }
   } else {
-    @mpf.mpf_pow_int(s.hi, n, prec, @mpf.round_ceiling) catch {
+    s.hi.pow_int(n, prec, Ceiling) catch {
       err => raise from_mpf_error(err)
     }
   }
-  { lo: @mpf.fzero, hi }
+  { lo: @mpf.RawMpf::zero(), hi }
 }
 
 ///|
-pub fn mpi_pow(s : RawMpi, t : RawMpi, prec : Int) -> RawMpi raise MpiError {
-  if @mpf.mpf_eq(t.lo, t.hi) && @mpf.is_finite(t.lo) {
-    if @mpf.is_zero(t.lo) {
-      return mpi_one
+pub fn RawMpi::pow(s : RawMpi, t : RawMpi, prec : Int) -> RawMpi raise MpiError {
+  if t.lo == t.hi && t.lo.is_finite() {
+    if t.lo.is_zero() {
+      return RawMpi::one()
     }
     match maybe_integer(t.lo) {
-      Some(n) => return mpi_pow_int(s, n, prec)
+      Some(n) => return s.pow_int(n, prec)
       None => ()
     }
-    if @mpf.mpf_eq(t.lo, fhalf) {
-      return mpi_sqrt(s, prec)
+    if t.lo == fhalf {
+      return s.sqrt(prec)
     }
   }
-  let u = mpi_log(s, prec + 20)
-  let v = mpi_mul(u, t, prec=prec + 20)
-  mpi_exp(v, prec)
+  let u = s.log(prec + 20)
+  let v = u.mul(t, prec=prec + 20)
+  v.exp(prec)
 }

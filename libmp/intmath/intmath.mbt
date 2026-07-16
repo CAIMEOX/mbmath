@@ -13,31 +13,6 @@ pub(all) suberror IntMathError {
 } derive(Debug, Eq)
 
 ///|
-pub fn bit_length(x : BigInt) -> Int {
-  x.bit_length()
-}
-
-///|
-pub fn bitcount(x : BigInt) -> Int {
-  abs_bigint(x).bit_length()
-}
-
-///|
-pub fn trailing_zero_bits(x : BigInt) -> Int {
-  trailing(x)
-}
-
-///|
-pub fn trailing(x : BigInt) -> Int {
-  let n = abs_bigint(x)
-  if n == 0N {
-    0
-  } else {
-    n.ctz()
-  }
-}
-
-///|
 pub fn gcd(a : BigInt, b : BigInt) -> BigInt {
   let mut x = abs_bigint(a)
   let mut y = abs_bigint(b)
@@ -50,7 +25,7 @@ pub fn gcd(a : BigInt, b : BigInt) -> BigInt {
 }
 
 ///|
-pub fn isqrt(n : BigInt) -> BigInt raise IntMathError {
+pub fn integer_sqrt(n : BigInt) -> BigInt raise IntMathError {
   if n < 0N {
     raise ValueError("isqrt: negative input")
   }
@@ -67,16 +42,16 @@ pub fn isqrt(n : BigInt) -> BigInt raise IntMathError {
 }
 
 ///|
-pub fn sqrtrem(n : BigInt) -> (BigInt, BigInt) raise IntMathError {
+pub fn integer_sqrt_rem(n : BigInt) -> (BigInt, BigInt) raise IntMathError {
   if n < 0N {
     raise ValueError("sqrtrem: negative input")
   }
-  let r = isqrt(n)
+  let r = integer_sqrt(n)
   (r, n - r * r)
 }
 
 ///|
-pub fn bin_to_radix(
+pub fn scale_binary_to_radix(
   x : BigInt,
   xbits : Int,
   base : Int,
@@ -97,7 +72,7 @@ pub fn bin_to_radix(
 }
 
 ///|
-pub fn numeral(n : BigInt, base? : Int = 10) -> String raise IntMathError {
+pub fn format_radix(n : BigInt, base? : Int = 10) -> String raise IntMathError {
   if base < 2 || base > 36 {
     raise ValueError("numeral: base must be in [2, 36]")
   }

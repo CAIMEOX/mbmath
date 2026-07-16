@@ -38,7 +38,7 @@ fn trim_ascending_polynomial(
     return []
   }
   let mut last = coeffs.length() - 1
-  while last > 0 && @mpf.is_zero(coeffs[last]) {
+  while last > 0 && coeffs[last].is_zero() {
     last -= 1
   }
   let out : Array[@mpf.RawMpf] = []
@@ -55,18 +55,13 @@ fn evaluate_polynomial_ascending(
   prec : Int,
 ) -> @mpf.RawMpf {
   if coeffs.length() == 0 {
-    return @mpf.fzero
+    return @mpf.RawMpf::zero()
   }
   let mut y = coeffs[coeffs.length() - 1]
   let mut i = coeffs.length() - 1
   while i > 0 {
     i -= 1
-    y = @mpf.mpf_add(
-      @mpf.mpf_mul(y, x, prec, @mpf.round_nearest),
-      coeffs[i],
-      prec,
-      @mpf.round_nearest,
-    )
+    y = y.mul(x, prec, Nearest).add(coeffs[i], prec, Nearest)
   }
   y
 }
@@ -78,25 +73,15 @@ fn evaluate_polynomial_and_derivative_ascending(
   prec : Int,
 ) -> (@mpf.RawMpf, @mpf.RawMpf) {
   if coeffs.length() == 0 {
-    return (@mpf.fzero, @mpf.fzero)
+    return (@mpf.RawMpf::zero(), @mpf.RawMpf::zero())
   }
   let mut y = coeffs[coeffs.length() - 1]
-  let mut dy = @mpf.fzero
+  let mut dy = @mpf.RawMpf::zero()
   let mut i = coeffs.length() - 1
   while i > 0 {
     i -= 1
-    dy = @mpf.mpf_add(
-      @mpf.mpf_mul(dy, x, prec, @mpf.round_nearest),
-      y,
-      prec,
-      @mpf.round_nearest,
-    )
-    y = @mpf.mpf_add(
-      @mpf.mpf_mul(y, x, prec, @mpf.round_nearest),
-      coeffs[i],
-      prec,
-      @mpf.round_nearest,
-    )
+    dy = dy.mul(x, prec, Nearest).add(y, prec, Nearest)
+    y = y.mul(x, prec, Nearest).add(coeffs[i], prec, Nearest)
   }
   (y, dy)
 }
@@ -114,8 +99,7 @@ pub fn MPContext::polyval(
 ) -> @mpf.RawMpf {
   let p = self.working_precision()
   let c = ascending_coefficients(coeffs, asc)
-  @mpf.mpf_pos(
-    evaluate_polynomial_ascending(c, x, p),
+  evaluate_polynomial_ascending(c, x, p).rounded(
     self.precision(),
     self.round_mode(),
   )
@@ -133,8 +117,8 @@ pub fn MPContext::polyval_with_derivative(
   let c = ascending_coefficients(coeffs, asc)
   let (y, dy) = evaluate_polynomial_and_derivative_ascending(c, x, p)
   (
-    @mpf.mpf_pos(y, self.precision(), self.round_mode()),
-    @mpf.mpf_pos(dy, self.precision(), self.round_mode()),
+    y.rounded(self.precision(), self.round_mode()),
+    dy.rounded(self.precision(), self.round_mode()),
   )
 }
 
@@ -145,24 +129,24 @@ fn aitken_delta_squared(
   x2 : @mpf.RawMpf,
   prec : Int,
 ) -> (@mpf.RawMpf, Bool) raise MPError {
-  let d1 = @mpf.mpf_sub(x1, x0, prec, @mpf.round_nearest)
-  let d2 = @mpf.mpf_sub(x2, x1, prec, @mpf.round_nearest)
-  let den = @mpf.mpf_sub(d2, d1, prec, @mpf.round_nearest)
-  if @mpf.is_zero(den) {
+  let d1 = x1.sub(x0, prec, Nearest)
+  let d2 = x2.sub(x1, prec, Nearest)
+  let den = d2.sub(d1, prec, Nearest)
+  if den.is_zero() {
     return (x2, false)
   }
-  let num = @mpf.mpf_mul(d2, d2, prec, @mpf.round_nearest)
-  let corr = @mpf.mpf_div(num, den, prec, @mpf.round_nearest) catch {
+  let num = d2.mul(d2, prec, Nearest)
+  let corr = num.div(den, prec, Nearest) catch {
     err => raise from_mpf_error(err)
   }
-  (@mpf.mpf_sub(x2, corr, prec, @mpf.round_nearest), true)
+  (x2.sub(corr, prec, Nearest), true)
 }
 
 ///|
 fn MPContext::limit_tolerance(self : MPContext, prec : Int) -> @mpf.RawMpf {
   ignore(self)
   let shift = if prec > 200 { -56 } else if prec > 120 { -44 } else { -36 }
-  @mpf.from_man_exp(1N, shift, 0, @mpf.round_down)
+  @mpf.RawMpf::from_mantissa_exponent(1N, shift, 0, Down)
 }
 
 ///|
@@ -176,24 +160,21 @@ fn MPContext::evaluate_finite_limit(
 ) -> @mpf.RawMpf raise {
   let tol = self.limit_tolerance(prec)
   let mut h = self.differentiation_step(x, 1, prec)
-  if @mpf.is_zero(h) {
-    h = @mpf.from_man_exp(1N, -12, 0, @mpf.round_down)
+  if h.is_zero() {
+    h = @mpf.RawMpf::from_mantissa_exponent(1N, -12, 0, Down)
   }
   let seq : Array[@mpf.RawMpf] = []
   for _ in 0..<max_steps {
     let y = if direction > 0 {
-      f(@mpf.mpf_add(x, h, prec, @mpf.round_nearest))
+      f(x.add(h, prec, Nearest))
     } else if direction < 0 {
-      f(@mpf.mpf_sub(x, h, prec, @mpf.round_nearest))
+      f(x.sub(h, prec, Nearest))
     } else {
-      let yp = f(@mpf.mpf_add(x, h, prec, @mpf.round_nearest))
-      let ym = f(@mpf.mpf_sub(x, h, prec, @mpf.round_nearest))
-      @mpf.mpf_mul(
-        @mpf.mpf_add(yp, ym, prec, @mpf.round_nearest),
-        @mpf.from_man_exp(1N, -1, 0, @mpf.round_down),
-        prec,
-        @mpf.round_nearest,
-      )
+      let yp = f(x.add(h, prec, Nearest))
+      let ym = f(x.sub(h, prec, Nearest))
+      yp
+      .add(ym, prec, Nearest)
+      .mul(@mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down), prec, Nearest)
     }
     require_finite_value("limit", y)
     seq.push(y)
@@ -206,38 +187,25 @@ fn MPContext::evaluate_finite_limit(
         prec,
       )
       if ok {
-        let err = @mpf.mpf_abs(
-          @mpf.mpf_sub(acc, seq[n - 1], prec, @mpf.round_nearest),
-          prec,
-          @mpf.round_nearest,
-        )
-        if @mpf.mpf_le(err, tol) {
-          return @mpf.mpf_pos(acc, self.precision(), self.round_mode())
+        let err = acc.sub(seq[n - 1], prec, Nearest).abs(prec, Nearest)
+        if err <= tol {
+          return acc.rounded(self.precision(), self.round_mode())
         }
       } else {
-        let err = @mpf.mpf_abs(
-          @mpf.mpf_sub(seq[n - 1], seq[n - 2], prec, @mpf.round_nearest),
-          prec,
-          @mpf.round_nearest,
-        )
-        if @mpf.mpf_le(err, tol) {
-          return @mpf.mpf_pos(seq[n - 1], self.precision(), self.round_mode())
+        let err = seq[n - 1].sub(seq[n - 2], prec, Nearest).abs(prec, Nearest)
+        if err <= tol {
+          return seq[n - 1].rounded(self.precision(), self.round_mode())
         }
       }
     }
-    h = @mpf.mpf_mul(
-      h,
-      @mpf.from_man_exp(1N, -1, 0, @mpf.round_down),
+    h = h.mul(
+      @mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down),
       prec,
-      @mpf.round_nearest,
+      Nearest,
     )
   }
   if seq.length() > 0 {
-    return @mpf.mpf_pos(
-      seq[seq.length() - 1],
-      self.precision(),
-      self.round_mode(),
-    )
+    return seq[seq.length() - 1].rounded(self.precision(), self.round_mode())
   }
   raise ConvergenceError("limit: sequence did not converge")
 }
@@ -254,22 +222,18 @@ pub fn MPContext::limit(
   max_steps? : Int = 32,
 ) -> @mpf.RawMpf raise {
   let p = self.working_precision()
-  if !@mpf.is_inf(x) {
+  if !x.is_infinite() {
     return self.evaluate_finite_limit(f, x, direction, max_steps, p)
   }
   let dir = if x.sign == 0 { 1 } else { -1 }
   let g = (u : @mpf.RawMpf) => {
-    let inv = @mpf.mpf_div(@mpf.fone, u, p, @mpf.round_nearest) catch {
+    let inv = @mpf.RawMpf::one().div(u, p, Nearest) catch {
       err => raise from_mpf_error(err)
     }
-    let arg = if dir > 0 {
-      inv
-    } else {
-      @mpf.mpf_neg(inv, p, @mpf.round_nearest)
-    }
+    let arg = if dir > 0 { inv } else { inv.negated(p, Nearest) }
     f(arg)
   }
-  self.evaluate_finite_limit(g, @mpf.fzero, 1, max_steps, p)
+  self.evaluate_finite_limit(g, @mpf.RawMpf::zero(), 1, max_steps, p)
 }
 
 ///|
@@ -289,83 +253,57 @@ pub fn MPContext::chebyfit(
   }
   let p = self.working_precision() + 32
   let (a, b) = interval
-  let mid = @mpf.mpf_mul(
-    @mpf.mpf_add(a, b, p, @mpf.round_nearest),
-    @mpf.from_man_exp(1N, -1, 0, @mpf.round_down),
-    p,
-    @mpf.round_nearest,
-  )
-  let half = @mpf.mpf_mul(
-    @mpf.mpf_sub(b, a, p, @mpf.round_nearest),
-    @mpf.from_man_exp(1N, -1, 0, @mpf.round_down),
-    p,
-    @mpf.round_nearest,
-  )
-  let pi = checked_mpf_pi(p, @mpf.round_nearest)
+  let mid = a
+    .add(b, p, Nearest)
+    .mul(@mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down), p, Nearest)
+  let half = b
+    .sub(a, p, Nearest)
+    .mul(@mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down), p, Nearest)
+  let pi = checked_mpf_pi(p, Nearest)
   let xs : Array[@mpf.RawMpf] = []
   let ys : Array[@mpf.RawMpf] = []
   for k in 0..<n {
-    let theta = @mpf.mpf_div(
-      @mpf.mpf_mul(pi, @mpf.from_int(2 * k + 1), p, @mpf.round_nearest),
-      @mpf.from_int(2 * n),
-      p,
-      @mpf.round_nearest,
-    ) catch {
-      err => raise from_mpf_error(err)
-    }
-    let t = checked_mpf_cos(theta, p, @mpf.round_nearest)
-    let xk = @mpf.mpf_add(
-      mid,
-      @mpf.mpf_mul(half, t, p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    )
+    let theta = pi
+      .mul(@mpf.RawMpf::from_int(2 * k + 1), p, Nearest)
+      .div(@mpf.RawMpf::from_int(2 * n), p, Nearest) catch {
+        err => raise from_mpf_error(err)
+      }
+    let t = checked_mpf_cos(theta, p, Nearest)
+    let xk = mid.add(half.mul(t, p, Nearest), p, Nearest)
     xs.push(xk)
     ys.push(f(xk))
   }
   let v = self.matrix(n, n)
   for i in 0..<n {
-    let mut pow = @mpf.fone
+    let mut pow = @mpf.RawMpf::one()
     for j in 0..<n {
       v.set(i, j, pow)
-      pow = @mpf.mpf_mul(pow, xs[i], p, @mpf.round_nearest)
+      pow = pow.mul(xs[i], p, Nearest)
     }
   }
   let coeffs_asc = self.lu_solve(v, ys)
-  let mut err = @mpf.fzero
+  let mut err = @mpf.RawMpf::zero()
   let m = 8 * n + 1
   for i in 0..<m {
-    let xi = @mpf.mpf_add(
-      a,
-      @mpf.mpf_div(
-        @mpf.mpf_mul(
-          @mpf.mpf_sub(b, a, p, @mpf.round_nearest),
-          @mpf.from_int(i),
-          p,
-          @mpf.round_nearest,
-        ),
-        @mpf.from_int(m - 1),
-        p,
-        @mpf.round_nearest,
-      ) catch {
+    let xi = a.add(
+      b
+      .sub(a, p, Nearest)
+      .mul(@mpf.RawMpf::from_int(i), p, Nearest)
+      .div(@mpf.RawMpf::from_int(m - 1), p, Nearest) catch {
         err2 => raise from_mpf_error(err2)
       },
       p,
-      @mpf.round_nearest,
+      Nearest,
     )
     let py = evaluate_polynomial_ascending(coeffs_asc, xi, p)
     let fy = f(xi)
-    let d = @mpf.mpf_abs(
-      @mpf.mpf_sub(py, fy, p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    )
-    if @mpf.mpf_gt(d, err) {
+    let d = py.sub(fy, p, Nearest).abs(p, Nearest)
+    if d > err {
       err = d
     }
   }
   let coeffs = if asc { coeffs_asc } else { reverse_mpf_array(coeffs_asc) }
-  (coeffs, @mpf.mpf_pos(err, self.precision(), self.round_mode()))
+  (coeffs, err.rounded(self.precision(), self.round_mode()))
 }
 
 ///|
@@ -375,18 +313,13 @@ fn evaluate_complex_polynomial_ascending(
   prec : Int,
 ) -> @mpc.RawMpc {
   if coeffs.length() == 0 {
-    return @mpc.zero()
+    return @mpc.RawMpc::zero()
   }
-  let mut y = @mpc.from_parts(coeffs[coeffs.length() - 1], @mpf.fzero)
+  let mut y = @mpc.RawMpc::new(coeffs[coeffs.length() - 1], @mpf.RawMpf::zero())
   let mut i = coeffs.length() - 1
   while i > 0 {
     i -= 1
-    y = @mpc.mpc_add_mpf(
-      @mpc.mpc_mul(y, z, prec, @mpf.round_nearest),
-      coeffs[i],
-      prec,
-      @mpf.round_nearest,
-    )
+    y = y.mul(z, prec, Nearest).add_real(coeffs[i], prec, Nearest)
   }
   y
 }
@@ -401,9 +334,9 @@ fn sort_polynomial_roots(roots : Array[@mpc.RawMpc], prec : Int) -> Unit {
     for j in 0..<(n - 1 - i) {
       let r0 = roots[j]
       let r1 = roots[j + 1]
-      let swap = if @mpf.mpf_lt(r1.real, r0.real) {
+      let swap = if r1.real < r0.real {
         true
-      } else if @mpf.mpf_eq(r0.real, r1.real) && @mpf.mpf_lt(r1.imag, r0.imag) {
+      } else if r0.real == r1.real && r1.imag < r0.imag {
         true
       } else {
         false
@@ -421,7 +354,7 @@ fn sort_polynomial_roots(roots : Array[@mpc.RawMpc], prec : Int) -> Unit {
 ///|
 fn polynomial_root_tolerance(prec : Int) -> @mpf.RawMpf {
   let shift = if prec > 200 { -56 } else if prec > 120 { -44 } else { -34 }
-  @mpf.from_man_exp(1N, shift, 0, @mpf.round_down)
+  @mpf.RawMpf::from_mantissa_exponent(1N, shift, 0, Down)
 }
 
 ///|
@@ -432,7 +365,7 @@ fn is_legendre_polynomial(c : ArrayView[@mpf.RawMpf]) -> Bool {
   }
   let mut i = 1
   while i < c.length() {
-    if !@mpf.is_zero(c[i]) {
+    if !c[i].is_zero() {
       return false
     }
     i += 2
@@ -450,48 +383,43 @@ fn MPContext::solve_legendre_polynomial_roots(
   let n = c.length() - 1
   let d : Array[@mpf.RawMpf] = []
   for i in 1..<=n {
-    d.push(@mpf.mpf_mul_int(c[i], i, p, @mpf.round_nearest))
+    d.push(c[i].mul_int(i, p, Nearest))
   }
-  let pi = checked_mpf_pi(p, @mpf.round_nearest)
+  let pi = checked_mpf_pi(p, Nearest)
   let tol = polynomial_root_tolerance(p)
   let roots : Array[@mpf.RawMpf] = []
   for k in 1..<=n {
-    let theta = @mpf.mpf_div(
-      @mpf.mpf_mul_int(pi, 4 * k - 1, p, @mpf.round_nearest),
-      @mpf.from_int(4 * n + 2),
-      p,
-      @mpf.round_nearest,
-    ) catch {
-      err => raise from_mpf_error(err)
-    }
-    let mut x = checked_mpf_cos(theta, p, @mpf.round_nearest)
+    let theta = pi
+      .mul_int(4 * k - 1, p, Nearest)
+      .div(@mpf.RawMpf::from_int(4 * n + 2), p, Nearest) catch {
+        err => raise from_mpf_error(err)
+      }
+    let mut x = checked_mpf_cos(theta, p, Nearest)
     for _ in 0..<48 {
       let px = evaluate_polynomial_ascending(c, x, p)
       let dpx = evaluate_polynomial_ascending(d, x, p)
-      if @mpf.is_zero(dpx) {
+      if dpx.is_zero() {
         break
       }
-      let dx = @mpf.mpf_div(px, dpx, p, @mpf.round_nearest) catch {
+      let dx = px.div(dpx, p, Nearest) catch {
         err => raise from_mpf_error(err)
       }
-      x = @mpf.mpf_sub(x, dx, p, @mpf.round_nearest)
-      if @mpf.mpf_le(@mpf.mpf_abs(dx, p, @mpf.round_nearest), tol) {
+      x = x.sub(dx, p, Nearest)
+      if dx.abs(p, Nearest) <= tol {
         break
       }
     }
-    if @mpf.mpf_lt(x, @mpf.fnone) {
-      x = @mpf.mpf_add(
-        @mpf.fnone,
-        @mpf.from_man_exp(1N, -20, 0, @mpf.round_down),
+    if x < @mpf.RawMpf::negative_one() {
+      x = @mpf.RawMpf::negative_one().add(
+        @mpf.RawMpf::from_mantissa_exponent(1N, -20, 0, Down),
         p,
-        @mpf.round_nearest,
+        Nearest,
       )
-    } else if @mpf.mpf_gt(x, @mpf.fone) {
-      x = @mpf.mpf_sub(
-        @mpf.fone,
-        @mpf.from_man_exp(1N, -20, 0, @mpf.round_down),
+    } else if x > @mpf.RawMpf::one() {
+      x = @mpf.RawMpf::one().sub(
+        @mpf.RawMpf::from_mantissa_exponent(1N, -20, 0, Down),
         p,
-        @mpf.round_nearest,
+        Nearest,
       )
     }
     roots.push(x)
@@ -499,7 +427,7 @@ fn MPContext::solve_legendre_polynomial_roots(
   let m = roots.length()
   for i in 0..<m {
     for j in 0..<(m - 1 - i) {
-      if @mpf.mpf_gt(roots[j], roots[j + 1]) {
+      if roots[j] > roots[j + 1] {
         let t = roots[j]
         roots[j] = roots[j + 1]
         roots[j + 1] = t
@@ -508,7 +436,7 @@ fn MPContext::solve_legendre_polynomial_roots(
   }
   let out : Array[@mpc.RawMpc] = []
   for r in roots {
-    out.push(@mpc.from_parts(r, @mpf.fzero))
+    out.push(@mpc.RawMpc::new(r, @mpf.RawMpf::zero()))
   }
   out
 }
@@ -523,13 +451,13 @@ fn MPContext::solve_companion_matrix_roots(
   let n = c.length() - 1
   let comp = self.matrix(n, n)
   for j in 0..<n {
-    let bj = @mpf.mpf_div(c[n - 1 - j], lead, p, @mpf.round_nearest) catch {
+    let bj = c[n - 1 - j].div(lead, p, Nearest) catch {
       err => raise from_mpf_error(err)
     }
-    comp.set(0, j, @mpf.mpf_neg(bj, p, @mpf.round_nearest))
+    comp.set(0, j, bj.negated(p, Nearest))
   }
   for i in 1..<n {
-    comp.set(i, i - 1, @mpf.fone)
+    comp.set(i, i - 1, @mpf.RawMpf::one())
   }
   let (vals, _) = self.eig(comp, max_steps=1600)
   let rs : Array[@mpf.RawMpf] = []
@@ -539,7 +467,7 @@ fn MPContext::solve_companion_matrix_roots(
   let m = rs.length()
   for i in 0..<m {
     for j in 0..<(m - 1 - i) {
-      if @mpf.mpf_gt(rs[j], rs[j + 1]) {
+      if rs[j] > rs[j + 1] {
         let t = rs[j]
         rs[j] = rs[j + 1]
         rs[j + 1] = t
@@ -548,7 +476,7 @@ fn MPContext::solve_companion_matrix_roots(
   }
   let out : Array[@mpc.RawMpc] = []
   for r in rs {
-    out.push(@mpc.from_parts(r, @mpf.fzero))
+    out.push(@mpc.RawMpc::new(r, @mpf.RawMpf::zero()))
   }
   out
 }
@@ -570,252 +498,180 @@ fn MPContext::solve_polynomial_roots(
     raise ValueError("polyroots: empty coefficient list")
   }
   if c.length() == 1 {
-    if @mpf.is_zero(c[0]) {
+    if c[0].is_zero() {
       raise ValueError("polyroots: zero polynomial")
     }
-    return ([], @mpf.fzero)
+    return ([], @mpf.RawMpf::zero())
   }
   let n = c.length() - 1
   let p0 = self.working_precision() + extraprec
   let p = if p0 > 512 { 512 } else { p0 }
   let lead = c[n]
-  if @mpf.is_zero(lead) {
+  if lead.is_zero() {
     raise ValueError("polyroots: leading coefficient must be non-zero")
   }
   if n == 1 {
-    let r = @mpf.mpf_div(
-      @mpf.mpf_neg(c[0], p, @mpf.round_nearest),
-      c[1],
-      p,
-      @mpf.round_nearest,
-    ) catch {
-      err => raise from_mpf_error(err)
-    }
+    let r = c[0].negated(p, Nearest).div(c[1], p, Nearest) catch {
+        err => raise from_mpf_error(err)
+      }
     return (
       [
-        @mpc.from_parts(
-          @mpf.mpf_pos(r, self.precision(), self.round_mode()),
-          @mpf.fzero,
+        @mpc.RawMpc::new(
+          r.rounded(self.precision(), self.round_mode()),
+          @mpf.RawMpf::zero(),
         ),
       ],
-      @mpf.fzero,
+      @mpf.RawMpf::zero(),
     )
   }
   if n == 2 {
     let a0 = c[0]
     let a1 = c[1]
     let a2 = c[2]
-    let two = @mpf.from_int(2)
-    let four = @mpf.from_int(4)
-    let disc = @mpf.mpf_sub(
-      @mpf.mpf_mul(a1, a1, p, @mpf.round_nearest),
-      @mpf.mpf_mul(
-        @mpf.mpf_mul(four, a2, p, @mpf.round_nearest),
-        a0,
-        p,
-        @mpf.round_nearest,
-      ),
-      p,
-      @mpf.round_nearest,
-    )
-    let den = @mpf.mpf_mul(two, a2, p, @mpf.round_nearest)
+    let two = @mpf.RawMpf::from_int(2)
+    let four = @mpf.RawMpf::from_int(4)
+    let disc = a1
+      .mul(a1, p, Nearest)
+      .sub(four.mul(a2, p, Nearest).mul(a0, p, Nearest), p, Nearest)
+    let den = two.mul(a2, p, Nearest)
     let roots2 : Array[@mpc.RawMpc] = []
-    if @mpf.mpf_ge(disc, @mpf.fzero) {
-      let s = @mpf.mpf_sqrt(disc, p, @mpf.round_nearest) catch {
-        err => raise from_mpf_error(err)
-      }
-      let r0 = @mpf.mpf_div(
-        @mpf.mpf_sub(
-          @mpf.mpf_neg(a1, p, @mpf.round_nearest),
-          s,
-          p,
-          @mpf.round_nearest,
-        ),
-        den,
-        p,
-        @mpf.round_nearest,
-      ) catch {
-        err => raise from_mpf_error(err)
-      }
-      let r1 = @mpf.mpf_div(
-        @mpf.mpf_add(
-          @mpf.mpf_neg(a1, p, @mpf.round_nearest),
-          s,
-          p,
-          @mpf.round_nearest,
-        ),
-        den,
-        p,
-        @mpf.round_nearest,
-      ) catch {
-        err => raise from_mpf_error(err)
-      }
-      roots2.push(@mpc.from_parts(r0, @mpf.fzero))
-      roots2.push(@mpc.from_parts(r1, @mpf.fzero))
+    if disc >= @mpf.RawMpf::zero() {
+      let s = disc.sqrt(p, Nearest) catch { err => raise from_mpf_error(err) }
+      let r0 = a1.negated(p, Nearest).sub(s, p, Nearest).div(den, p, Nearest) catch {
+          err => raise from_mpf_error(err)
+        }
+      let r1 = a1.negated(p, Nearest).add(s, p, Nearest).div(den, p, Nearest) catch {
+          err => raise from_mpf_error(err)
+        }
+      roots2.push(@mpc.RawMpc::new(r0, @mpf.RawMpf::zero()))
+      roots2.push(@mpc.RawMpc::new(r1, @mpf.RawMpf::zero()))
     } else {
-      let s = @mpf.mpf_sqrt(
-        @mpf.mpf_neg(disc, p, @mpf.round_nearest),
-        p,
-        @mpf.round_nearest,
-      ) catch {
-        err => raise from_mpf_error(err)
-      }
-      let re = @mpf.mpf_div(
-        @mpf.mpf_neg(a1, p, @mpf.round_nearest),
-        den,
-        p,
-        @mpf.round_nearest,
-      ) catch {
-        err => raise from_mpf_error(err)
-      }
-      let im = @mpf.mpf_div(s, den, p, @mpf.round_nearest) catch {
-        err => raise from_mpf_error(err)
-      }
-      roots2.push(@mpc.from_parts(re, @mpf.mpf_neg(im, p, @mpf.round_nearest)))
-      roots2.push(@mpc.from_parts(re, im))
+      let s = disc.negated(p, Nearest).sqrt(p, Nearest) catch {
+          err => raise from_mpf_error(err)
+        }
+      let re = a1.negated(p, Nearest).div(den, p, Nearest) catch {
+          err => raise from_mpf_error(err)
+        }
+      let im = s.div(den, p, Nearest) catch { err => raise from_mpf_error(err) }
+      roots2.push(@mpc.RawMpc::new(re, im.negated(p, Nearest)))
+      roots2.push(@mpc.RawMpc::new(re, im))
     }
     let out2 : Array[@mpc.RawMpc] = []
     for r in roots2 {
-      out2.push(@mpc.mpc_pos(r, self.precision(), self.round_mode()))
+      out2.push(r.rounded(self.precision(), self.round_mode()))
     }
-    return (out2, @mpf.fzero)
+    return (out2, @mpf.RawMpf::zero())
   }
 
   let roots : Array[@mpc.RawMpc] = []
   if use_init && roots_init.length() > 0 {
     let m = if roots_init.length() < n { roots_init.length() } else { n }
     for i in 0..<m {
-      roots.push(@mpc.from_parts(roots_init[i], @mpf.fzero))
+      roots.push(@mpc.RawMpc::new(roots_init[i], @mpf.RawMpf::zero()))
     }
   }
   if roots.length() < n {
-    let mut radius = @mpf.fone
+    let mut radius = @mpf.RawMpf::one()
     for i in 0..<n {
-      let qi = @mpf.mpf_div(
-        @mpf.mpf_abs(c[i], p, @mpf.round_nearest),
-        @mpf.mpf_abs(lead, p, @mpf.round_nearest),
-        p,
-        @mpf.round_nearest,
-      ) catch {
-        err => raise from_mpf_error(err)
-      }
-      if @mpf.mpf_gt(qi, radius) {
+      let qi = c[i].abs(p, Nearest).div(lead.abs(p, Nearest), p, Nearest) catch {
+          err => raise from_mpf_error(err)
+        }
+      if qi > radius {
         radius = qi
       }
     }
-    radius = @mpf.mpf_add(radius, @mpf.fone, p, @mpf.round_nearest)
-    let pi = checked_mpf_pi(p, @mpf.round_nearest)
+    radius = radius.add(@mpf.RawMpf::one(), p, Nearest)
+    let pi = checked_mpf_pi(p, Nearest)
     for i in roots.length()..<n {
-      let theta = @mpf.mpf_div(
-        @mpf.mpf_mul_int(pi, 2 * i, p, @mpf.round_nearest),
-        @mpf.from_int(n),
-        p,
-        @mpf.round_nearest,
-      ) catch {
-        err => raise from_mpf_error(err)
-      }
-      let re = @mpf.mpf_mul(
-        radius,
-        checked_mpf_cos(theta, p, @mpf.round_nearest),
-        p,
-        @mpf.round_nearest,
-      )
-      let im = @mpf.mpf_mul(
-        radius,
-        checked_mpf_sin(theta, p, @mpf.round_nearest),
-        p,
-        @mpf.round_nearest,
-      )
-      roots.push(@mpc.from_parts(re, im))
+      let theta = pi
+        .mul_int(2 * i, p, Nearest)
+        .div(@mpf.RawMpf::from_int(n), p, Nearest) catch {
+          err => raise from_mpf_error(err)
+        }
+      let re = radius.mul(checked_mpf_cos(theta, p, Nearest), p, Nearest)
+      let im = radius.mul(checked_mpf_sin(theta, p, Nearest), p, Nearest)
+      roots.push(@mpc.RawMpc::new(re, im))
     }
   }
 
   let tol = polynomial_root_tolerance(p)
-  let sep_tol = @mpf.from_man_exp(1N, -20, 0, @mpf.round_down)
-  let mut max_update = @mpf.finf
+  let sep_tol = @mpf.RawMpf::from_mantissa_exponent(1N, -20, 0, Down)
+  let mut max_update = @mpf.RawMpf::infinity()
   for _ in 0..<max_steps {
-    max_update = @mpf.fzero
+    max_update = @mpf.RawMpf::zero()
     for i in 0..<n {
       let zi = roots[i]
       let pz = evaluate_complex_polynomial_ascending(c, zi, p)
-      let mut den = @mpc.one()
+      let mut den = @mpc.RawMpc::one()
       for j in 0..<n {
         if i == j {
           continue
         }
-        den = @mpc.mpc_mul(
-          den,
-          @mpc.mpc_sub(zi, roots[j], p, @mpf.round_nearest),
-          p,
-          @mpf.round_nearest,
-        )
+        den = den.mul(zi.sub(roots[j], p, Nearest), p, Nearest)
       }
-      let den_abs = checked_mpc_abs(den, p, @mpf.round_nearest)
-      if @mpf.mpf_le(den_abs, sep_tol) {
+      let den_abs = checked_mpc_abs(den, p, Nearest)
+      if den_abs <= sep_tol {
         continue
       }
-      let delta = checked_mpc_div(pz, den, p, @mpf.round_nearest)
-      roots[i] = @mpc.mpc_sub(zi, delta, p, @mpf.round_nearest)
-      let du = checked_mpc_abs(delta, p, @mpf.round_nearest)
-      if @mpf.mpf_gt(du, max_update) {
+      let delta = checked_mpc_div(pz, den, p, Nearest)
+      roots[i] = zi.sub(delta, p, Nearest)
+      let du = checked_mpc_abs(delta, p, Nearest)
+      if du > max_update {
         max_update = du
       }
     }
-    if @mpf.mpf_le(max_update, tol) {
+    if max_update <= tol {
       break
     }
   }
-  if @mpf.mpf_gt(max_update, tol) {
+  if max_update > tol {
     if max_steps >= 10 {
       let fallback = if is_legendre_polynomial(c) {
         self.solve_legendre_polynomial_roots(c, p)
       } else {
         self.solve_companion_matrix_roots(c, lead, p)
       }
-      let mut err_fb = @mpf.fzero
+      let mut err_fb = @mpf.RawMpf::zero()
       for r in fallback {
         let rz = evaluate_complex_polynomial_ascending(c, r, p)
-        let re = checked_mpc_abs(rz, p, @mpf.round_nearest)
-        if @mpf.mpf_gt(re, err_fb) {
+        let re = checked_mpc_abs(rz, p, Nearest)
+        if re > err_fb {
           err_fb = re
         }
       }
       let out_fb : Array[@mpc.RawMpc] = []
       for r in fallback {
-        out_fb.push(@mpc.mpc_pos(r, self.precision(), self.round_mode()))
+        out_fb.push(r.rounded(self.precision(), self.round_mode()))
       }
-      return (out_fb, @mpf.mpf_pos(err_fb, self.precision(), self.round_mode()))
+      return (out_fb, err_fb.rounded(self.precision(), self.round_mode()))
     }
     raise ConvergenceError("polyroots: Durand-Kerner did not converge")
   }
 
-  let clean_tol = @mpf.from_man_exp(1N, -24, 0, @mpf.round_down)
+  let clean_tol = @mpf.RawMpf::from_mantissa_exponent(1N, -24, 0, Down)
   if cleanup {
     for i in 0..<n {
-      if @mpf.mpf_le(
-          @mpf.mpf_abs(roots[i].imag, p, @mpf.round_nearest),
-          clean_tol,
-        ) {
-        roots[i] = @mpc.from_parts(roots[i].real, @mpf.fzero)
+      if roots[i].imag.abs(p, Nearest) <= clean_tol {
+        roots[i] = @mpc.RawMpc::new(roots[i].real, @mpf.RawMpf::zero())
       }
     }
   }
   sort_polynomial_roots(roots, p)
 
-  let mut err = @mpf.fzero
+  let mut err = @mpf.RawMpf::zero()
   for r in roots {
     let rz = evaluate_complex_polynomial_ascending(c, r, p)
-    let re = checked_mpc_abs(rz, p, @mpf.round_nearest)
-    if @mpf.mpf_gt(re, err) {
+    let re = checked_mpc_abs(rz, p, Nearest)
+    if re > err {
       err = re
     }
   }
 
   let out : Array[@mpc.RawMpc] = []
   for r in roots {
-    out.push(@mpc.mpc_pos(r, self.precision(), self.round_mode()))
+    out.push(r.rounded(self.precision(), self.round_mode()))
   }
-  (out, @mpf.mpf_pos(err, self.precision(), self.round_mode()))
+  (out, err.rounded(self.precision(), self.round_mode()))
 }
 
 ///|
@@ -895,7 +751,7 @@ pub fn MPContext::pade(
   }
   let p = self.working_precision() + 16
   let q : Array[@mpf.RawMpf] = []
-  q.push(@mpf.fone)
+  q.push(@mpf.RawMpf::one())
   if n > 0 {
     let mat = self.matrix(n, n)
     let rhs : Array[@mpf.RawMpf] = []
@@ -904,7 +760,7 @@ pub fn MPContext::pade(
       for col in 0..<n {
         mat.set(row, col, a[k - 1 - col])
       }
-      rhs.push(@mpf.mpf_neg(a[k], p, @mpf.round_nearest))
+      rhs.push(a[k].negated(p, Nearest))
     }
     let tail = self.lu_solve(mat, rhs)
     for t in tail {
@@ -913,21 +769,16 @@ pub fn MPContext::pade(
   }
   let pcoef : Array[@mpf.RawMpf] = []
   for i in 0..<=m {
-    let mut s = @mpf.fzero
+    let mut s = @mpf.RawMpf::zero()
     let jmax = if i < n { i } else { n }
     for j in 0..<=jmax {
-      s = @mpf.mpf_add(
-        s,
-        @mpf.mpf_mul(q[j], a[i - j], p, @mpf.round_nearest),
-        p,
-        @mpf.round_nearest,
-      )
+      s = s.add(q[j].mul(a[i - j], p, Nearest), p, Nearest)
     }
-    pcoef.push(@mpf.mpf_pos(s, self.precision(), self.round_mode()))
+    pcoef.push(s.rounded(self.precision(), self.round_mode()))
   }
   let qout : Array[@mpf.RawMpf] = []
   for x in q {
-    qout.push(@mpf.mpf_pos(x, self.precision(), self.round_mode()))
+    qout.push(x.rounded(self.precision(), self.round_mode()))
   }
   (pcoef, qout)
 }
@@ -948,65 +799,40 @@ pub fn MPContext::fourier(
   }
   let p = self.working_precision()
   let (a, b) = interval
-  let l = @mpf.mpf_sub(b, a, p, @mpf.round_nearest)
-  if @mpf.is_zero(l) {
+  let l = b.sub(a, p, Nearest)
+  if l.is_zero() {
     raise ValueError("fourier: interval length must be non-zero")
   }
-  let pi = checked_mpf_pi(p, @mpf.round_nearest)
-  let w = @mpf.mpf_div(
-    @mpf.mpf_mul_int(pi, 2, p, @mpf.round_nearest),
-    l,
-    p,
-    @mpf.round_nearest,
-  ) catch {
-    err => raise from_mpf_error(err)
-  }
+  let pi = checked_mpf_pi(p, Nearest)
+  let w = pi.mul_int(2, p, Nearest).div(l, p, Nearest) catch {
+      err => raise from_mpf_error(err)
+    }
   let c : Array[@mpf.RawMpf] = []
   let s : Array[@mpf.RawMpf] = []
   let mean = self.quadts(f, a, b, max_steps=14)
   c.push(
-    @mpf.mpf_div(mean, l, self.precision(), self.round_mode()) catch {
+    mean.div(l, self.precision(), self.round_mode()) catch {
       err => raise from_mpf_error(err)
     },
   )
-  s.push(@mpf.fzero)
+  s.push(@mpf.RawMpf::zero())
   for k in 1..<=n {
-    let kk = @mpf.from_int(k)
+    let kk = @mpf.RawMpf::from_int(k)
     let cosk = (x : @mpf.RawMpf) => {
-      let arg = @mpf.mpf_mul(
-        @mpf.mpf_mul(w, kk, p, @mpf.round_nearest),
-        x,
-        p,
-        @mpf.round_nearest,
-      )
-      @mpf.mpf_mul(
-        f(x),
-        checked_mpf_cos(arg, p, @mpf.round_nearest),
-        p,
-        @mpf.round_nearest,
-      )
+      let arg = w.mul(kk, p, Nearest).mul(x, p, Nearest)
+      f(x).mul(checked_mpf_cos(arg, p, Nearest), p, Nearest)
     }
     let sink = (x : @mpf.RawMpf) => {
-      let arg = @mpf.mpf_mul(
-        @mpf.mpf_mul(w, kk, p, @mpf.round_nearest),
-        x,
-        p,
-        @mpf.round_nearest,
-      )
-      @mpf.mpf_mul(
-        f(x),
-        checked_mpf_sin(arg, p, @mpf.round_nearest),
-        p,
-        @mpf.round_nearest,
-      )
+      let arg = w.mul(kk, p, Nearest).mul(x, p, Nearest)
+      f(x).mul(checked_mpf_sin(arg, p, Nearest), p, Nearest)
     }
     let ic = self.quadts(cosk, a, b, max_steps=14)
     let is0 = self.quadts(sink, a, b, max_steps=14)
-    let scale = @mpf.mpf_div(@mpf.from_int(2), l, p, @mpf.round_nearest) catch {
+    let scale = @mpf.RawMpf::from_int(2).div(l, p, Nearest) catch {
       err => raise from_mpf_error(err)
     }
-    c.push(@mpf.mpf_mul(ic, scale, self.precision(), self.round_mode()))
-    s.push(@mpf.mpf_mul(is0, scale, self.precision(), self.round_mode()))
+    c.push(ic.mul(scale, self.precision(), self.round_mode()))
+    s.push(is0.mul(scale, self.precision(), self.round_mode()))
   }
   (c, s)
 }
@@ -1022,62 +848,38 @@ pub fn MPContext::fourierval(
   let p = self.working_precision()
   let (c, s) = coeffs
   if c.length() == 0 {
-    return @mpf.fzero
+    return @mpf.RawMpf::zero()
   }
   let (a, b) = interval
-  let l = @mpf.mpf_sub(b, a, p, @mpf.round_nearest)
-  if @mpf.is_zero(l) {
+  let l = b.sub(a, p, Nearest)
+  if l.is_zero() {
     raise ValueError("fourierval: interval length must be non-zero")
   }
   let n = if c.length() < s.length() { c.length() - 1 } else { s.length() - 1 }
-  let pi = checked_mpf_pi(p, @mpf.round_nearest)
-  let w = @mpf.mpf_div(
-    @mpf.mpf_mul_int(pi, 2, p, @mpf.round_nearest),
-    l,
-    p,
-    @mpf.round_nearest,
-  ) catch {
-    err => raise from_mpf_error(err)
-  }
+  let pi = checked_mpf_pi(p, Nearest)
+  let w = pi.mul_int(2, p, Nearest).div(l, p, Nearest) catch {
+      err => raise from_mpf_error(err)
+    }
   let mut y = c[0]
   for k in 1..<=n {
-    let arg = @mpf.mpf_mul(
-      @mpf.mpf_mul_int(w, k, p, @mpf.round_nearest),
-      x,
+    let arg = w.mul_int(k, p, Nearest).mul(x, p, Nearest)
+    y = y.add(
+      c[k]
+      .mul(checked_mpf_cos(arg, p, Nearest), p, Nearest)
+      .add(s[k].mul(checked_mpf_sin(arg, p, Nearest), p, Nearest), p, Nearest),
       p,
-      @mpf.round_nearest,
-    )
-    y = @mpf.mpf_add(
-      y,
-      @mpf.mpf_add(
-        @mpf.mpf_mul(
-          c[k],
-          checked_mpf_cos(arg, p, @mpf.round_nearest),
-          p,
-          @mpf.round_nearest,
-        ),
-        @mpf.mpf_mul(
-          s[k],
-          checked_mpf_sin(arg, p, @mpf.round_nearest),
-          p,
-          @mpf.round_nearest,
-        ),
-        p,
-        @mpf.round_nearest,
-      ),
-      p,
-      @mpf.round_nearest,
+      Nearest,
     )
   }
-  @mpf.mpf_pos(y, self.precision(), self.round_mode())
+  y.rounded(self.precision(), self.round_mode())
 }
 
 ///|
 fn exact_integer_value(x : @mpf.RawMpf) -> Int? {
-  if !@mpf.is_finite(x) {
+  if !x.is_finite() {
     return None
   }
-  if @mpf.is_zero(x) {
+  if x.is_zero() {
     return Some(0)
   }
   if x.exp < 0 {
@@ -1089,7 +891,7 @@ fn exact_integer_value(x : @mpf.RawMpf) -> Int? {
   }
   let n = v.to_int()
   let signed_n = if x.sign == 1 { -n } else { n }
-  if @mpf.mpf_eq(x, @mpf.from_int(signed_n)) {
+  if x == @mpf.RawMpf::from_int(signed_n) {
     Some(signed_n)
   } else {
     None
@@ -1107,13 +909,13 @@ pub fn MPContext::differint(
   a : @mpf.RawMpf,
 ) -> @mpf.RawMpf raise {
   let p = self.working_precision() + 24
-  if @mpf.is_nan(a) || @mpf.is_nan(x) {
+  if a.is_nan() || x.is_nan() {
     raise ValueError("differint: nan input")
   }
-  if @mpf.is_zero(a) {
+  if a.is_zero() {
     return f(x)
   }
-  if @mpf.mpf_gt(a, @mpf.fzero) {
+  if a > @mpf.RawMpf::zero() {
     match exact_integer_value(a) {
       Some(n) =>
         if n < 0 {
@@ -1125,44 +927,39 @@ pub fn MPContext::differint(
         raise ValueError("differint: positive non-integer order not supported")
     }
   }
-  if !@mpf.is_finite(x) || @mpf.mpf_lt(x, @mpf.fzero) {
+  if !x.is_finite() || x < @mpf.RawMpf::zero() {
     raise DomainError("differint: require finite non-negative x")
   }
-  let beta = @mpf.mpf_neg(a, p, @mpf.round_nearest)
-  let gamma_beta = @gammazeta.mpf_gamma(beta, p, @mpf.round_nearest) catch {
+  let beta = a.negated(p, Nearest)
+  let gamma_beta = @gammazeta.gamma(beta, p, Nearest) catch {
     err => raise from_gammazeta_error(err)
   }
   let g = (u : @mpf.RawMpf) => {
-    if @mpf.is_zero(u) {
+    if u.is_zero() {
       return f(x)
     }
-    let u2 = @mpf.mpf_mul(u, u, p, @mpf.round_nearest)
-    let one_minus_u2 = @mpf.mpf_sub(@mpf.fone, u2, p, @mpf.round_nearest)
-    let t = @mpf.mpf_mul(x, one_minus_u2, p, @mpf.round_nearest)
-    let xm_t = @mpf.mpf_sub(x, t, p, @mpf.round_nearest)
-    let kernel = @libelefun.mpf_pow(
+    let u2 = u.mul(u, p, Nearest)
+    let one_minus_u2 = @mpf.RawMpf::one().sub(u2, p, Nearest)
+    let t = x.mul(one_minus_u2, p, Nearest)
+    let xm_t = x.sub(t, p, Nearest)
+    let kernel = @libelefun.pow(
       xm_t,
-      @mpf.mpf_sub(beta, @mpf.fone, p, @mpf.round_nearest),
+      beta.sub(@mpf.RawMpf::one(), p, Nearest),
       p,
-      @mpf.round_nearest,
+      Nearest,
     ) catch {
       err => raise from_libelefun_error(err)
     }
-    let jac = @mpf.mpf_mul_int(
-      @mpf.mpf_mul(x, u, p, @mpf.round_nearest),
-      2,
-      p,
-      @mpf.round_nearest,
-    )
-    @mpf.mpf_mul(
-      @mpf.mpf_mul(kernel, f(t), p, @mpf.round_nearest),
-      jac,
-      p,
-      @mpf.round_nearest,
-    )
+    let jac = x.mul(u, p, Nearest).mul_int(2, p, Nearest)
+    kernel.mul(f(t), p, Nearest).mul(jac, p, Nearest)
   }
-  let integ = self.quadts(g, @mpf.fzero, @mpf.fone, max_steps=10)
-  @mpf.mpf_div(integ, gamma_beta, self.precision(), self.round_mode()) catch {
+  let integ = self.quadts(
+    g,
+    @mpf.RawMpf::zero(),
+    @mpf.RawMpf::one(),
+    max_steps=10,
+  )
+  integ.div(gamma_beta, self.precision(), self.round_mode()) catch {
     err => raise from_mpf_error(err)
   }
 }
@@ -1176,54 +973,41 @@ fn stehfest_coefficient(
   let nh = n / 2
   let jmin = (k + 1) / 2
   let jmax = if k < nh { k } else { nh }
-  let mut vk = @mpf.fzero
+  let mut vk = @mpf.RawMpf::zero()
   for j in jmin..<=jmax {
-    let jp = @mpf.from_int(j)
-    let mut term = @libelefun.mpf_pow(
-      jp,
-      @mpf.from_int(nh),
-      prec,
-      @mpf.round_nearest,
-    ) catch {
+    let jp = @mpf.RawMpf::from_int(j)
+    let mut term = @libelefun.pow(jp, @mpf.RawMpf::from_int(nh), prec, Nearest) catch {
       err => raise from_libelefun_error(err)
     }
-    let f2j = @gammazeta.mpf_factorial(2 * j, prec, @mpf.round_nearest) catch {
+    let f2j = @gammazeta.factorial(2 * j, prec, Nearest) catch {
       err => raise from_gammazeta_error(err)
     }
-    term = @mpf.mpf_mul(term, f2j, prec, @mpf.round_nearest)
-    let d0 = @gammazeta.mpf_factorial(nh - j, prec, @mpf.round_nearest) catch {
+    term = term.mul(f2j, prec, Nearest)
+    let d0 = @gammazeta.factorial(nh - j, prec, Nearest) catch {
       err => raise from_gammazeta_error(err)
     }
-    let d1 = @gammazeta.mpf_factorial(j, prec, @mpf.round_nearest) catch {
+    let d1 = @gammazeta.factorial(j, prec, Nearest) catch {
       err => raise from_gammazeta_error(err)
     }
-    let d2 = @gammazeta.mpf_factorial(j - 1, prec, @mpf.round_nearest) catch {
+    let d2 = @gammazeta.factorial(j - 1, prec, Nearest) catch {
       err => raise from_gammazeta_error(err)
     }
-    let d3 = @gammazeta.mpf_factorial(k - j, prec, @mpf.round_nearest) catch {
+    let d3 = @gammazeta.factorial(k - j, prec, Nearest) catch {
       err => raise from_gammazeta_error(err)
     }
-    let d4 = @gammazeta.mpf_factorial(2 * j - k, prec, @mpf.round_nearest) catch {
+    let d4 = @gammazeta.factorial(2 * j - k, prec, Nearest) catch {
       err => raise from_gammazeta_error(err)
     }
-    let den = @mpf.mpf_mul(
-      @mpf.mpf_mul(d0, d1, prec, @mpf.round_nearest),
-      @mpf.mpf_mul(
-        d2,
-        @mpf.mpf_mul(d3, d4, prec, @mpf.round_nearest),
-        prec,
-        @mpf.round_nearest,
-      ),
-      prec,
-      @mpf.round_nearest,
-    )
-    term = @mpf.mpf_div(term, den, prec, @mpf.round_nearest) catch {
+    let den = d0
+      .mul(d1, prec, Nearest)
+      .mul(d2.mul(d3.mul(d4, prec, Nearest), prec, Nearest), prec, Nearest)
+    term = term.div(den, prec, Nearest) catch {
       err => raise from_mpf_error(err)
     }
-    vk = @mpf.mpf_add(vk, term, prec, @mpf.round_nearest)
+    vk = vk.add(term, prec, Nearest)
   }
   if ((k + nh) & 1) == 1 {
-    @mpf.mpf_neg(vk, prec, @mpf.round_nearest)
+    vk.negated(prec, Nearest)
   } else {
     vk
   }
@@ -1238,9 +1022,9 @@ pub fn MPContext::invertlaplace(
   self : MPContext,
   fp : (@mpf.RawMpf) -> @mpf.RawMpf raise?,
   t : @mpf.RawMpf,
-  algo? : String = "talbot",
+  algo? : StringView = "talbot",
 ) -> @mpf.RawMpf raise {
-  if !@mpf.is_finite(t) || @mpf.mpf_le(t, @mpf.fzero) {
+  if !t.is_finite() || t <= @mpf.RawMpf::zero() {
     raise DomainError("invertlaplace: require finite positive t")
   }
   let key = algo.to_lower()
@@ -1253,26 +1037,22 @@ pub fn MPContext::invertlaplace(
   }
   let p = self.working_precision() + 32
   let n = 14
-  let ln2 = checked_mpf_ln2(p, @mpf.round_nearest)
-  let scale = @mpf.mpf_div(ln2, t, p, @mpf.round_nearest) catch {
-    err => raise from_mpf_error(err)
-  }
-  let mut s = @mpf.fzero
+  let ln2 = checked_mpf_ln2(p, Nearest)
+  let scale = ln2.div(t, p, Nearest) catch { err => raise from_mpf_error(err) }
+  let mut s = @mpf.RawMpf::zero()
   for k in 1..<=n {
     let vk = stehfest_coefficient(n, k, p)
-    let arg = @mpf.mpf_mul_int(scale, k, p, @mpf.round_nearest)
-    s = @mpf.mpf_add(
-      s,
-      @mpf.mpf_mul(vk, fp(arg), p, @mpf.round_nearest),
-      p,
-      @mpf.round_nearest,
-    )
+    let arg = scale.mul_int(k, p, Nearest)
+    s = s.add(vk.mul(fp(arg), p, Nearest), p, Nearest)
   }
-  @mpf.mpf_mul(scale, s, self.precision(), self.round_mode())
+  scale.mul(s, self.precision(), self.round_mode())
 }
 
 ///|
-fn require_square_matrix(a : MpfMatrix, name : String) -> Unit raise MPError {
+fn require_square_matrix(
+  a : MpfMatrix,
+  name : StringView,
+) -> Unit raise MPError {
   if a.rows != a.cols {
     raise ValueError("\{name}: matrix must be square")
   }
@@ -1285,7 +1065,7 @@ fn MPContext::matrix_series_tolerance(
 ) -> @mpf.RawMpf {
   ignore(self)
   let shift = if prec > 200 { -64 } else if prec > 120 { -52 } else { -40 }
-  @mpf.from_man_exp(1N, shift, 0, @mpf.round_down)
+  @mpf.RawMpf::from_mantissa_exponent(1N, shift, 0, Down)
 }
 
 ///|
@@ -1302,9 +1082,9 @@ pub fn MPContext::expm(
   let mut term = self.eye(a.rows)
   for k in 1..<=max_terms {
     term = self.matrix_mul(term, a)
-    term = self.matrix_div_scalar(term, @mpf.from_int(k))
+    term = self.matrix_div_scalar(term, @mpf.RawMpf::from_int(k))
     sum = self.matrix_add(sum, term)
-    if @mpf.mpf_le(self.matrix_norm_inf(term), tol) {
+    if self.matrix_norm_inf(term) <= tol {
       break
     }
   }
@@ -1326,10 +1106,13 @@ pub fn MPContext::cosm(
   let mut term = self.eye(a.rows)
   for k in 1..<=max_terms {
     term = self.matrix_mul(term, a2)
-    term = self.matrix_div_scalar(term, @mpf.from_int((2 * k - 1) * (2 * k)))
-    term = self.matrix_scale(term, @mpf.fnone)
+    term = self.matrix_div_scalar(
+      term,
+      @mpf.RawMpf::from_int((2 * k - 1) * (2 * k)),
+    )
+    term = self.matrix_scale(term, @mpf.RawMpf::negative_one())
     sum = self.matrix_add(sum, term)
-    if @mpf.mpf_le(self.matrix_norm_inf(term), tol) {
+    if self.matrix_norm_inf(term) <= tol {
       break
     }
   }
@@ -1351,10 +1134,13 @@ pub fn MPContext::sinm(
   let mut term = self.matrix_copy(a)
   for k in 1..<=max_terms {
     term = self.matrix_mul(term, a2)
-    term = self.matrix_div_scalar(term, @mpf.from_int(2 * k * (2 * k + 1)))
-    term = self.matrix_scale(term, @mpf.fnone)
+    term = self.matrix_div_scalar(
+      term,
+      @mpf.RawMpf::from_int(2 * k * (2 * k + 1)),
+    )
+    term = self.matrix_scale(term, @mpf.RawMpf::negative_one())
     sum = self.matrix_add(sum, term)
-    if @mpf.mpf_le(self.matrix_norm_inf(term), tol) {
+    if self.matrix_norm_inf(term) <= tol {
       break
     }
   }

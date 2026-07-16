@@ -8,197 +8,6 @@ import {
 }
 
 // Values
-pub fn mpc_scalar_mul_mpi_matrix(@mpc.RawMpc, RawMpiMatrix, prec? : Int) -> RawMpciMatrix raise MpiError
-
-pub fn mpci_abs(RawMpci, Int) -> RawMpi raise MpiError
-
-pub fn mpci_add(RawMpci, RawMpci, Int) -> RawMpci
-
-pub fn mpci_arg(RawMpci, Int) -> RawMpi raise MpiError
-
-pub fn mpci_contains_mpf(RawMpci, @mpf.RawMpf, @mpf.RawMpf) -> Bool
-
-pub fn mpci_cos(RawMpci, Int) -> RawMpci raise MpiError
-
-pub fn mpci_div(RawMpci, RawMpci, Int) -> RawMpci raise MpiError
-
-pub fn mpci_exp(RawMpci, Int) -> RawMpci raise MpiError
-
-pub fn mpci_factorial(RawMpci, Int) -> RawMpci raise MpiError
-
-pub fn mpci_from_mpc(@mpc.RawMpc) -> RawMpci
-
-pub fn mpci_gamma(RawMpci, Int) -> RawMpci raise MpiError
-
-pub fn mpci_log(RawMpci, Int) -> RawMpci raise MpiError
-
-pub fn mpci_loggamma(RawMpci, Int) -> RawMpci raise MpiError
-
-pub fn mpci_make(RawMpi, RawMpi) -> RawMpci
-
-pub fn mpci_matrix(Int, cols? : Int, fill? : RawMpci) -> RawMpciMatrix raise MpiError
-
-pub fn mpci_matrix_copy(RawMpciMatrix) -> RawMpciMatrix
-
-pub fn mpci_matrix_from_mpc_scalar(@mpc.RawMpc) -> RawMpciMatrix
-
-pub fn mpci_matrix_from_mpi_matrix(RawMpiMatrix) -> RawMpciMatrix
-
-pub fn mpci_matrix_from_scalar(RawMpci) -> RawMpciMatrix
-
-pub fn mpci_matrix_mul_scalar(RawMpciMatrix, RawMpci, prec? : Int) -> RawMpciMatrix raise MpiError
-
-pub fn mpci_mul(RawMpci, RawMpci, Int) -> RawMpci raise MpiError
-
-pub fn mpci_neg(RawMpci, Int) -> RawMpci
-
-pub let mpci_one : RawMpci
-
-pub fn mpci_pos(RawMpci, Int) -> RawMpci
-
-pub fn mpci_pow(RawMpci, RawMpci, Int) -> RawMpci raise MpiError
-
-pub fn mpci_pow_int(RawMpci, Int, Int) -> RawMpci raise MpiError
-
-pub fn mpci_rgamma(RawMpci, Int) -> RawMpci raise MpiError
-
-pub fn mpci_scalar_mul_matrix(RawMpci, RawMpciMatrix, prec? : Int) -> RawMpciMatrix raise MpiError
-
-pub fn mpci_scalar_mul_mpi_matrix(RawMpci, RawMpiMatrix, prec? : Int) -> RawMpciMatrix raise MpiError
-
-pub fn mpci_sin(RawMpci, Int) -> RawMpci raise MpiError
-
-pub fn mpci_square(RawMpci, Int) -> RawMpci raise MpiError
-
-pub fn mpci_sub(RawMpci, RawMpci, Int) -> RawMpci
-
-pub let mpci_zero : RawMpci
-
-pub fn mpf_scalar_mul_mpi_matrix(@mpf.RawMpf, RawMpiMatrix, prec? : Int) -> RawMpiMatrix raise MpiError
-
-pub fn mpi_abs(RawMpi, prec? : Int) -> RawMpi
-
-pub fn mpi_add(RawMpi, RawMpi, prec? : Int) -> RawMpi
-
-pub fn mpi_atan(RawMpi, Int) -> RawMpi raise MpiError
-
-pub fn mpi_atan2(RawMpi, RawMpi, Int) -> RawMpi raise MpiError
-
-pub fn mpi_cos(RawMpi, Int) -> RawMpi raise MpiError
-
-pub fn mpi_cos_sin(RawMpi, Int) -> (RawMpi, RawMpi) raise MpiError
-
-pub fn mpi_cosh_sinh(RawMpi, Int) -> (RawMpi, RawMpi) raise MpiError
-
-pub fn mpi_cot(RawMpi, Int) -> RawMpi raise MpiError
-
-pub fn mpi_delta(RawMpi, Int) -> @mpf.RawMpf
-
-pub fn mpi_div(RawMpi, RawMpi, Int) -> RawMpi raise MpiError
-
-pub fn mpi_div_mpf(RawMpi, @mpf.RawMpf, Int) -> RawMpi raise MpiError
-
-pub fn mpi_eq(RawMpi, RawMpi) -> Bool
-
-pub fn mpi_exp(RawMpi, Int) -> RawMpi raise MpiError
-
-pub fn mpi_eye(Int) -> RawMpiMatrix raise MpiError
-
-pub fn mpi_factorial(RawMpi, Int) -> RawMpi raise MpiError
-
-pub fn mpi_from_mpf(@mpf.RawMpf) -> RawMpi
-
-pub fn mpi_from_str(String, prec? : Int) -> RawMpi raise MpiError
-
-pub fn mpi_gamma(RawMpi, Int) -> RawMpi raise MpiError
-
-pub fn mpi_ge(RawMpi, RawMpi) -> Bool raise MpiError
-
-pub fn mpi_gt(RawMpi, RawMpi) -> Bool raise MpiError
-
-pub fn mpi_le(RawMpi, RawMpi) -> Bool raise MpiError
-
-pub fn mpi_log(RawMpi, Int) -> RawMpi raise MpiError
-
-pub fn mpi_loggamma(RawMpi, Int) -> RawMpi raise MpiError
-
-pub fn mpi_lt(RawMpi, RawMpi) -> Bool raise MpiError
-
-pub fn mpi_make(@mpf.RawMpf, @mpf.RawMpf) -> RawMpi
-
-pub fn mpi_matrix(Int, cols? : Int, fill? : RawMpi) -> RawMpiMatrix raise MpiError
-
-pub fn mpi_matrix_add(RawMpiMatrix, RawMpiMatrix, prec? : Int) -> RawMpiMatrix raise MpiError
-
-pub fn mpi_matrix_add_scalar(RawMpiMatrix, RawMpi, prec? : Int) -> RawMpiMatrix raise MpiError
-
-pub fn mpi_matrix_copy(RawMpiMatrix) -> RawMpiMatrix
-
-pub fn mpi_matrix_from_mpf_rows(ArrayView[Array[@mpf.RawMpf]]) -> RawMpiMatrix raise MpiError
-
-pub fn mpi_matrix_from_rows(ArrayView[Array[RawMpi]]) -> RawMpiMatrix raise MpiError
-
-pub fn mpi_matrix_from_scalar(RawMpi) -> RawMpiMatrix
-
-pub fn mpi_matrix_mul(RawMpiMatrix, RawMpiMatrix, prec? : Int) -> RawMpiMatrix raise MpiError
-
-pub fn mpi_matrix_mul_mpc_scalar(RawMpiMatrix, @mpc.RawMpc, prec? : Int) -> RawMpciMatrix raise MpiError
-
-pub fn mpi_matrix_mul_mpci_scalar(RawMpiMatrix, RawMpci, prec? : Int) -> RawMpciMatrix raise MpiError
-
-pub fn mpi_matrix_mul_mpf_scalar(RawMpiMatrix, @mpf.RawMpf, prec? : Int) -> RawMpiMatrix raise MpiError
-
-pub fn mpi_matrix_mul_scalar(RawMpiMatrix, RawMpi, prec? : Int) -> RawMpiMatrix raise MpiError
-
-pub fn mpi_mid(RawMpi, Int) -> @mpf.RawMpf
-
-pub fn mpi_mul(RawMpi, RawMpi, prec? : Int) -> RawMpi raise MpiError
-
-pub fn mpi_mul_mpf(RawMpi, @mpf.RawMpf, Int) -> RawMpi raise MpiError
-
-pub fn mpi_ne(RawMpi, RawMpi) -> Bool
-
-pub fn mpi_neg(RawMpi, prec? : Int) -> RawMpi
-
-pub let mpi_one : RawMpi
-
-pub fn mpi_ones(Int, cols? : Int) -> RawMpiMatrix raise MpiError
-
-pub fn mpi_overlap(RawMpi, RawMpi) -> Bool
-
-pub fn mpi_pi(Int) -> RawMpi raise MpiError
-
-pub fn mpi_pos(RawMpi, Int) -> RawMpi
-
-pub fn mpi_pow(RawMpi, RawMpi, Int) -> RawMpi raise MpiError
-
-pub fn mpi_pow_int(RawMpi, Int, Int) -> RawMpi raise MpiError
-
-pub fn mpi_rgamma(RawMpi, Int) -> RawMpi raise MpiError
-
-pub fn mpi_scalar_mul_matrix(RawMpi, RawMpiMatrix, prec? : Int) -> RawMpiMatrix raise MpiError
-
-pub fn mpi_shift(RawMpi, Int) -> RawMpi
-
-pub fn mpi_sin(RawMpi, Int) -> RawMpi raise MpiError
-
-pub fn mpi_sqrt(RawMpi, Int) -> RawMpi raise MpiError
-
-pub fn mpi_square(RawMpi, prec? : Int) -> RawMpi raise MpiError
-
-pub fn mpi_str(RawMpi, Int) -> String raise MpiError
-
-pub fn mpi_sub(RawMpi, RawMpi, prec? : Int) -> RawMpi
-
-pub fn mpi_tan(RawMpi, Int) -> RawMpi raise MpiError
-
-pub fn mpi_to_str(RawMpi, dps? : Int) -> String raise MpiError
-
-pub fn mpi_to_str_opts(RawMpi, dps? : Int, mode? : String, use_spaces? : Bool, error_dps? : Int, left_bracket? : String, right_bracket? : String, base? : Int, binary_exp? : Bool) -> String raise MpiError
-
-pub let mpi_zero : RawMpi
-
-pub fn mpi_zeros(Int, cols? : Int) -> RawMpiMatrix raise MpiError
 
 // Errors
 pub(all) suberror MpiError {
@@ -214,27 +23,120 @@ pub struct RawMpci {
   real : RawMpi
   imag : RawMpi
 } derive(Eq, @debug.Debug)
+pub fn RawMpci::abs(Self, Int) -> RawMpi raise MpiError
+pub fn RawMpci::add(Self, Self, Int) -> Self
+pub fn RawMpci::arg(Self, Int) -> RawMpi raise MpiError
+pub fn RawMpci::contains_point(Self, @mpf.RawMpf, @mpf.RawMpf) -> Bool
+pub fn RawMpci::cos(Self, Int) -> Self raise MpiError
+pub fn RawMpci::div(Self, Self, Int) -> Self raise MpiError
+pub fn RawMpci::exp(Self, Int) -> Self raise MpiError
+pub fn RawMpci::factorial(Self, Int) -> Self raise MpiError
+pub fn RawMpci::gamma(Self, Int) -> Self raise MpiError
+pub fn RawMpci::log(Self, Int) -> Self raise MpiError
+pub fn RawMpci::loggamma(Self, Int) -> Self raise MpiError
+pub fn RawMpci::mul(Self, Self, Int) -> Self raise MpiError
+pub fn RawMpci::negated(Self, Int) -> Self
+pub fn RawMpci::new(RawMpi, RawMpi) -> Self
+pub fn RawMpci::one() -> Self
+pub fn RawMpci::point(@mpc.RawMpc) -> Self
+pub fn RawMpci::pow(Self, Self, Int) -> Self raise MpiError
+pub fn RawMpci::pow_int(Self, Int, Int) -> Self raise MpiError
+pub fn RawMpci::rgamma(Self, Int) -> Self raise MpiError
+pub fn RawMpci::rounded(Self, Int) -> Self
+pub fn RawMpci::sin(Self, Int) -> Self raise MpiError
+pub fn RawMpci::square(Self, Int) -> Self raise MpiError
+pub fn RawMpci::sub(Self, Self, Int) -> Self
+pub fn RawMpci::zero() -> Self
+pub impl Hash for RawMpci
+pub impl Neg for RawMpci
 
 pub struct RawMpciMatrix {
   rows : Int
   cols : Int
   data : Array[RawMpci]
 } derive(Eq, @debug.Debug)
+pub fn RawMpciMatrix::copy(Self) -> Self
+pub fn RawMpciMatrix::from_complex_scalar(@mpc.RawMpc) -> Self
+pub fn RawMpciMatrix::from_real_matrix(RawMpiMatrix) -> Self
+pub fn RawMpciMatrix::from_scalar(RawMpci) -> Self
 pub fn RawMpciMatrix::get(Self, Int, Int) -> RawMpci raise MpiError
+pub fn RawMpciMatrix::new(Int, cols? : Int, fill? : RawMpci) -> Self raise MpiError
+pub fn RawMpciMatrix::scale(Self, RawMpci, prec? : Int) -> Self raise MpiError
 
 pub struct RawMpi {
   lo : @mpf.RawMpf
   hi : @mpf.RawMpf
 } derive(Eq, @debug.Debug)
+pub fn RawMpi::abs(Self, prec? : Int) -> Self
+pub fn RawMpi::add(Self, Self, prec? : Int) -> Self
+pub fn RawMpi::atan(Self, Int) -> Self raise MpiError
+pub fn RawMpi::atan2(Self, Self, Int) -> Self raise MpiError
+pub fn RawMpi::cos(Self, Int) -> Self raise MpiError
+pub fn RawMpi::cos_sin(Self, Int) -> (Self, Self) raise MpiError
+pub fn RawMpi::cosh_sinh(Self, Int) -> (Self, Self) raise MpiError
+pub fn RawMpi::cot(Self, Int) -> Self raise MpiError
+pub fn RawMpi::div(Self, Self, Int) -> Self raise MpiError
+pub fn RawMpi::div_real(Self, @mpf.RawMpf, Int) -> Self raise MpiError
+pub fn RawMpi::exp(Self, Int) -> Self raise MpiError
+pub fn RawMpi::factorial(Self, Int) -> Self raise MpiError
+pub fn RawMpi::format(Self, dps? : Int) -> String raise MpiError
+pub fn RawMpi::format_at_precision(Self, Int) -> String raise MpiError
+pub fn RawMpi::format_with(Self, dps? : Int, mode? : StringView, use_spaces? : Bool, error_dps? : Int, left_bracket? : StringView, right_bracket? : StringView, base? : Int, binary_exp? : Bool) -> String raise MpiError
+pub fn RawMpi::gamma(Self, Int) -> Self raise MpiError
+pub fn RawMpi::greater_or_equal(Self, Self) -> Bool raise MpiError
+pub fn RawMpi::less_or_equal(Self, Self) -> Bool raise MpiError
+pub fn RawMpi::log(Self, Int) -> Self raise MpiError
+pub fn RawMpi::loggamma(Self, Int) -> Self raise MpiError
+pub fn RawMpi::midpoint(Self, Int) -> @mpf.RawMpf
+pub fn RawMpi::mul(Self, Self, prec? : Int) -> Self raise MpiError
+pub fn RawMpi::mul_real(Self, @mpf.RawMpf, Int) -> Self raise MpiError
+pub fn RawMpi::negated(Self, prec? : Int) -> Self
+pub fn RawMpi::new(@mpf.RawMpf, @mpf.RawMpf) -> Self
+pub fn RawMpi::one() -> Self
+pub fn RawMpi::overlaps(Self, Self) -> Bool
+pub fn RawMpi::parse(StringView, prec? : Int) -> Self raise MpiError
+pub fn RawMpi::pi(Int) -> Self raise MpiError
+pub fn RawMpi::point(@mpf.RawMpf) -> Self
+pub fn RawMpi::pow(Self, Self, Int) -> Self raise MpiError
+pub fn RawMpi::pow_int(Self, Int, Int) -> Self raise MpiError
+pub fn RawMpi::rgamma(Self, Int) -> Self raise MpiError
+pub fn RawMpi::rounded(Self, Int) -> Self
+pub fn RawMpi::scale_pow2(Self, Int) -> Self
+pub fn RawMpi::sin(Self, Int) -> Self raise MpiError
+pub fn RawMpi::sqrt(Self, Int) -> Self raise MpiError
+pub fn RawMpi::square(Self, prec? : Int) -> Self raise MpiError
+pub fn RawMpi::strictly_greater_than(Self, Self) -> Bool raise MpiError
+pub fn RawMpi::strictly_less_than(Self, Self) -> Bool raise MpiError
+pub fn RawMpi::sub(Self, Self, prec? : Int) -> Self
+pub fn RawMpi::tan(Self, Int) -> Self raise MpiError
+pub fn RawMpi::width(Self, Int) -> @mpf.RawMpf
+pub fn RawMpi::zero() -> Self
+pub impl Hash for RawMpi
+pub impl Neg for RawMpi
 
 pub struct RawMpiMatrix {
   rows : Int
   cols : Int
   data : Array[RawMpi]
 } derive(Eq, @debug.Debug)
+pub fn RawMpiMatrix::add(Self, Self, prec? : Int) -> Self raise MpiError
+pub fn RawMpiMatrix::add_interval(Self, RawMpi, prec? : Int) -> Self raise MpiError
+pub fn RawMpiMatrix::copy(Self) -> Self
+pub fn RawMpiMatrix::from_real_rows(ArrayView[Array[@mpf.RawMpf]]) -> Self raise MpiError
+pub fn RawMpiMatrix::from_rows(ArrayView[Array[RawMpi]]) -> Self raise MpiError
+pub fn RawMpiMatrix::from_scalar(RawMpi) -> Self
 pub fn RawMpiMatrix::get(Self, Int, Int) -> RawMpi raise MpiError
+pub fn RawMpiMatrix::identity(Int) -> Self raise MpiError
+pub fn RawMpiMatrix::mul(Self, Self, prec? : Int) -> Self raise MpiError
+pub fn RawMpiMatrix::new(Int, cols? : Int, fill? : RawMpi) -> Self raise MpiError
+pub fn RawMpiMatrix::ones(Int, cols? : Int) -> Self raise MpiError
+pub fn RawMpiMatrix::scale(Self, RawMpi, prec? : Int) -> Self raise MpiError
+pub fn RawMpiMatrix::scale_complex(Self, @mpc.RawMpc, prec? : Int) -> RawMpciMatrix raise MpiError
+pub fn RawMpiMatrix::scale_complex_interval(Self, RawMpci, prec? : Int) -> RawMpciMatrix raise MpiError
+pub fn RawMpiMatrix::scale_real(Self, @mpf.RawMpf, prec? : Int) -> Self raise MpiError
 pub fn RawMpiMatrix::set(Self, Int, Int, RawMpi) -> Unit raise MpiError
-pub fn RawMpiMatrix::tolist(Self) -> Array[Array[RawMpi]]
+pub fn RawMpiMatrix::to_rows(Self) -> Array[Array[RawMpi]]
+pub fn RawMpiMatrix::zeros(Int, cols? : Int) -> Self raise MpiError
 
 // Type aliases
 

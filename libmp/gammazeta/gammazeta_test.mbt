@@ -28,84 +28,69 @@ fn assert_close_numeric(
   dps : Int,
 ) -> Unit raise {
   let prec = gz_dps_to_prec(dps)
-  let expected = @mpf.from_str(expected_text, prec~, rnd=@mpf.round_nearest)
-  let err = @mpf.mpf_abs(
-    @mpf.mpf_sub(got, expected, prec, @mpf.round_nearest),
-    prec,
-    @mpf.round_nearest,
-  )
+  let expected = @mpf.RawMpf::parse(expected_text, prec~, rnd=Nearest)
+  let err = got.sub(expected, prec, Nearest).abs(prec, Nearest)
   let digits = gz_mantissa_digit_count(expected_text)
   let sig_digits = if digits <= 1 { 0 } else { digits - 1 }
   let rel_tol = if sig_digits == 0 {
-    @mpf.fone
+    @mpf.RawMpf::one()
   } else {
-    @mpf.from_str("1e-\{sig_digits}", prec~, rnd=@mpf.round_nearest)
+    @mpf.RawMpf::parse("1e-\{sig_digits}", prec~, rnd=Nearest)
   }
-  let mut scale = @mpf.mpf_abs(expected, prec, @mpf.round_nearest)
-  if @mpf.mpf_lt(scale, @mpf.fone) {
-    scale = @mpf.fone
+  let mut scale = expected.abs(prec, Nearest)
+  if scale < @mpf.RawMpf::one() {
+    scale = @mpf.RawMpf::one()
   }
-  let tol = @mpf.mpf_mul(scale, rel_tol, prec, @mpf.round_nearest)
-  assert_true(@mpf.mpf_le(err, tol))
+  let tol = scale.mul(rel_tol, prec, Nearest)
+  assert_true(err <= tol)
 }
 
 ///|
-test "mpf_factorial basic" {
-  @debug.assert_eq(mpf_factorial(0, 80, @mpf.round_nearest), @mpf.fone)
-  @debug.assert_eq(mpf_factorial(1, 80, @mpf.round_nearest), @mpf.fone)
-  @debug.assert_eq(mpf_factorial(5, 80, @mpf.round_nearest), @mpf.from_int(120))
+test "factorial basic" {
+  @debug.assert_eq(factorial(0, 80, Nearest), @mpf.RawMpf::one())
+  @debug.assert_eq(factorial(1, 80, Nearest), @mpf.RawMpf::one())
+  @debug.assert_eq(factorial(5, 80, Nearest), @mpf.RawMpf::from_int(120))
+  @debug.assert_eq(factorial(10, 80, Nearest), @mpf.RawMpf::from_int(3628800))
+}
+
+///|
+test "bernoulli small values" {
+  @debug.assert_eq(bernoulli(0, 120, Nearest), @mpf.RawMpf::from_int(1))
   @debug.assert_eq(
-    mpf_factorial(10, 80, @mpf.round_nearest),
-    @mpf.from_int(3628800),
+    bernoulli(1, 120, Nearest),
+    @mpf.RawMpf::from_mantissa_exponent(-1N, -1, 0, Down),
   )
+  assert_close_numeric(bernoulli(2, 120, Nearest), "0.166666666666666", 16)
+  assert_close_numeric(bernoulli(4, 120, Nearest), "-0.033333333333333", 16)
+  @debug.assert_eq(bernoulli(3, 120, Nearest), @mpf.RawMpf::zero())
 }
 
 ///|
-test "mpf_bernoulli small values" {
-  @debug.assert_eq(mpf_bernoulli(0, 120, @mpf.round_nearest), @mpf.from_int(1))
-  @debug.assert_eq(
-    mpf_bernoulli(1, 120, @mpf.round_nearest),
-    @mpf.from_man_exp(-1N, -1, 0, @mpf.round_down),
-  )
-  assert_close_numeric(
-    mpf_bernoulli(2, 120, @mpf.round_nearest),
-    "0.166666666666666",
-    16,
-  )
-  assert_close_numeric(
-    mpf_bernoulli(4, 120, @mpf.round_nearest),
-    "-0.033333333333333",
-    16,
-  )
-  @debug.assert_eq(mpf_bernoulli(3, 120, @mpf.round_nearest), @mpf.fzero)
-}
-
-///|
-test "mpf_bernoulli_huge subset" {
-  let b100 = mpf_bernoulli_huge(100, 220, @mpf.round_nearest)
+test "bernoulli_huge subset" {
+  let b100 = large_bernoulli(100, 220, Nearest)
   assert_close_numeric(b100, "-2.83822495706937069592642e+78", 24)
-  let b100_auto = mpf_bernoulli(100, 220, @mpf.round_nearest)
+  let b100_auto = bernoulli(100, 220, Nearest)
   assert_close_numeric(b100_auto, "-2.83822495706937069592642e+78", 24)
 }
 
 ///|
-test "mpf_zeta_int subset" {
-  let z2 = mpf_zeta_int(2, 120, @mpf.round_nearest)
-  let z3 = mpf_zeta_int(3, 120, @mpf.round_nearest)
+test "zeta_int subset" {
+  let z2 = zeta_integer(2, 120, Nearest)
+  let z3 = zeta_integer(3, 120, Nearest)
   assert_close_numeric(z2, "1.644934066848226", 16)
   assert_close_numeric(z3, "1.202056903159594", 16)
 }
 
 ///|
-test "mpf_gamma subset" {
+test "gamma subset" {
   @debug.assert_eq(
-    mpf_gamma(@mpf.from_int(6), 120, @mpf.round_nearest),
-    @mpf.from_int(120),
+    gamma(@mpf.RawMpf::from_int(6), 120, Nearest),
+    @mpf.RawMpf::from_int(120),
   )
-  let ghalf = mpf_gamma(
-    @mpf.from_man_exp(1N, -1, 0, @mpf.round_down),
+  let ghalf = gamma(
+    @mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down),
     120,
-    @mpf.round_nearest,
+    Nearest,
   )
   assert_close_numeric(ghalf, "1.772453850905516", 16)
 }
@@ -114,101 +99,78 @@ test "mpf_gamma subset" {
 test "mpmath diff subset for gammazeta" {
   // Expected values are generated from mpmath with mp.dps=80.
   assert_close_numeric(
-    mpf_gamma(
-      @mpf.from_man_exp(1N, -1, 0, @mpf.round_down),
-      140,
-      @mpf.round_nearest,
-    ),
+    gamma(@mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down), 140, Nearest),
     "1.772453850905",
     14,
   )
-  assert_close_numeric(
-    mpf_zeta_int(2, 140, @mpf.round_nearest),
-    "1.644934066848",
-    14,
-  )
-  assert_close_numeric(
-    mpf_zeta_int(3, 140, @mpf.round_nearest),
-    "1.202056903159",
-    14,
-  )
-  assert_close_numeric(
-    mpf_bernoulli(10, 140, @mpf.round_nearest),
-    "0.075757575757",
-    14,
-  )
+  assert_close_numeric(zeta_integer(2, 140, Nearest), "1.644934066848", 14)
+  assert_close_numeric(zeta_integer(3, 140, Nearest), "1.202056903159", 14)
+  assert_close_numeric(bernoulli(10, 140, Nearest), "0.075757575757", 14)
 }
 
 ///|
 test "mpf rgamma/loggamma/gamma_int subset" {
   assert_close_numeric(
-    mpf_rgamma(
-      @mpf.from_man_exp(1N, -1, 0, @mpf.round_down),
-      140,
-      @mpf.round_nearest,
-    ),
+    rgamma(@mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down), 140, Nearest),
     "0.564189583547",
     14,
   )
   assert_close_numeric(
-    mpf_loggamma(@mpf.from_str("3.5"), 140, @mpf.round_nearest),
+    loggamma(@mpf.RawMpf::parse("3.5"), 140, Nearest),
     "1.200973602347",
     14,
   )
-  @debug.assert_eq(
-    mpf_gamma_int(6, 120, @mpf.round_nearest),
-    @mpf.from_int(120),
-  )
+  @debug.assert_eq(gamma_integer(6, 120, Nearest), @mpf.RawMpf::from_int(120))
 }
 
 ///|
 test "mpf psi harmonic fibonacci zeta subset" {
   assert_close_numeric(
-    mpf_psi0(@mpf.from_str("3.5"), 140, @mpf.round_nearest),
+    digamma(@mpf.RawMpf::parse("3.5"), 140, Nearest),
     "1.1031566404",
     14,
   )
   assert_close_numeric(
-    mpf_harmonic(@mpf.from_int(10), 140, @mpf.round_nearest),
+    harmonic(@mpf.RawMpf::from_int(10), 140, Nearest),
     "2.928968253968",
     14,
   )
   assert_close_numeric(
-    mpf_harmonic(@mpf.from_str("2.5"), 140, @mpf.round_nearest),
+    harmonic(@mpf.RawMpf::parse("2.5"), 140, Nearest),
     "1.6803723053",
     14,
   )
   assert_close_numeric(
-    mpf_psi0(@mpf.from_str("-0.5"), 140, @mpf.round_nearest),
+    digamma(@mpf.RawMpf::parse("-0.5"), 140, Nearest),
     "0.0364899738",
     14,
   )
   assert_close_numeric(
-    mpf_harmonic(@mpf.from_str("-0.5"), 140, @mpf.round_nearest),
+    harmonic(@mpf.RawMpf::parse("-0.5"), 140, Nearest),
     "-1.3862943612",
     14,
   )
   assert_close_numeric(
-    mpf_harmonic(@mpf.from_str("-2.5"), 140, @mpf.round_nearest),
+    harmonic(@mpf.RawMpf::parse("-2.5"), 140, Nearest),
     "1.2803723053",
     14,
   )
   @debug.assert_eq(
-    mpf_fibonacci(@mpf.from_int(10), 120, @mpf.round_nearest),
-    @mpf.from_int(55),
+    fibonacci(@mpf.RawMpf::from_int(10), 120, Nearest),
+    @mpf.RawMpf::from_int(55),
   )
   assert_close_numeric(
-    mpf_fibonacci(@mpf.from_str("0.5"), 140, @mpf.round_nearest),
+    fibonacci(@mpf.RawMpf::parse("0.5"), 140, Nearest),
     "0.568864481005",
     14,
   )
   assert_close_numeric(
-    mpf_zeta(@mpf.from_str("2.5"), 140, @mpf.round_nearest),
+    zeta(@mpf.RawMpf::parse("2.5"), 140, Nearest),
     "1.34148725",
     14,
   )
   assert_close_numeric(
-    mpf_zeta(@mpf.from_str("2.5"), 140, @mpf.round_nearest, alt=true),
+    zeta(@mpf.RawMpf::parse("2.5"), 140, Nearest, alt=true),
     "0.86719988",
     14,
   )
@@ -217,132 +179,127 @@ test "mpf psi harmonic fibonacci zeta subset" {
 ///|
 test "mpf gamma/zeta negative real subset" {
   assert_close_numeric(
-    mpf_gamma(@mpf.from_str("-0.5"), 160, @mpf.round_nearest),
+    gamma(@mpf.RawMpf::parse("-0.5"), 160, Nearest),
     "-3.54490770181103",
     15,
   )
   assert_close_numeric(
-    mpf_gamma(@mpf.from_str("-2.5"), 160, @mpf.round_nearest),
+    gamma(@mpf.RawMpf::parse("-2.5"), 160, Nearest),
     "-0.94530872048294",
     15,
   )
+  assert_close_numeric(zeta(@mpf.RawMpf::from_int(0), 160, Nearest), "-0.5", 16)
   assert_close_numeric(
-    mpf_zeta(@mpf.from_int(0), 160, @mpf.round_nearest),
-    "-0.5",
-    16,
-  )
-  assert_close_numeric(
-    mpf_zeta(@mpf.from_int(-1), 160, @mpf.round_nearest),
+    zeta(@mpf.RawMpf::from_int(-1), 160, Nearest),
     "-0.083333333333333",
     16,
   )
   assert_close_numeric(
-    mpf_zeta(@mpf.from_int(-3), 160, @mpf.round_nearest),
+    zeta(@mpf.RawMpf::from_int(-3), 160, Nearest),
     "0.008333333333333",
     16,
   )
   assert_close_numeric(
-    mpf_zeta(@mpf.from_str("-0.5"), 160, @mpf.round_nearest),
+    zeta(@mpf.RawMpf::parse("-0.5"), 160, Nearest),
     "-0.20788622",
     12,
   )
   assert_close_numeric(
-    mpf_zeta(@mpf.from_int(0), 160, @mpf.round_nearest, alt=true),
+    zeta(@mpf.RawMpf::from_int(0), 160, Nearest, alt=true),
     "0.5",
     16,
   )
   assert_close_numeric(
-    mpf_zeta(@mpf.from_int(-1), 160, @mpf.round_nearest, alt=true),
+    zeta(@mpf.RawMpf::from_int(-1), 160, Nearest, alt=true),
     "0.25",
     16,
   )
   assert_close_numeric(
-    mpf_zeta(@mpf.from_int(-3), 160, @mpf.round_nearest, alt=true),
+    zeta(@mpf.RawMpf::from_int(-3), 160, Nearest, alt=true),
     "-0.125",
     16,
   )
   assert_close_numeric(
-    mpf_zeta(@mpf.from_str("-0.5"), 160, @mpf.round_nearest, alt=true),
+    zeta(@mpf.RawMpf::parse("-0.5"), 160, Nearest, alt=true),
     "0.38010481",
     12,
   )
   assert_close_numeric(
-    mpf_psi(1, @mpf.from_str("-0.5"), 180, @mpf.round_nearest),
+    polygamma(1, @mpf.RawMpf::parse("-0.5"), 180, Nearest),
     "8.934802200544",
     14,
   )
   assert_close_numeric(
-    mpf_psi(2, @mpf.from_str("-0.5"), 180, @mpf.round_nearest),
+    polygamma(2, @mpf.RawMpf::parse("-0.5"), 180, Nearest),
     "-0.828796644234",
     14,
   )
-  @debug.assert_eq(mpf_psi(1, @mpf.finf, 120, @mpf.round_nearest), @mpf.fzero)
+  @debug.assert_eq(
+    polygamma(1, @mpf.RawMpf::infinity(), 120, Nearest),
+    @mpf.RawMpf::zero(),
+  )
 }
 
 ///|
 test "mpf psi0 harmonic infinity semantics and large-negative stability" {
-  assert_true(@mpf.is_nan(mpf_psi0(@mpf.fninf, 140, @mpf.round_nearest)))
-  @debug.assert_eq(mpf_psi0(@mpf.finf, 140, @mpf.round_nearest), @mpf.finf)
-  assert_true(@mpf.is_nan(mpf_harmonic(@mpf.fninf, 140, @mpf.round_nearest)))
-  @debug.assert_eq(mpf_harmonic(@mpf.finf, 140, @mpf.round_nearest), @mpf.finf)
-  let psi1_large_neg = mpf_psi(
-    1,
-    @mpf.from_str("-1e80"),
-    180,
-    @mpf.round_nearest,
+  assert_true(digamma(@mpf.RawMpf::negative_infinity(), 140, Nearest).is_nan())
+  @debug.assert_eq(
+    digamma(@mpf.RawMpf::infinity(), 140, Nearest),
+    @mpf.RawMpf::infinity(),
   )
-  assert_true(@mpf.is_finite(psi1_large_neg))
-  let psi2_large_neg = mpf_psi(
-    2,
-    @mpf.from_str("-1e80"),
-    180,
-    @mpf.round_nearest,
+  assert_true(harmonic(@mpf.RawMpf::negative_infinity(), 140, Nearest).is_nan())
+  @debug.assert_eq(
+    harmonic(@mpf.RawMpf::infinity(), 140, Nearest),
+    @mpf.RawMpf::infinity(),
   )
-  assert_true(@mpf.is_finite(psi2_large_neg))
+  let psi1_large_neg = polygamma(1, @mpf.RawMpf::parse("-1e80"), 180, Nearest)
+  assert_true(psi1_large_neg.is_finite())
+  let psi2_large_neg = polygamma(2, @mpf.RawMpf::parse("-1e80"), 180, Nearest)
+  assert_true(psi2_large_neg.is_finite())
 }
 
 ///|
 test "mpf zeta higher precision subset" {
   assert_close_numeric(
-    mpf_zeta_int(3, 260, @mpf.round_nearest),
+    zeta_integer(3, 260, Nearest),
     "1.2020569031595942853997381615",
     30,
   )
   assert_close_numeric(
-    mpf_zeta_int(5, 260, @mpf.round_nearest),
+    zeta_integer(5, 260, Nearest),
     "1.0369277551433699263313654864",
     30,
   )
-  let s_near_1 = @mpf.from_str("1.0001", prec=360, rnd=@mpf.round_nearest)
+  let s_near_1 = @mpf.RawMpf::parse("1.0001", prec=360, rnd=Nearest)
   assert_close_numeric(
-    mpf_zeta(s_near_1, 260, @mpf.round_nearest),
+    zeta(s_near_1, 260, Nearest),
     "10000.5772229464376290700",
     25,
   )
-  let s_near_1_minus = @mpf.from_str("0.999", prec=360, rnd=@mpf.round_nearest)
+  let s_near_1_minus = @mpf.RawMpf::parse("0.999", prec=360, rnd=Nearest)
   assert_close_numeric(
-    mpf_altzeta(s_near_1_minus, 260, @mpf.round_nearest),
+    eta(s_near_1_minus, 260, Nearest),
     "0.69298727896833835736749",
     24,
   )
 }
 
 ///|
-test "panic mpf_factorial negative" {
-  ignore(mpf_factorial(-1, 80, @mpf.round_nearest))
+test "panic factorial negative" {
+  ignore(factorial(-1, 80, Nearest))
 }
 
 ///|
-test "panic mpf_zeta_int pole" {
-  ignore(mpf_zeta_int(1, 80, @mpf.round_nearest))
+test "panic zeta_int pole" {
+  ignore(zeta_integer(1, 80, Nearest))
 }
 
 ///|
-test "panic mpf_gamma pole" {
-  ignore(mpf_gamma(@mpf.from_int(0), 80, @mpf.round_nearest))
+test "panic gamma pole" {
+  ignore(gamma(@mpf.RawMpf::from_int(0), 80, Nearest))
 }
 
 ///|
 test "panic unsupported branches in gammazeta subset" {
-  ignore(mpf_psi0(@mpf.from_int(0), 80, @mpf.round_nearest))
+  ignore(digamma(@mpf.RawMpf::from_int(0), 80, Nearest))
 }

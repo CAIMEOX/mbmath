@@ -1,6 +1,6 @@
 ///|
 fn unit_interval() -> RawMpi {
-  { lo: @mpf.fnone, hi: @mpf.fone }
+  { lo: @mpf.RawMpf::negative_one(), hi: @mpf.RawMpf::one() }
 }
 
 ///|
@@ -11,17 +11,17 @@ fn interval_contains_periodic_point(
   period : @mpf.RawMpf,
   wp : Int,
 ) -> Bool raise MpiError {
-  let left = @mpf.mpf_sub(lo, offset, wp, @mpf.round_floor)
-  let right = @mpf.mpf_sub(hi, offset, wp, @mpf.round_ceiling)
-  let ql = @mpf.mpf_div(left, period, wp, @mpf.round_floor) catch {
+  let left = lo.sub(offset, wp, Floor)
+  let right = hi.sub(offset, wp, Ceiling)
+  let ql = left.div(period, wp, Floor) catch {
     err => raise from_mpf_error(err)
   }
-  let qh = @mpf.mpf_div(right, period, wp, @mpf.round_ceiling) catch {
+  let qh = right.div(period, wp, Ceiling) catch {
     err => raise from_mpf_error(err)
   }
-  let k_min = @mpf.mpf_ceil(ql, 0, @mpf.round_nearest)
-  let k_max = @mpf.mpf_floor(qh, 0, @mpf.round_nearest)
-  @mpf.mpf_le(k_min, k_max)
+  let k_min = ql.ceil(0, Nearest)
+  let k_max = qh.floor(0, Nearest)
+  k_min <= k_max
 }
 
 ///|
@@ -32,108 +32,127 @@ fn inflate_trig_endpoint(
   more : @mpf.RawMpf,
   less : @mpf.RawMpf,
 ) -> @mpf.RawMpf {
-  let use_more = (v.sign == 1) == (rnd == @mpf.round_floor)
+  let use_more = (v.sign == 1) == (rnd == Floor)
   let p = if use_more { more } else { less }
-  let out = @mpf.mpf_mul(v, p, prec, rnd)
-  if @mpf.mpf_gt(out, @mpf.fone) {
-    @mpf.fone
-  } else if @mpf.mpf_lt(out, @mpf.fnone) {
-    @mpf.fnone
+  let out = v.mul(p, prec, rnd)
+  if out > @mpf.RawMpf::one() {
+    @mpf.RawMpf::one()
+  } else if out < @mpf.RawMpf::negative_one() {
+    @mpf.RawMpf::negative_one()
   } else {
     out
   }
 }
 
 ///|
-pub fn mpi_cos_sin(s : RawMpi, prec : Int) -> (RawMpi, RawMpi) raise MpiError {
-  if @mpf.is_zero(s.lo) && @mpf.is_zero(s.hi) {
-    return (mpi_one, mpi_zero)
+pub fn RawMpi::cos_sin(
+  s : RawMpi,
+  prec : Int,
+) -> (RawMpi, RawMpi) raise MpiError {
+  if s.lo.is_zero() && s.hi.is_zero() {
+    return (RawMpi::one(), RawMpi::zero())
   }
-  if !@mpf.is_finite(s.lo) || !@mpf.is_finite(s.hi) {
+  if !s.lo.is_finite() || !s.hi.is_finite() {
     let u = unit_interval()
     return (u, u)
   }
   let wp = if prec > 0 { prec + 32 } else { 96 }
   let out_prec = if prec > 0 { prec } else { wp }
-  let pi = elefun_pi_checked(wp, @mpf.round_nearest)
-  let half_pi = @mpf.mpf_shift(pi, -1)
-  let neg_half_pi = @mpf.mpf_neg(half_pi, 0, @mpf.round_down)
-  let two_pi = @mpf.mpf_mul_int(pi, 2, wp, @mpf.round_nearest)
-  let width = mpi_delta(s, wp)
-  if !@mpf.is_finite(width) || @mpf.mpf_ge(width, two_pi) {
+  let pi = elefun_pi_checked(wp, Nearest)
+  let half_pi = pi.scale_pow2(-1)
+  let neg_half_pi = half_pi.negated(0, Down)
+  let two_pi = pi.mul_int(2, wp, Nearest)
+  let width = s.width(wp)
+  if !width.is_finite() || width >= two_pi {
     let u = unit_interval()
     return (u, u)
   }
   // Evaluate endpoints with directional rounding to preserve enclosure.
-  let ca_lo = elefun_cos_checked(s.lo, wp, @mpf.round_floor)
-  let ca_hi = elefun_cos_checked(s.lo, wp, @mpf.round_ceiling)
-  let cb_lo = elefun_cos_checked(s.hi, wp, @mpf.round_floor)
-  let cb_hi = elefun_cos_checked(s.hi, wp, @mpf.round_ceiling)
-  let sa_lo = elefun_sin_checked(s.lo, wp, @mpf.round_floor)
-  let sa_hi = elefun_sin_checked(s.lo, wp, @mpf.round_ceiling)
-  let sb_lo = elefun_sin_checked(s.hi, wp, @mpf.round_floor)
-  let sb_hi = elefun_sin_checked(s.hi, wp, @mpf.round_ceiling)
-  let (c_lo0, _) = @mpf.mpf_min_max([ca_lo, cb_lo]) catch {
+  let ca_lo = elefun_cos_checked(s.lo, wp, Floor)
+  let ca_hi = elefun_cos_checked(s.lo, wp, Ceiling)
+  let cb_lo = elefun_cos_checked(s.hi, wp, Floor)
+  let cb_hi = elefun_cos_checked(s.hi, wp, Ceiling)
+  let sa_lo = elefun_sin_checked(s.lo, wp, Floor)
+  let sa_hi = elefun_sin_checked(s.lo, wp, Ceiling)
+  let sb_lo = elefun_sin_checked(s.hi, wp, Floor)
+  let sb_hi = elefun_sin_checked(s.hi, wp, Ceiling)
+  let (c_lo0, _) = @mpf.RawMpf::min_max([ca_lo, cb_lo]) catch {
     err => raise from_mpf_error(err)
   }
-  let (_, c_hi0) = @mpf.mpf_min_max([ca_hi, cb_hi]) catch {
+  let (_, c_hi0) = @mpf.RawMpf::min_max([ca_hi, cb_hi]) catch {
     err => raise from_mpf_error(err)
   }
-  let (s_lo0, _) = @mpf.mpf_min_max([sa_lo, sb_lo]) catch {
+  let (s_lo0, _) = @mpf.RawMpf::min_max([sa_lo, sb_lo]) catch {
     err => raise from_mpf_error(err)
   }
-  let (_, s_hi0) = @mpf.mpf_min_max([sa_hi, sb_hi]) catch {
+  let (_, s_hi0) = @mpf.RawMpf::min_max([sa_hi, sb_hi]) catch {
     err => raise from_mpf_error(err)
   }
   let mut c_lo = c_lo0
   let mut c_hi = c_hi0
   let mut s_lo = s_lo0
   let mut s_hi = s_hi0
-  if interval_contains_periodic_point(s.lo, s.hi, @mpf.fzero, two_pi, wp) {
-    c_hi = @mpf.fone
+  if interval_contains_periodic_point(
+      s.lo,
+      s.hi,
+      @mpf.RawMpf::zero(),
+      two_pi,
+      wp,
+    ) {
+    c_hi = @mpf.RawMpf::one()
   }
   if interval_contains_periodic_point(s.lo, s.hi, pi, two_pi, wp) {
-    c_lo = @mpf.fnone
+    c_lo = @mpf.RawMpf::negative_one()
   }
   if interval_contains_periodic_point(s.lo, s.hi, half_pi, two_pi, wp) {
-    s_hi = @mpf.fone
+    s_hi = @mpf.RawMpf::one()
   }
   if interval_contains_periodic_point(s.lo, s.hi, neg_half_pi, two_pi, wp) {
-    s_lo = @mpf.fnone
+    s_lo = @mpf.RawMpf::negative_one()
   }
-  let more = @mpf.from_man_exp((1N << wp) + (1N << 10), -wp, 0, @mpf.round_down)
-  let less = @mpf.from_man_exp((1N << wp) - (1N << 10), -wp, 0, @mpf.round_down)
+  let more = @mpf.RawMpf::from_mantissa_exponent(
+    (1N << wp) + (1N << 10),
+    -wp,
+    0,
+    Down,
+  )
+  let less = @mpf.RawMpf::from_mantissa_exponent(
+    (1N << wp) - (1N << 10),
+    -wp,
+    0,
+    Down,
+  )
   let cos_iv = {
-    lo: inflate_trig_endpoint(c_lo, out_prec, @mpf.round_floor, more, less),
-    hi: inflate_trig_endpoint(c_hi, out_prec, @mpf.round_ceiling, more, less),
+    lo: inflate_trig_endpoint(c_lo, out_prec, Floor, more, less),
+    hi: inflate_trig_endpoint(c_hi, out_prec, Ceiling, more, less),
   }
   let sin_iv = {
-    lo: inflate_trig_endpoint(s_lo, out_prec, @mpf.round_floor, more, less),
-    hi: inflate_trig_endpoint(s_hi, out_prec, @mpf.round_ceiling, more, less),
+    lo: inflate_trig_endpoint(s_lo, out_prec, Floor, more, less),
+    hi: inflate_trig_endpoint(s_hi, out_prec, Ceiling, more, less),
   }
   (cos_iv, sin_iv)
 }
 
 ///|
-pub fn mpi_cos(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
-  mpi_cos_sin(s, prec).0
+pub fn RawMpi::cos(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
+  s.cos_sin(prec).0
 }
 
 ///|
-pub fn mpi_sin(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
-  mpi_cos_sin(s, prec).1
+pub fn RawMpi::sin(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
+  s.cos_sin(prec).1
 }
 
 ///|
-pub fn mpi_tan(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
+pub fn RawMpi::tan(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
   let wp = if prec > 0 { prec + 20 } else { 80 }
-  let (c, si) = mpi_cos_sin(s, wp)
-  mpi_div(si, c, if prec > 0 { prec } else { wp })
+  let (c, si) = s.cos_sin(wp)
+  si.div(c, if prec > 0 { prec } else { wp })
 }
 
 ///|
-pub fn mpi_cot(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
+pub fn RawMpi::cot(s : RawMpi, prec : Int) -> RawMpi raise MpiError {
   let wp = if prec > 0 { prec + 20 } else { 80 }
-  let (c, si) = mpi_cos_sin(s, wp)
-  mpi_div(c, si, if prec > 0 { prec } else { wp })
+  let (c, si) = s.cos_sin(wp)
+  c.div(si, if prec > 0 { prec } else { wp })
 }

@@ -7,33 +7,33 @@ import {
 }
 
 // Values
-pub fn mpf_agm(@mpf.RawMpf, @mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
+pub fn agm(@mpf.RawMpf, @mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
 
-pub fn mpf_agm1(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
+pub fn agm_with_one(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
 
-pub fn mpf_besseljn(Int, @mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
+pub fn bessel_j(Int, @mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
 
-pub fn mpf_ci(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
+pub fn ci(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
 
-pub fn mpf_ci_si(@mpf.RawMpf, Int, @mpf.RoundMode, which? : Int) -> (@mpf.RawMpf, @mpf.RawMpf) raise LibHyperError
+pub fn ci_si(@mpf.RawMpf, Int, @mpf.RoundMode, which? : Int) -> (@mpf.RawMpf, @mpf.RawMpf) raise LibHyperError
 
-pub fn mpf_ci_si_taylor(@mpf.RawMpf, Int, which? : Int) -> @mpf.RawMpf raise LibHyperError
+pub fn ci_si_taylor(@mpf.RawMpf, Int, which? : Int) -> @mpf.RawMpf raise LibHyperError
 
-pub fn mpf_e1(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
+pub fn e1(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
 
-pub fn mpf_ei(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
+pub fn ei(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
 
-pub fn mpf_ellipe(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
+pub fn ellipe(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
 
-pub fn mpf_ellipk(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
+pub fn ellipk(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
 
-pub fn mpf_erf(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
+pub fn erf(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
 
-pub fn mpf_erfc(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
+pub fn erfc(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
 
-pub fn mpf_expint(Int, @mpf.RawMpf, Int, @mpf.RoundMode, gamma? : Bool) -> @mpf.RawMpf raise LibHyperError
+pub fn exponential_integral(Int, @mpf.RawMpf, Int, @mpf.RoundMode, gamma? : Bool) -> @mpf.RawMpf raise LibHyperError
 
-pub fn mpf_si(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
+pub fn si(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
 
 // Errors
 pub(all) suberror LibHyperError {

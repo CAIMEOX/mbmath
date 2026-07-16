@@ -7,23 +7,15 @@ import {
 }
 
 // Values
-pub fn bin_to_radix(@bigint.BigInt, Int, Int, Int) -> @bigint.BigInt raise IntMathError
-
-pub fn bit_length(@bigint.BigInt) -> Int
-
-pub fn bitcount(@bigint.BigInt) -> Int
+pub fn format_radix(@bigint.BigInt, base? : Int) -> String raise IntMathError
 
 pub fn gcd(@bigint.BigInt, @bigint.BigInt) -> @bigint.BigInt
 
-pub fn isqrt(@bigint.BigInt) -> @bigint.BigInt raise IntMathError
+pub fn integer_sqrt(@bigint.BigInt) -> @bigint.BigInt raise IntMathError
 
-pub fn numeral(@bigint.BigInt, base? : Int) -> String raise IntMathError
+pub fn integer_sqrt_rem(@bigint.BigInt) -> (@bigint.BigInt, @bigint.BigInt) raise IntMathError
 
-pub fn sqrtrem(@bigint.BigInt) -> (@bigint.BigInt, @bigint.BigInt) raise IntMathError
-
-pub fn trailing(@bigint.BigInt) -> Int
-
-pub fn trailing_zero_bits(@bigint.BigInt) -> Int
+pub fn scale_binary_to_radix(@bigint.BigInt, Int, Int, Int) -> @bigint.BigInt raise IntMathError
 
 // Errors
 pub(all) suberror IntMathError {

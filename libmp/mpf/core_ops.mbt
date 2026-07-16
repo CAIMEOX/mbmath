@@ -1,54 +1,54 @@
 ///|
-pub fn mpf_pos(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
-  if prec <= 0 || !is_finite(x) {
+pub fn RawMpf::rounded(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
+  if prec <= 0 || !x.is_finite() {
     x
   } else {
-    normalize(x.sign, x.man, x.exp, x.bc, prec, rnd)
+    RawMpf::from_raw_parts(x.sign, x.man, x.exp, x.bc, prec, rnd)
   }
 }
 
 ///|
-pub fn mpf_neg(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
-  if is_nan(x) {
-    fnan
-  } else if is_inf(x) {
+pub fn RawMpf::negated(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
+  if x.is_nan() {
+    RawMpf::nan()
+  } else if x.is_infinite() {
     if x.sign == 1 {
-      finf
+      RawMpf::infinity()
     } else {
-      fninf
+      RawMpf::negative_infinity()
     }
-  } else if is_zero(x) {
+  } else if x.is_zero() {
     x
   } else {
     let sign = 1 - x.sign
     if prec <= 0 {
       { sign, man: x.man, exp: x.exp, bc: x.bc }
     } else {
-      normalize(sign, x.man, x.exp, x.bc, prec, rnd)
+      RawMpf::from_raw_parts(sign, x.man, x.exp, x.bc, prec, rnd)
     }
   }
 }
 
 ///|
-pub fn mpf_abs(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
-  if is_nan(x) {
-    fnan
-  } else if is_inf(x) {
-    finf
-  } else if is_zero(x) {
+pub fn RawMpf::abs(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
+  if x.is_nan() {
+    RawMpf::nan()
+  } else if x.is_infinite() {
+    RawMpf::infinity()
+  } else if x.is_zero() {
     x
   } else if x.sign == 0 {
-    mpf_pos(x, prec, rnd)
+    x.rounded(prec, rnd)
   } else if prec <= 0 {
     { sign: 0, man: x.man, exp: x.exp, bc: x.bc }
   } else {
-    normalize(0, x.man, x.exp, x.bc, prec, rnd)
+    RawMpf::from_raw_parts(0, x.man, x.exp, x.bc, prec, rnd)
   }
 }
 
 ///|
-pub fn mpf_sign(x : RawMpf) -> Int {
-  if is_nan(x) || is_zero(x) {
+pub fn RawMpf::signum(x : RawMpf) -> Int {
+  if x.is_nan() || x.is_zero() {
     0
   } else if x.sign == 1 {
     -1
@@ -58,36 +58,36 @@ pub fn mpf_sign(x : RawMpf) -> Int {
 }
 
 ///|
-pub fn mpf_eq(x : RawMpf, y : RawMpf) -> Bool {
-  if is_nan(x) || is_nan(y) {
+pub impl Eq for RawMpf with fn equal(x, y) {
+  if x.is_nan() || y.is_nan() {
     false
   } else {
-    x == y
+    x.sign == y.sign && x.man == y.man && x.exp == y.exp && x.bc == y.bc
   }
 }
 
 ///|
-pub fn mpf_cmp(x : RawMpf, y : RawMpf) -> Int {
+pub impl Compare for RawMpf with fn compare(x, y) {
   if x == y {
     return 0
   }
-  if is_nan(y) {
+  if y.is_nan() {
     return 1
   }
-  if is_nan(x) {
+  if x.is_nan() {
     return -1
   }
-  if is_inf(x) {
+  if x.is_infinite() {
     return if x.sign == 1 { -1 } else { 1 }
   }
-  if is_inf(y) {
+  if y.is_infinite() {
     return if y.sign == 1 { 1 } else { -1 }
   }
-  if is_zero(x) {
-    return -mpf_sign(y)
+  if x.is_zero() {
+    return -y.signum()
   }
-  if is_zero(y) {
-    return mpf_sign(x)
+  if y.is_zero() {
+    return x.signum()
   }
   if x.sign != y.sign {
     return if x.sign == 1 { -1 } else { 1 }
@@ -125,44 +125,44 @@ pub fn mpf_cmp(x : RawMpf, y : RawMpf) -> Int {
 }
 
 ///|
-pub fn mpf_lt(x : RawMpf, y : RawMpf) -> Bool {
-  if is_nan(x) || is_nan(y) {
+pub impl Compare for RawMpf with fn op_lt(x, y) {
+  if x.is_nan() || y.is_nan() {
     false
   } else {
-    mpf_cmp(x, y) < 0
+    x.compare(y) < 0
   }
 }
 
 ///|
-pub fn mpf_le(x : RawMpf, y : RawMpf) -> Bool {
-  if is_nan(x) || is_nan(y) {
+pub impl Compare for RawMpf with fn op_le(x, y) {
+  if x.is_nan() || y.is_nan() {
     false
   } else {
-    mpf_cmp(x, y) <= 0
+    x.compare(y) <= 0
   }
 }
 
 ///|
-pub fn mpf_gt(x : RawMpf, y : RawMpf) -> Bool {
-  if is_nan(x) || is_nan(y) {
+pub impl Compare for RawMpf with fn op_gt(x, y) {
+  if x.is_nan() || y.is_nan() {
     false
   } else {
-    mpf_cmp(x, y) > 0
+    x.compare(y) > 0
   }
 }
 
 ///|
-pub fn mpf_ge(x : RawMpf, y : RawMpf) -> Bool {
-  if is_nan(x) || is_nan(y) {
+pub impl Compare for RawMpf with fn op_ge(x, y) {
+  if x.is_nan() || y.is_nan() {
     false
   } else {
-    mpf_cmp(x, y) >= 0
+    x.compare(y) >= 0
   }
 }
 
 ///|
-pub fn mpf_shift(x : RawMpf, n : Int) -> RawMpf {
-  if is_zero(x) || !is_finite(x) {
+pub fn RawMpf::scale_pow2(x : RawMpf, n : Int) -> RawMpf {
+  if x.is_zero() || !x.is_finite() {
     x
   } else {
     { sign: x.sign, man: x.man, exp: x.exp + n, bc: x.bc }
@@ -170,9 +170,14 @@ pub fn mpf_shift(x : RawMpf, n : Int) -> RawMpf {
 }
 
 ///|
-pub fn mpf_mul_int(x : RawMpf, n : Int, prec : Int, rnd : RoundMode) -> RawMpf {
-  if n == 0 || !is_finite(x) || is_zero(x) {
-    return mpf_mul(x, from_int(n), prec, rnd)
+pub fn RawMpf::mul_int(
+  x : RawMpf,
+  n : Int,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf {
+  if n == 0 || !x.is_finite() || x.is_zero() {
+    return x.mul(RawMpf::from_int(n), prec, rnd)
   }
   let mut sign = x.sign
   let mut abs_n = n
@@ -181,18 +186,18 @@ pub fn mpf_mul_int(x : RawMpf, n : Int, prec : Int, rnd : RoundMode) -> RawMpf {
     abs_n = -n
   }
   let man = x.man * BigInt::from_int(abs_n)
-  normalize(sign, man, x.exp, man.bit_length(), prec, rnd)
+  RawMpf::from_raw_parts(sign, man, x.exp, man.bit_length(), prec, rnd)
 }
 
 ///|
-pub fn mpf_rdiv_int(
-  n : Int,
+pub fn RawMpf::int_divided_by(
   x : RawMpf,
+  n : Int,
   prec : Int,
   rnd : RoundMode,
 ) -> RawMpf raise MpfError {
-  if n == 0 || is_zero(x) || !is_finite(x) {
-    return mpf_div(from_int(n), x, prec, rnd)
+  if n == 0 || x.is_zero() || !x.is_finite() {
+    return RawMpf::from_int(n).div(x, prec, rnd)
   }
   let mut sign = x.sign
   let mut abs_n = n
@@ -211,12 +216,12 @@ pub fn mpf_rdiv_int(
     extra += 1
   }
   let exp = -x.exp - extra
-  normalize(sign, man, exp, man.bit_length(), target_prec, rnd)
+  RawMpf::from_raw_parts(sign, man, exp, man.bit_length(), target_prec, rnd)
 }
 
 ///|
 fn mpf_round_int_inner(x : RawMpf, mode : RoundMode) -> RawMpf {
-  if !is_finite(x) || is_zero(x) || x.exp >= 0 {
+  if !x.is_finite() || x.is_zero() || x.exp >= 0 {
     return x
   }
   let shift = -x.exp
@@ -244,33 +249,35 @@ fn mpf_round_int_inner(x : RawMpf, mode : RoundMode) -> RawMpf {
       }
     }
   }
-  from_man_exp(signed, 0, 0, round_down)
+  RawMpf::from_mantissa_exponent(signed, 0, 0, Down)
 }
 
 ///|
-pub fn mpf_round_int(x : RawMpf, rnd : RoundMode) -> RawMpf {
+pub fn RawMpf::round_to_integer(x : RawMpf, rnd : RoundMode) -> RawMpf {
   match rnd {
-    Floor => mpf_round_int_inner(x, round_floor)
-    Ceiling => mpf_round_int_inner(x, round_ceiling)
-    Down => mpf_round_int_inner(x, round_down)
-    Up => mpf_round_int_inner(x, round_up)
-    Nearest => mpf_round_int_inner(x, round_nearest)
+    Floor => mpf_round_int_inner(x, Floor)
+    Ceiling => mpf_round_int_inner(x, Ceiling)
+    Down => mpf_round_int_inner(x, Down)
+    Up => mpf_round_int_inner(x, Up)
+    Nearest => mpf_round_int_inner(x, Nearest)
   }
 }
 
 ///|
-pub fn mpf_min_max(seq : ArrayView[RawMpf]) -> (RawMpf, RawMpf) raise MpfError {
+pub fn RawMpf::min_max(
+  seq : ArrayView[RawMpf],
+) -> (RawMpf, RawMpf) raise MpfError {
   if seq.length() == 0 {
-    raise ValueError("mpf_min_max: empty input")
+    raise ValueError("RawMpf::min_max: empty input")
   }
   let mut min_v = seq[0]
   let mut max_v = seq[0]
   for i in 1..<seq.length() {
     let x = seq[i]
-    if mpf_lt(x, min_v) {
+    if x < min_v {
       min_v = x
     }
-    if mpf_gt(x, max_v) {
+    if x > max_v {
       max_v = x
     }
   }
@@ -278,36 +285,44 @@ pub fn mpf_min_max(seq : ArrayView[RawMpf]) -> (RawMpf, RawMpf) raise MpfError {
 }
 
 ///|
-pub fn mpf_floor(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
-  let v = mpf_round_int_inner(x, round_floor)
+pub fn RawMpf::floor(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
+  let v = mpf_round_int_inner(x, Floor)
   if prec > 0 {
-    mpf_pos(v, prec, rnd)
+    v.rounded(prec, rnd)
   } else {
     v
   }
 }
 
 ///|
-pub fn mpf_ceil(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
-  let v = mpf_round_int_inner(x, round_ceiling)
+pub fn RawMpf::ceil(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
+  let v = mpf_round_int_inner(x, Ceiling)
   if prec > 0 {
-    mpf_pos(v, prec, rnd)
+    v.rounded(prec, rnd)
   } else {
     v
   }
 }
 
 ///|
-pub fn mpf_nint(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
-  let v = mpf_round_int_inner(x, round_nearest)
+pub fn RawMpf::nearest_integer(
+  x : RawMpf,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf {
+  let v = mpf_round_int_inner(x, Nearest)
   if prec > 0 {
-    mpf_pos(v, prec, rnd)
+    v.rounded(prec, rnd)
   } else {
     v
   }
 }
 
 ///|
-pub fn mpf_frac(x : RawMpf, prec : Int, rnd : RoundMode) -> RawMpf {
-  mpf_sub(x, mpf_floor(x, 0, round_down), prec, rnd)
+pub fn RawMpf::fractional_part(
+  x : RawMpf,
+  prec : Int,
+  rnd : RoundMode,
+) -> RawMpf {
+  x.sub(x.floor(0, Down), prec, rnd)
 }

@@ -14,10 +14,10 @@ pub fn cli_version() -> String {
 /// This mirrors the non-interactive literal path used by mpmath's CLI tests.
 pub fn MPContext::cli_eval_literal(
   self : MPContext,
-  literal : String,
+  literal : StringView,
   dps? : Int = 32,
 ) -> String raise MPError {
-  self.to_string(self.make_float(literal), dps~)
+  self.to_string(self.parse(literal), dps~)
 }
 
 ///|
@@ -28,7 +28,7 @@ pub fn MPContext::cli_eval_division(
   denom : Int,
   dps? : Int = 32,
 ) -> String raise MPError {
-  let out = self.div(self.make_int(numer), self.make_int(denom))
+  let out = self.div(self.from_int(numer), self.from_int(denom))
   self.to_string(out, dps~)
 }
 
@@ -41,7 +41,7 @@ pub struct PlotAxes {
 
 ///|
 /// Create an empty plot axes object.
-pub fn plot_axes() -> PlotAxes {
+pub fn PlotAxes::new() -> PlotAxes {
   { xlabel: "", ylabel: "" }
 }
 
@@ -55,25 +55,13 @@ fn plot_linspace(
   if samples < 2 {
     raise ValueError("plot: samples must be >= 2")
   }
-  let span = @mpf.mpf_sub(end_, start, prec, @mpf.round_nearest)
-  let step = @mpf.mpf_div(
-    span,
-    @mpf.from_int(samples - 1),
-    prec,
-    @mpf.round_nearest,
-  ) catch {
+  let span = end_.sub(start, prec, Nearest)
+  let step = span.div(@mpf.RawMpf::from_int(samples - 1), prec, Nearest) catch {
     err => raise from_mpf_error(err)
   }
   let out : Array[@mpf.RawMpf] = []
   for i in 0..<samples {
-    out.push(
-      @mpf.mpf_add(
-        start,
-        @mpf.mpf_mul_int(step, i, prec, @mpf.round_nearest),
-        prec,
-        @mpf.round_nearest,
-      ),
-    )
+    out.push(start.add(step.mul_int(i, prec, Nearest), prec, Nearest))
   }
   out
 }
@@ -97,8 +85,8 @@ pub fn MPContext::plot(
     let y = f(x)
     out.push(
       (
-        @mpf.mpf_pos(x, self.precision(), self.round_mode()),
-        @mpf.mpf_pos(y, self.precision(), self.round_mode()),
+        x.rounded(self.precision(), self.round_mode()),
+        y.rounded(self.precision(), self.round_mode()),
       ),
     )
   }
@@ -125,12 +113,12 @@ pub fn MPContext::cplot(
   let out : Array[(@mpc.RawMpc, @mpc.RawMpc)] = []
   for re in rs {
     for im in imags {
-      let z = @mpc.from_parts(re, im)
+      let z = @mpc.RawMpc::new(re, im)
       let w = f(z)
       out.push(
         (
-          @mpc.mpc_pos(z, self.precision(), self.round_mode()),
-          @mpc.mpc_pos(w, self.precision(), self.round_mode()),
+          z.rounded(self.precision(), self.round_mode()),
+          w.rounded(self.precision(), self.round_mode()),
         ),
       )
     }
