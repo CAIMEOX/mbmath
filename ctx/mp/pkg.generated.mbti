@@ -100,6 +100,7 @@ pub fn MPContext::complex_fresnel_integrals(Self, @mpc.RawMpc) -> (@mpc.RawMpc, 
 pub fn MPContext::complex_fresnel_sine_integral(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_gamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_gamma_product(Self, ArrayView[@mpc.RawMpc], ArrayView[@mpc.RawMpc]) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_gram_point(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_harmonic(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_hurwitz_zeta(Self, @mpc.RawMpc, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_hurwitz_zeta_derivative(Self, @mpc.RawMpc, @mpc.RawMpc, Int) -> @mpc.RawMpc raise MPError
@@ -193,6 +194,7 @@ pub fn MPContext::gamma(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::gamma_product(Self, ArrayView[@mpf.RawMpf], ArrayView[@mpf.RawMpf]) -> @mpf.RawMpf raise MPError
 pub fn MPContext::glaisher_kinkelin_constant(Self) -> @mpf.RawMpf raise MPError
 pub fn MPContext::golden_ratio(Self) -> @mpf.RawMpf raise MPError
+pub fn MPContext::gram_point(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::harmonic(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::hessenberg(Self, MpfMatrix, tol? : @mpf.RawMpf) -> (MpfMatrix, MpfMatrix) raise MPError
 pub fn MPContext::hilbert(Self, Int) -> MpfMatrix raise MPError

@@ -70,3 +70,39 @@ test "high-order complex polygamma converges without fixed term truncation" {
     "2e-132",
   )
 }
+
+///|
+test "complex polygamma reflection is stable at huge imaginary arguments" {
+  let ctx = MPContext::new(500, Nearest)
+  let digamma = ctx.complex_digamma(
+    ctx.complex(ctx.parse("0.25"), ctx.parse("1e9")),
+  )
+  assert_close_mpf_str(
+    digamma.real,
+    "20.7232658369464111561515064254926112017427910018256234509665577090305741220167910938738043348936788886281506368504484354840667505962416",
+    "2e-132",
+    comparison_precision=560,
+  )
+  assert_close_mpf_str(
+    digamma.imag,
+    "1.57079632704489661923132169165537644209858469969243572298747229615763134767435449931930076838394915900311918829143119242632125923886495",
+    "2e-132",
+    comparison_precision=560,
+  )
+  let higher = ctx.complex_polygamma(
+    3,
+    ctx.complex(ctx.parse("-0.25"), ctx.parse("1e9")),
+  )
+  assert_close_mpf_str(
+    higher.real,
+    "0.00000000000000000000000000000000000449999999999999999531249999999999999979492187499999999800048828124999999478458404541015622932889461517333973380122289061546249930484332",
+    "2e-140",
+    comparison_precision=560,
+  )
+  assert_close_mpf_str(
+    higher.imag,
+    "0.00000000000000000000000000199999999999999999425000000000000000192968749999999999969205729166666666672223917643229166667137781778971354167842862606048583986078769",
+    "2e-140",
+    comparison_precision=560,
+  )
+}

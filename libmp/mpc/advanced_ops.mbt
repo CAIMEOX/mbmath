@@ -2825,6 +2825,58 @@ pub fn RawMpc::harmonic(
 }
 
 ///|
+fn stable_complex_cot_pi(z : RawMpc, p : Int) -> RawMpc raise MpcError {
+  let absolute_imaginary = z.imag.abs(p, Nearest)
+  if absolute_imaginary <= @mpf.RawMpf::two() {
+    let (cosine, sine) = z.cos_sin_pi(p, Nearest)
+    return cosine.div(sine, p, Nearest)
+  }
+  if absolute_imaginary > @mpf.RawMpf::from_int(p + 32) {
+    return RawMpc::new(
+      @mpf.RawMpf::zero(),
+      if z.imag.sign == 1 {
+        @mpf.RawMpf::one()
+      } else {
+        @mpf.RawMpf::negative_one()
+      },
+    )
+  }
+  let pi = elefun_pi_checked(p, Nearest)
+  let decay = elefun_exp_checked(
+    pi.mul(absolute_imaginary, p, Nearest).scale_pow2(1).negated(p, Nearest),
+    p,
+    Nearest,
+  )
+  let decay_squared = decay.mul(decay, p, Nearest)
+  let doubled_real = z.real.scale_pow2(1)
+  let sine = elefun_sin_pi_checked(doubled_real, p, Nearest)
+  let cosine = elefun_cos_pi_checked(doubled_real, p, Nearest)
+  let denominator = @mpf.RawMpf::one()
+    .add(decay_squared, p, Nearest)
+    .sub(decay.mul(cosine, p, Nearest).scale_pow2(1), p, Nearest)
+  let real = mpf_div_checked(
+    decay.mul(sine, p, Nearest).scale_pow2(1),
+    denominator,
+    p,
+    Nearest,
+  )
+  let imaginary_magnitude = mpf_div_checked(
+    @mpf.RawMpf::one().sub(decay_squared, p, Nearest),
+    denominator,
+    p,
+    Nearest,
+  )
+  RawMpc::new(
+    real,
+    if z.imag.sign == 1 {
+      imaginary_magnitude
+    } else {
+      imaginary_magnitude.negated(p, Nearest)
+    },
+  )
+}
+
+///|
 pub fn RawMpc::digamma(
   z : RawMpc,
   prec : Int,
@@ -2840,10 +2892,11 @@ pub fn RawMpc::digamma(
   let half = @mpf.RawMpf::half()
   if z.real < half {
     let reflected = RawMpc::one().sub(z, p, Nearest).digamma(p, Nearest)
-    let (cosine, sine) = z.cos_sin_pi(p, Nearest)
-    let correction = cosine
-      .div(sine, p, Nearest)
-      .mul_real(elefun_pi_checked(p, Nearest), p, Nearest)
+    let correction = stable_complex_cot_pi(z, p).mul_real(
+      elefun_pi_checked(p, Nearest),
+      p,
+      Nearest,
+    )
     return reflected.sub(correction, p, Nearest).rounded(prec, rnd)
   }
   let target = {
@@ -2970,8 +3023,7 @@ fn reflected_complex_polygamma(
     } else {
       reflected
     }
-    let (cosine, sine) = z.cos_sin_pi(p, Nearest)
-    let cotangent = cosine.div(sine, p, Nearest)
+    let cotangent = stable_complex_cot_pi(z, p)
     let derivative = evaluate_complex_cot_derivative_polynomial(m, cotangent, p)
     let pi_power = mpf_pow_int_checked(
       elefun_pi_checked(p, Nearest),
@@ -3807,6 +3859,74 @@ pub fn RawMpc::riemann_siegel_theta(
     result = result.sub_real(logarithm_pi.scale_pow2(-1), p, Nearest)
   }
   result.rounded(prec, rnd)
+}
+
+///|
+/// Solve `theta(g) = pi * index` for the principal Gram point associated with
+/// this real or complex index.
+///
+/// A principal Lambert-W asymptotic estimate seeds an arbitrary-precision
+/// complex Newton iteration. Failure to meet the requested residual tolerance
+/// is reported with `ConvergenceError`.
+pub fn RawMpc::gram_point(
+  index : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  if index.real.is_nan() || index.imag.is_nan() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  if index.imag.is_zero() && index.real.is_infinite() && index.real.sign == 0 {
+    return RawMpc::new(@mpf.RawMpf::infinity(), @mpf.RawMpf::zero())
+  }
+  if index.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  let requested_bits = if prec > 0 { prec } else { 32 }
+  let seed_p = requested_bits.min(64) + 80
+  let seed_pi = elefun_pi_checked(seed_p, Nearest)
+  let exponential_one = RawMpc::one().exp(seed_p, Nearest)
+  let lambert_argument = index
+    .mul_int(8, seed_p, Nearest)
+    .add_real(@mpf.RawMpf::one(), seed_p, Nearest)
+    .div(exponential_one.mul_int(8, seed_p, Nearest), seed_p, Nearest)
+  let initial_exponent = lambert_argument
+    .lambert_w(seed_p, Nearest)
+    .add_real(@mpf.RawMpf::one(), seed_p, Nearest)
+  let mut point = initial_exponent
+    .exp(seed_p, Nearest)
+    .mul_real(seed_pi.scale_pow2(1), seed_p, Nearest)
+  let final_bits = requested_bits + 32
+  let mut achieved_bits = 16
+  while achieved_bits < final_bits {
+    let stage_bits = (2 * achieved_bits).min(final_bits)
+    let p = stage_bits + 64
+    let pi = elefun_pi_checked(p, Nearest)
+    let target = index.mul_real(pi, p, Nearest)
+    point = point.rounded(p, Nearest)
+    let max_iterations = 4 * int_bit_length(stage_bits + 2) + 24
+    let mut converged = false
+    for _ in 0..<max_iterations {
+      let residual = point
+        .riemann_siegel_theta(0, p, Nearest)
+        .sub(target, p, Nearest)
+      if complex_relative_tiny(residual, target, 24, stage_bits) ||
+        tiny_enough_mpc(residual, 24, stage_bits) {
+        converged = true
+        break
+      }
+      let derivative = point.riemann_siegel_theta(1, p, Nearest)
+      if derivative == RawMpc::zero() || derivative.is_non_finite() {
+        raise ConvergenceError("Gram-point Newton derivative is singular")
+      }
+      point = point.sub(residual.div(derivative, p, Nearest), p, Nearest)
+    }
+    if !converged {
+      raise ConvergenceError("Gram-point Newton iteration did not converge")
+    }
+    achieved_bits = stage_bits
+  }
+  point.rounded(prec, rnd)
 }
 
 ///|
