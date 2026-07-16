@@ -95,6 +95,7 @@ pub fn RawMpc::polygamma(Self, Int, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::pow(Self, Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::pow_int(Self, Int, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::pow_real(Self, @mpf.RawMpf, Int, @mpf.RoundMode) -> Self raise MpcError
+pub fn RawMpc::prime_zeta(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::real_divided_by(Self, @mpf.RawMpf, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::reciprocal(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::rgamma(Self, Int, @mpf.RoundMode) -> Self raise MpcError

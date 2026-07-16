@@ -115,6 +115,7 @@ pub fn MPContext::complex_normal_probability_density(Self, @mpc.RawMpc, mean? : 
 pub fn MPContext::complex_nthroot(Self, @mpc.RawMpc, Int) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_polygamma(Self, Int, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_pow(Self, @mpc.RawMpc, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_prime_zeta(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_reciprocal_gamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_rising_factorial(Self, @mpc.RawMpc, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sin(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
@@ -266,6 +267,7 @@ pub fn MPContext::pow(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPErr
 pub fn MPContext::pow_int(Self, @mpf.RawMpf, Int) -> @mpf.RawMpf raise MPError
 pub fn MPContext::pow_minus_one(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::precision(Self) -> Int
+pub fn MPContext::prime_zeta(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::qr(Self, MpfMatrix, full? : Bool, tol? : @mpf.RawMpf) -> (MpfMatrix, MpfMatrix) raise MPError
 pub fn MPContext::qr_solve(Self, MpfMatrix, ArrayView[@mpf.RawMpf], tol? : @mpf.RawMpf) -> (Array[@mpf.RawMpf], @mpf.RawMpf) raise MPError
 pub fn MPContext::quad(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, ArrayView[@mpf.RawMpf], max_steps? : Int, max_degree? : Int) -> @mpf.RawMpf raise

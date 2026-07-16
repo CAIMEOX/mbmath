@@ -3193,3 +3193,114 @@ pub fn RawMpc::zeta(
   }
   z.rounded(prec, rnd)
 }
+
+///|
+fn prime_zeta_term_count(s : RawMpc, p : Int) -> Int raise MpcError {
+  let threshold = @mpf.RawMpf::from_int(p + 64)
+  let quotient = mpf_div_checked(threshold, s.real, p, Ceiling)
+  let count = quotient.to_integer(rnd=Ceiling) catch {
+    err => raise from_mpf_error(err)
+  }
+  if count.bit_length() > 60 {
+    raise ConvergenceError(
+      "prime zeta requires too many Mobius-inversion terms",
+    )
+  }
+  count.to_int().max(1) + 2
+}
+
+///|
+fn prime_zeta_logarithm(argument : RawMpc, p : Int) -> RawMpc raise MpcError {
+  if argument.real <= @mpf.RawMpf::from_int((p / 10).max(8)) {
+    return argument.zeta(p, Nearest).ln(p, Nearest)
+  }
+  let minus_argument = argument.negated(p, Nearest)
+  let mut tail = RawMpc::zero()
+  let mut n = 2
+  while true {
+    let base = RawMpc::new(@mpf.RawMpf::from_int(n), @mpf.RawMpf::zero())
+    let term = mpc_pow_checked(base, minus_argument, p, Nearest)
+    tail = tail.add(term, p, Nearest)
+    if tiny_enough_mpc(term, p, p + 16) {
+      break
+    }
+    n += 1
+  }
+  RawMpc::one().add(tail, p, Nearest).ln(p, Nearest)
+}
+
+///|
+/// Evaluate the prime zeta function by Mobius inversion of `log(zeta(s))`.
+///
+/// The principal logarithm supplies the standard analytic continuation for
+/// `Re(s) > 0`. Logarithmic singularities at reciprocal square-free integers
+/// are represented by signed infinity while retaining the accumulated branch
+/// imaginary part.
+pub fn RawMpc::prime_zeta(
+  s : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  if s.real.is_nan() || s.imag.is_nan() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  if s.real <= @mpf.RawMpf::zero() {
+    raise DomainError("prime zeta is defined only for Re(s) > 0")
+  }
+  if s.imag.is_zero() && s.real == @mpf.RawMpf::one() {
+    return RawMpc::new(@mpf.RawMpf::infinity(), @mpf.RawMpf::zero())
+  }
+  if s.imag.is_zero() && s.real == @mpf.RawMpf::half() {
+    return RawMpc::new(
+      @mpf.RawMpf::negative_infinity(),
+      elefun_pi_checked(prec, rnd),
+    )
+  }
+  if s.real == @mpf.RawMpf::infinity() && s.imag.is_finite() {
+    return RawMpc::zero()
+  }
+  if s.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  let base_p = ext_prec(prec) + 48
+  if s.real > @mpf.RawMpf::from_int(base_p + 64) {
+    let two = RawMpc::new(@mpf.RawMpf::two(), @mpf.RawMpf::zero())
+    return mpc_pow_checked(two, s.negated(base_p, Nearest), prec, rnd)
+  }
+  let max_terms = prime_zeta_term_count(s, base_p)
+  let p = base_p + 64 + 4 * int_bit_length(max_terms + 1)
+  let mut sum = RawMpc::zero()
+  let mut singularity_sign = 0
+  for k in 1..<=max_terms {
+    let mobius = @intmath.moebius(BigInt::from_int(k))
+    if mobius == 0 {
+      continue
+    }
+    let argument = s.mul_int(k, p, Nearest)
+    if argument.imag.is_zero() && argument.real == @mpf.RawMpf::one() {
+      singularity_sign = mobius
+      continue
+    }
+    let logarithm = prime_zeta_logarithm(argument, p)
+    let term = logarithm
+      .mul_int(mobius, p, Nearest)
+      .div_real(@mpf.RawMpf::from_int(k), p, Nearest)
+    sum = sum.add(term, p, Nearest)
+    if k > 8 &&
+      (
+        (term.real.is_zero() && term.imag.is_zero()) ||
+        complex_relative_tiny(term, sum, 24, base_p)
+      ) {
+      break
+    }
+  }
+  if singularity_sign != 0 {
+    let real = if singularity_sign < 0 {
+      @mpf.RawMpf::negative_infinity()
+    } else {
+      @mpf.RawMpf::infinity()
+    }
+    return RawMpc::new(real, sum.imag.rounded(prec, rnd))
+  }
+  sum.rounded(prec, rnd)
+}

@@ -3,6 +3,7 @@ import {
   "CAIMEOX/moon_floating/libmp/libelefun",
   "CAIMEOX/moon_floating/libmp/libhyper",
   "CAIMEOX/moon_floating/libmp/gammazeta",
+  "CAIMEOX/moon_floating/libmp/intmath",
 }
 
 import {
