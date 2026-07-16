@@ -193,24 +193,38 @@ pub fn agm(
   if x.sign == 1 || y.sign == 1 {
     raise ComplexResult("agm of a negative number")
   }
+  if x.is_infinite() || y.is_infinite() {
+    if x.is_zero() || y.is_zero() {
+      return @mpf.RawMpf::nan()
+    }
+    return @mpf.RawMpf::infinity()
+  }
   if x.is_zero() || y.is_zero() {
     return @mpf.RawMpf::zero()
   }
-  let p = if prec > 0 { prec + 12 } else { 64 }
+  let p = if prec > 0 { prec + 32 } else { 80 }
   let mut a = x.rounded(p, Nearest)
   let mut b = y.rounded(p, Nearest)
-  for _ in 0..<64 {
+  let mut converged = false
+  let max_iterations = p + 64
+  for _ in 0..<max_iterations {
     let next_a = a.add(b, p, Nearest).scale_pow2(-1)
     let next_b = sqrt_checked(a.mul(b, p, Nearest), p, Nearest)
     let diff = next_a.sub(next_b, p, Nearest).abs(p, Nearest)
     a = next_a
     b = next_b
     if diff.is_zero() {
+      converged = true
       break
     }
-    if diff.is_finite() && diff.exp + diff.bc <= -p {
+    let size = if a > b { a } else { b }
+    if diff <= size.scale_pow2(-(p - 16)) {
+      converged = true
       break
     }
+  }
+  if !converged {
+    raise ConvergenceError("real arithmetic-geometric mean did not converge")
   }
   a.rounded(prec, rnd)
 }
@@ -514,17 +528,23 @@ pub fn ellipk(
   if m.is_nan() {
     return @mpf.RawMpf::nan()
   }
+  if m == @mpf.RawMpf::negative_infinity() {
+    return @mpf.RawMpf::zero()
+  }
   if m == @mpf.RawMpf::one() {
     return @mpf.RawMpf::infinity()
   }
   if m > @mpf.RawMpf::one() {
     raise ComplexResult("square root of a negative number")
   }
-  let p = wp(prec)
+  let p = wp(prec) + 32
+  let half_pi = pi_checked(p, Nearest).scale_pow2(-1)
+  if m.is_zero() || (m.is_finite() && m.exp + m.bc < -p) {
+    return half_pi.rounded(prec, rnd)
+  }
   let t = @mpf.RawMpf::one().sub(m, p, Nearest)
   let root = sqrt_checked(t, p, Nearest)
   let agm = agm(@mpf.RawMpf::one(), root, p, Nearest)
-  let half_pi = pi_checked(p, Nearest).scale_pow2(-1)
   div_checked(half_pi, agm, p, Nearest).rounded(prec, rnd)
 }
 
@@ -537,30 +557,48 @@ pub fn ellipe(
   if m.is_nan() {
     return @mpf.RawMpf::nan()
   }
+  if m == @mpf.RawMpf::negative_infinity() {
+    return @mpf.RawMpf::infinity()
+  }
   if m == @mpf.RawMpf::one() {
     return @mpf.RawMpf::one()
   }
   if m > @mpf.RawMpf::one() {
     raise ComplexResult("square root of a negative number")
   }
-  let p = wp(prec) + 16
+  let p = wp(prec) + 48
   let half_pi = pi_checked(p, Nearest).scale_pow2(-1)
+  if m.is_zero() || (m.is_finite() && m.exp + m.bc < -p) {
+    return half_pi.rounded(prec, rnd)
+  }
   let mut a = @mpf.RawMpf::one()
   let mut b = sqrt_checked(@mpf.RawMpf::one().sub(m, p, Nearest), p, Nearest)
   let mut sum = m.rounded(p, Nearest).scale_pow2(-1)
   let mut factor = @mpf.RawMpf::from_int(1)
-  for _ in 0..<80 {
+  let mut converged = false
+  let max_iterations = p + 64
+  for _ in 0..<max_iterations {
     let c = a.sub(b, p, Nearest).scale_pow2(-1)
     let c2 = c.mul(c, p, Nearest)
-    sum = sum.add(factor.mul(c2, p, Nearest), p, Nearest)
+    let correction = factor.mul(c2, p, Nearest)
+    sum = sum.add(correction, p, Nearest)
     let next_a = a.add(b, p, Nearest).scale_pow2(-1)
     let next_b = sqrt_checked(a.mul(b, p, Nearest), p, Nearest)
     a = next_a
     b = next_b
     factor = factor.mul_int(2, p, Nearest)
-    if tiny_enough(c2.abs(p, Nearest), p + 10) {
+    if correction.is_zero() ||
+      correction.abs(p, Nearest) <=
+      sum
+      .abs(p, Nearest)
+      .add(@mpf.RawMpf::one(), p, Nearest)
+      .scale_pow2(-(p - 16)) {
+      converged = true
       break
     }
+  }
+  if !converged {
+    raise ConvergenceError("complete elliptic second-kind AGM did not converge")
   }
   let k = div_checked(half_pi, a, p, Nearest)
   let e = k.mul(@mpf.RawMpf::one().sub(sum, p, Nearest), p, Nearest)

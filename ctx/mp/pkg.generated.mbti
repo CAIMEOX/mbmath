@@ -53,6 +53,8 @@ pub fn MPContext::cholesky_solve(Self, MpfMatrix, ArrayView[@mpf.RawMpf], tol? :
 pub fn MPContext::cli_eval_division(Self, Int, Int, dps? : Int) -> String raise MPError
 pub fn MPContext::cli_eval_literal(Self, StringView, dps? : Int) -> String raise MPError
 pub fn MPContext::complementary_error_function(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
+pub fn MPContext::complete_elliptic_first_kind(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
+pub fn MPContext::complete_elliptic_second_kind(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::complex(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpc.RawMpc
 pub fn MPContext::complex_abs(Self, @mpc.RawMpc) -> @mpf.RawMpf raise MPError
 pub fn MPContext::complex_acos(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
@@ -64,6 +66,8 @@ pub fn MPContext::complex_atan(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_atanh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_cbrt(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_complementary_error_function(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_complete_elliptic_first_kind(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_complete_elliptic_second_kind(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_conjugate(Self, @mpc.RawMpc) -> @mpc.RawMpc
 pub fn MPContext::complex_cos(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_cos_pi(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError

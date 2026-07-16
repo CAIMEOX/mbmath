@@ -1356,20 +1356,26 @@ pub fn RawMpc::agm(
   if a == RawMpc::zero() || b == RawMpc::zero() || a.negated(0, Down) == b {
     return RawMpc::zero()
   }
-  let p = ext_prec(prec) + 10
-  let eps = @mpf.RawMpf::one().scale_pow2(-p + 8)
+  let p = ext_prec(prec) + 32
+  let eps = @mpf.RawMpf::one().scale_pow2(-(p - 16))
   let mut x = a
   let mut y = b
-  for _ in 0..<80 {
+  let mut converged = false
+  let max_iterations = p + 64
+  for _ in 0..<max_iterations {
     let x1 = x.add(y, p, Nearest).scale_pow2(-1)
     let y1 = x.mul(y, p, Nearest).sqrt(p, Nearest)
     x = x1
     y = y1
-    let size = x.abs(16, Nearest)
-    let err = x.sub(y, 16, Nearest).abs(16, Nearest)
+    let size = x.abs(p, Nearest)
+    let err = x.sub(y, p, Nearest).abs(p, Nearest)
     if size == @mpf.RawMpf::zero() || err < eps.mul(size, p, Nearest) {
+      converged = true
       break
     }
+  }
+  if !converged {
+    raise ConvergenceError("complex arithmetic-geometric mean did not converge")
   }
   x.rounded(prec, rnd)
 }
@@ -1747,7 +1753,10 @@ pub fn RawMpc::ellipk(
       return lift_real(ellipk_real_checked(z.real, prec, rnd))
     }
   }
-  let p = ext_prec(prec) + 16
+  if z.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  let p = ext_prec(prec) + 48
   let a = RawMpc::one().sub(z, p, Nearest).sqrt(p, Nearest)
   let v = a.agm_with_one(p, Nearest)
   let r = v.real_divided_by(elefun_pi_checked(p, Nearest), p, Nearest)
@@ -1768,16 +1777,45 @@ pub fn RawMpc::ellipe(
       return lift_real(ellipe_real_checked(z.real, prec, rnd))
     }
   }
-  let p = ext_prec(prec) + 16
-  let mag = z.abs(16, Nearest)
-  let step = (if mag.exp + mag.bc > 0 { mag.exp + mag.bc } else { 0 }) - p
-  let h = @mpf.RawMpf::one().scale_pow2(step)
-  let k = z.ellipk(2 * p, Nearest)
-  let kh = z.add_real(h, 2 * p, Nearest).ellipk(2 * p, Nearest)
-  let kdiff = kh.sub(k, p, Nearest).scale_pow2(-step)
-  let t = RawMpc::one().sub(z, p, Nearest)
-  let b = kdiff.mul(z.scale_pow2(1), p, Nearest)
-  t.mul(k.add(b, p, Nearest), p, Nearest).rounded(prec, rnd)
+  if z.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  let p = ext_prec(prec) + 64
+  let mut a = RawMpc::one()
+  let mut b = RawMpc::one().sub(z, p, Nearest).sqrt(p, Nearest)
+  let mut correction_sum = z.scale_pow2(-1)
+  let mut factor = @mpf.RawMpf::one()
+  let mut converged = false
+  let max_iterations = p + 64
+  for _ in 0..<max_iterations {
+    let c = a.sub(b, p, Nearest).scale_pow2(-1)
+    let correction = c.square(p, Nearest).mul_real(factor, p, Nearest)
+    correction_sum = correction_sum.add(correction, p, Nearest)
+    let next_a = a.add(b, p, Nearest).scale_pow2(-1)
+    let next_b = a.mul(b, p, Nearest).sqrt(p, Nearest)
+    a = next_a
+    b = next_b
+    factor = factor.mul_int(2, p, Nearest)
+    let scale = correction_sum
+      .abs(p, Nearest)
+      .add(@mpf.RawMpf::one(), p, Nearest)
+      .scale_pow2(-(p - 20))
+    if correction == RawMpc::zero() || correction.abs(p, Nearest) <= scale {
+      converged = true
+      break
+    }
+  }
+  if !converged {
+    raise ConvergenceError(
+      "complex complete elliptic second-kind AGM did not converge",
+    )
+  }
+  let first_kind = a
+    .real_divided_by(elefun_pi_checked(p, Nearest), p, Nearest)
+    .scale_pow2(-1)
+  first_kind
+  .mul(RawMpc::one().sub(correction_sum, p, Nearest), p, Nearest)
+  .rounded(prec, rnd)
 }
 
 ///|
