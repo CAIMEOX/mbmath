@@ -25,3 +25,13 @@ pub fn MPContext::euler_mascheroni_constant(
     err => raise from_gammazeta_error(err)
   }
 }
+
+///|
+/// Return the Glaisher-Kinkelin constant at the current context precision.
+pub fn MPContext::glaisher_kinkelin_constant(
+  self : MPContext,
+) -> @mpf.RawMpf raise MPError {
+  @gammazeta.glaisher(self.precision(), self.round_mode()) catch {
+    err => raise from_gammazeta_error(err)
+  }
+}

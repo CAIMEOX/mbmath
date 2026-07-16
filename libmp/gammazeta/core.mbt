@@ -1295,9 +1295,69 @@ pub fn glaisher(
   prec : Int,
   rnd : @mpf.RoundMode,
 ) -> @mpf.RawMpf raise GammaZetaError {
-  const_str(
-    "1.28242712910062263687534256886979172776768892732500119206374", prec, rnd,
+  let p = wp(prec) + 80
+  let n = {
+    let value = p / 2 + 32
+    if value < 64 {
+      64
+    } else {
+      value
+    }
+  }
+  let n_mpf = @mpf.RawMpf::from_int(n)
+  let n_squared = n_mpf.mul(n_mpf, p, Nearest)
+  let mut hyperfactorial_log = @mpf.RawMpf::zero()
+  for k in 2..<=n {
+    let k_mpf = @mpf.RawMpf::from_int(k)
+    hyperfactorial_log = hyperfactorial_log.add(
+      mpf_log_checked(k_mpf, p, Nearest).mul_int(k, p, Nearest),
+      p,
+      Nearest,
+    )
+  }
+  let one_twelfth = mpf_div_checked(
+    @mpf.RawMpf::one(),
+    @mpf.RawMpf::from_int(12),
+    p,
+    Nearest,
   )
+  let logarithm_coefficient = n_squared
+    .add(n_mpf, p, Nearest)
+    .scale_pow2(-1)
+    .add(one_twelfth, p, Nearest)
+  let mut logarithm = hyperfactorial_log
+    .sub(
+      logarithm_coefficient.mul(mpf_log_checked(n_mpf, p, Nearest), p, Nearest),
+      p,
+      Nearest,
+    )
+    .add(n_squared.scale_pow2(-2), p, Nearest)
+  let inverse_n = mpf_div_checked(@mpf.RawMpf::one(), n_mpf, p, Nearest)
+  let inverse_n_squared = inverse_n.mul(inverse_n, p, Nearest)
+  let mut inverse_power = inverse_n_squared
+  let mut previous = @mpf.RawMpf::infinity()
+  let max_terms = p / 2 + 32
+  for r in 2..<=max_terms {
+    let two_r = 2 * r
+    let denominator = @mpf.RawMpf::from_int(two_r * (two_r - 1) * (two_r - 2))
+    let correction = mpf_div_checked(
+      bernoulli(two_r, p, Nearest).mul(inverse_power, p, Nearest),
+      denominator,
+      p,
+      Nearest,
+    )
+    let magnitude = correction.abs(p, Nearest)
+    if r > 5 && magnitude >= previous {
+      break
+    }
+    logarithm = logarithm.add(correction, p, Nearest)
+    if r > 4 && tiny_enough(magnitude, p + 16) {
+      break
+    }
+    previous = magnitude
+    inverse_power = inverse_power.mul(inverse_n_squared, p, Nearest)
+  }
+  mpf_exp_checked(logarithm, p, Nearest).rounded(prec, rnd)
 }
 
 ///|

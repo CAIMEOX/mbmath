@@ -34,3 +34,13 @@ test "Euler-Mascheroni constant exceeds legacy fixed-string precision" {
     "2e-190",
   )
 }
+
+///|
+test "Glaisher-Kinkelin constant uses arbitrary-precision Euler-Maclaurin" {
+  let ctx = MPContext::new(640, Nearest)
+  assert_close_mpf_str(
+    ctx.glaisher_kinkelin_constant(),
+    "1.28242712910062263687534256886979172776768892732500119206374002174040630885882646112973649195820237439420646120399000748933157791362775280404159072573861727522143343271434397873350679152573668569",
+    "2e-190",
+  )
+}

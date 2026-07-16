@@ -169,6 +169,7 @@ pub fn MPContext::from_int(Self, Int) -> @mpf.RawMpf
 pub fn MPContext::fsum(Self, ArrayView[@mpf.RawMpf], absolute? : Bool, squared? : Bool) -> @mpf.RawMpf
 pub fn MPContext::gamma(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::gamma_product(Self, ArrayView[@mpf.RawMpf], ArrayView[@mpf.RawMpf]) -> @mpf.RawMpf raise MPError
+pub fn MPContext::glaisher_kinkelin_constant(Self) -> @mpf.RawMpf raise MPError
 pub fn MPContext::golden_ratio(Self) -> @mpf.RawMpf raise MPError
 pub fn MPContext::harmonic(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::hessenberg(Self, MpfMatrix, tol? : @mpf.RawMpf) -> (MpfMatrix, MpfMatrix) raise MPError
