@@ -34,6 +34,7 @@ pub fn RawMpc::asin(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::asinh(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::atan(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::atanh(Self, Int, @mpf.RoundMode) -> Self raise MpcError
+pub fn RawMpc::barnes_g(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::bessel_j(Self, Int, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::cbrt(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::ceil(Self, Int, @mpf.RoundMode) -> Self

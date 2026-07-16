@@ -46,6 +46,7 @@ pub fn MPContext::atan2(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPE
 pub fn MPContext::atanh(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 #alias(extend, deprecated)
 pub fn MPContext::augment(Self, MpfMatrix, ArrayView[@mpf.RawMpf]) -> MpfMatrix raise MPError
+pub fn MPContext::barnes_g_function(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::bernoulli_number(Self, Int) -> @mpf.RawMpf raise MPError
 pub fn MPContext::beta_function(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::binomial_coefficient(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
@@ -68,6 +69,7 @@ pub fn MPContext::complex_asin(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_asinh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_atan(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_atanh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_barnes_g_function(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_beta_function(Self, @mpc.RawMpc, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_binomial_coefficient(Self, @mpc.RawMpc, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_cbrt(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
@@ -110,6 +112,7 @@ pub fn MPContext::complex_sin_pi(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sine_integral(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sinh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_sqrt(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_superfactorial(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_tan(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_tanh(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_zeta(Self, @mpc.RawMpc, alt? : Bool) -> @mpc.RawMpc raise MPError
@@ -268,6 +271,7 @@ pub fn MPContext::sqrt(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::sqrt_pi(Self) -> @mpf.RawMpf raise MPError
 pub fn MPContext::sub(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf
 pub fn MPContext::summation(Self, (Int) -> @mpf.RawMpf raise?, Int, Int, step? : Int) -> @mpf.RawMpf raise
+pub fn MPContext::superfactorial(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::svd(Self, MpfMatrix, full? : Bool, tol? : @mpf.RawMpf) -> (MpfMatrix, Array[@mpf.RawMpf], MpfMatrix) raise MPError
 pub fn MPContext::swap_row(Self, MpfMatrix, Int, Int) -> Unit raise MPError
 pub fn MPContext::tan(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError

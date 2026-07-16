@@ -185,6 +185,16 @@ fn euler_constant_checked(
 }
 
 ///|
+fn glaisher_constant_checked(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpcError {
+  @gammazeta.glaisher(prec, rnd) catch {
+    err => raise from_gammazeta_error(err)
+  }
+}
+
+///|
 fn gamma_real_checked(
   x : @mpf.RawMpf,
   prec : Int,
@@ -1917,6 +1927,280 @@ pub fn RawMpc::ellipe(
   first_kind
   .mul(RawMpc::one().sub(correction_sum, p, Nearest), p, Nearest)
   .rounded(prec, rnd)
+}
+
+///|
+fn is_barnes_zero(z : RawMpc) -> Bool {
+  z.imag.is_zero() &&
+  z.real.is_finite() &&
+  (z.real.is_zero() || (z.real.sign == 1 && z.real.exp >= 0))
+}
+
+///|
+fn dilogarithm_power_series(z : RawMpc, p : Int) -> RawMpc raise MpcError {
+  if z == RawMpc::zero() {
+    return z
+  }
+  let mut sum = z
+  let mut power = z
+  let mut converged = false
+  let max_terms = 2 * p + 128
+  for k in 2..<=max_terms {
+    power = power.mul(z, p, Nearest)
+    let denominator = @mpf.RawMpf::from_int(k * k)
+    let correction = power.div_real(denominator, p, Nearest)
+    sum = sum.add(correction, p, Nearest)
+    if tiny_enough_mpc(correction, p, p + 24) {
+      converged = true
+      break
+    }
+  }
+  if !converged {
+    raise ConvergenceError("complex dilogarithm power series did not converge")
+  }
+  sum
+}
+
+///|
+fn dilogarithm_log_series(z : RawMpc, p : Int) -> RawMpc raise MpcError {
+  let pi = elefun_pi_checked(p, Nearest)
+  let pi_squared_over_six = pi
+    .mul(pi, p, Nearest)
+    .div(@mpf.RawMpf::from_int(6), p, Nearest) catch {
+      err => raise from_mpf_error(err)
+    }
+  let mu = z.log(p, Nearest)
+  if mu == RawMpc::zero() {
+    return RawMpc::new(pi_squared_over_six, @mpf.RawMpf::zero())
+  }
+  let logarithmic_factor = RawMpc::one().sub(
+    mu.negated(p, Nearest).log(p, Nearest),
+    p,
+    Nearest,
+  )
+  let mu_squared = mu.square(p, Nearest)
+  let mut sum = RawMpc::new(pi_squared_over_six, @mpf.RawMpf::zero())
+    .add(mu.mul(logarithmic_factor, p, Nearest), p, Nearest)
+    .sub(mu_squared.scale_pow2(-2), p, Nearest)
+  let mut power = mu.mul(mu_squared, p, Nearest)
+  let mut factorial = @mpf.RawMpf::from_int(6)
+  let mut converged = false
+  let max_terms = p + 128
+  for k in 1..<=max_terms {
+    let denominator = factorial.mul_int(2 * k, p, Nearest)
+    let coefficient = mpf_div_checked(
+      bernoulli_checked(2 * k, p, Nearest),
+      denominator,
+      p,
+      Nearest,
+    )
+    let correction = power.mul_real(coefficient, p, Nearest)
+    sum = sum.sub(correction, p, Nearest)
+    if k > 2 && tiny_enough_mpc(correction, p, p + 24) {
+      converged = true
+      break
+    }
+    power = power.mul(mu_squared, p, Nearest)
+    factorial = factorial
+      .mul_int(2 * k + 2, p, Nearest)
+      .mul_int(2 * k + 3, p, Nearest)
+  }
+  if !converged {
+    raise ConvergenceError(
+      "complex dilogarithm logarithmic series did not converge",
+    )
+  }
+  sum
+}
+
+///|
+fn dilogarithm(z : RawMpc, p : Int) -> RawMpc raise MpcError {
+  if z == RawMpc::zero() {
+    return z
+  }
+  let magnitude = z.abs(p, Nearest)
+  let half = @mpf.RawMpf::one().scale_pow2(-1)
+  if magnitude <= half {
+    return dilogarithm_power_series(z, p)
+  }
+  if magnitude >= @mpf.RawMpf::two() {
+    let reciprocal_value = dilogarithm_power_series(z.reciprocal(p, Nearest), p)
+    let logarithm = z.negated(p, Nearest).log(p, Nearest)
+    let pi = elefun_pi_checked(p, Nearest)
+    let pi_squared_over_six = pi
+      .mul(pi, p, Nearest)
+      .div(@mpf.RawMpf::from_int(6), p, Nearest) catch {
+        err => raise from_mpf_error(err)
+      }
+    return reciprocal_value
+      .negated(p, Nearest)
+      .sub_real(pi_squared_over_six, p, Nearest)
+      .sub(logarithm.square(p, Nearest).scale_pow2(-1), p, Nearest)
+  }
+  dilogarithm_log_series(z, p)
+}
+
+///|
+fn barnes_g_reflection(z : RawMpc, p : Int) -> RawMpc raise MpcError {
+  let pi = elefun_pi_checked(p, Nearest)
+  let two_pi = pi.scale_pow2(1)
+  let w = RawMpc::one().sub(z, p, Nearest)
+  let phase = RawMpc::new(@mpf.RawMpf::zero(), two_pi).mul(w, p, Nearest)
+  let u = phase.exp(p, Nearest)
+  let mut exponent = RawMpc::new(
+    @mpf.RawMpf::zero(),
+    mpf_div_checked(pi, @mpf.RawMpf::from_int(12), p, Nearest),
+  )
+  exponent = exponent.add(
+    w
+    .square(p, Nearest)
+    .mul_real(pi.scale_pow2(-1), p, Nearest)
+    .mul(
+      RawMpc::new(@mpf.RawMpf::zero(), @mpf.RawMpf::negative_one()),
+      p,
+      Nearest,
+    ),
+    p,
+    Nearest,
+  )
+  exponent = exponent.add(
+    w.mul(RawMpc::one().sub(u, p, Nearest).log(p, Nearest), p, Nearest),
+    p,
+    Nearest,
+  )
+  let dilog = dilogarithm(u, p)
+  exponent = exponent.add(
+    RawMpc::new(dilog.imag, dilog.real.negated(p, Nearest)).div_real(
+      two_pi,
+      p,
+      Nearest,
+    ),
+    p,
+    Nearest,
+  )
+  let reflected_argument = RawMpc::new(@mpf.RawMpf::two(), @mpf.RawMpf::zero()).sub(
+    z,
+    p,
+    Nearest,
+  )
+  let reflected = reflected_argument.barnes_g(p, Nearest)
+  let denominator = RawMpc::new(two_pi, @mpf.RawMpf::zero()).pow(w, p, Nearest)
+  reflected
+  .mul(exponent.exp(p, Nearest), p, Nearest)
+  .div(denominator, p, Nearest)
+}
+
+///|
+/// Evaluate the principal Barnes G-function continuation.
+pub fn RawMpc::barnes_g(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  if is_barnes_zero(z) {
+    return RawMpc::zero()
+  }
+  if z == RawMpc::one() ||
+    z == RawMpc::new(@mpf.RawMpf::two(), @mpf.RawMpf::zero()) {
+    return RawMpc::one()
+  }
+  if z.imag.is_zero() && z.real == @mpf.RawMpf::infinity() {
+    return RawMpc::new(@mpf.RawMpf::infinity(), @mpf.RawMpf::zero())
+  }
+  if z.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  let base_p = ext_prec(prec) + 80
+  let magnitude = z.abs(base_p, Nearest)
+  let magnitude_bits = if magnitude > @mpf.RawMpf::one() {
+    magnitude.exp + magnitude.bc
+  } else {
+    0
+  }
+  let p = base_p + 2 * magnitude_bits + 24
+  if z.real < @mpf.RawMpf::from_int(-(p / 3)) {
+    return barnes_g_reflection(z, p).rounded(prec, rnd)
+  }
+  let target = {
+    let value = p / 8 + 24
+    if value < 48 {
+      48
+    } else {
+      value
+    }
+  }
+  let mut argument = z.rounded(p, Nearest)
+  let mut recurrence = RawMpc::one()
+  if argument.real < @mpf.RawMpf::from_int(target) {
+    let mut gamma_value = argument.gamma(p, Nearest)
+    while argument.real < @mpf.RawMpf::from_int(target) {
+      recurrence = recurrence.div(gamma_value, p, Nearest)
+      gamma_value = gamma_value.mul(argument, p, Nearest)
+      argument = argument.add_real(@mpf.RawMpf::one(), p, Nearest)
+    }
+  }
+  let w = argument.sub_real(@mpf.RawMpf::one(), p, Nearest)
+  let w_squared = w.square(p, Nearest)
+  let one_twelfth = mpf_div_checked(
+    @mpf.RawMpf::one(),
+    @mpf.RawMpf::from_int(12),
+    p,
+    Nearest,
+  )
+  let log_glaisher = mpf_log_checked(
+    glaisher_constant_checked(p, Nearest),
+    p,
+    Nearest,
+  )
+  let ln_sqrt_2pi = @libelefun.ln_sqrt_2pi(p, Nearest) catch {
+    err => raise from_libelefun_error(err)
+  }
+  let mut series = RawMpc::new(
+    one_twelfth.sub(log_glaisher, p, Nearest),
+    @mpf.RawMpf::zero(),
+  )
+  series = series.add(w.mul_real(ln_sqrt_2pi, p, Nearest), p, Nearest)
+  let logarithmic_coefficient = w_squared
+    .scale_pow2(-1)
+    .sub_real(one_twelfth, p, Nearest)
+  series = series.add(
+    logarithmic_coefficient.mul(w.ln(p, Nearest), p, Nearest),
+    p,
+    Nearest,
+  )
+  series = series.sub(
+    w_squared.mul_real(
+      @mpf.RawMpf::from_mantissa_exponent(3N, -2, 0, Down),
+      p,
+      Nearest,
+    ),
+    p,
+    Nearest,
+  )
+  let inverse_squared = w_squared.reciprocal(p, Nearest)
+  let mut inverse_power = inverse_squared
+  let mut previous = @mpf.RawMpf::infinity()
+  let max_terms = p / 2 + 32
+  for k in 1..<=max_terms {
+    let coefficient = mpf_div_checked(
+      bernoulli_checked(2 * k + 2, p, Nearest),
+      @mpf.RawMpf::from_int(4 * k * (k + 1)),
+      p,
+      Nearest,
+    )
+    let correction = inverse_power.mul_real(coefficient, p, Nearest)
+    let magnitude = correction.abs(p, Nearest)
+    if k > 4 && magnitude >= previous {
+      break
+    }
+    series = series.add(correction, p, Nearest)
+    if k > 3 && tiny_enough_mpc(correction, p, p + 16) {
+      break
+    }
+    previous = magnitude
+    inverse_power = inverse_power.mul(inverse_squared, p, Nearest)
+  }
+  series.exp(p, Nearest).mul(recurrence, prec, rnd)
 }
 
 ///|
