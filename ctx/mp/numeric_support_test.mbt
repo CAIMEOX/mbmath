@@ -3,8 +3,8 @@ fn assert_close_mpf_str(
   x : @mpf.RawMpf,
   expected : String,
   tol : String,
+  comparison_precision? : Int = 640,
 ) -> Unit raise {
-  let comparison_precision = 640
   let y = @mpf.RawMpf::parse(expected, prec=comparison_precision, rnd=Nearest)
   let err = x
     .sub(y, comparison_precision, Nearest)

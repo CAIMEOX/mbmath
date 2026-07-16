@@ -185,6 +185,16 @@ fn euler_constant_checked(
 }
 
 ///|
+fn ln2_constant_checked(
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise MpcError {
+  @libelefun.ln2(prec, rnd) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
 fn glaisher_constant_checked(
   prec : Int,
   rnd : @mpf.RoundMode,
@@ -760,55 +770,153 @@ fn zeta_alt_factor_complex(s : RawMpc, p : Int) -> RawMpc raise MpcError {
 }
 
 ///|
+fn nonnegative_ceiling_to_int(x : @mpf.RawMpf) -> Int raise MpcError {
+  if !x.is_finite() {
+    raise ConvergenceError("complex zeta requires a finite imaginary part")
+  }
+  let integer = x.abs(0, Down).to_integer(rnd=Ceiling) catch {
+      err => raise from_mpf_error(err)
+    }
+  if integer.bit_length() > 60 {
+    raise ConvergenceError(
+      "complex zeta argument requires too many Borwein terms",
+    )
+  }
+  integer.to_int()
+}
+
+///|
 fn zeta_euler_maclaurin_complex(s : RawMpc, p : Int) -> RawMpc raise MpcError {
-  let mut n = 24 + p / 3
-  if n < 48 {
-    n = 48
-  }
-  if n > 4096 {
-    n = 4096
-  }
+  let imaginary_size = nonnegative_ceiling_to_int(s.imag)
+  let n = (24 + p / 3 + imaginary_size).max(48)
   let mut sum = zeta_series_sum(s, p, 1, n - 1, false)
   let n_mpf = @mpf.RawMpf::from_int(n)
-  let n_c = RawMpc::new(n_mpf, @mpf.RawMpf::zero())
-  let n_neg_s = mpc_pow_checked(n_c, s.negated(p, Nearest), p, Nearest)
-  let s_minus_one = s.sub(RawMpc::one(), p, Nearest)
-  let tail1 = n_neg_s.mul_real(n_mpf, p, Nearest).div(s_minus_one, p, Nearest)
-  let half = @mpf.RawMpf::from_mantissa_exponent(1N, -1, 0, Down)
-  let tail2 = n_neg_s.mul_real(half, p, Nearest)
-  sum = sum.add(tail1, p, Nearest)
-  sum = sum.add(tail2, p, Nearest)
-  let inv_n = mpf_div_checked(@mpf.RawMpf::one(), n_mpf, p, Nearest)
-  let inv_n2 = inv_n.mul(inv_n, p, Nearest)
-  let mut pow_term = n_neg_s.mul_real(inv_n, p, Nearest)
+  let n_complex = RawMpc::new(n_mpf, @mpf.RawMpf::zero())
+  let n_negative_s = mpc_pow_checked(
+    n_complex,
+    s.negated(p, Nearest),
+    p,
+    Nearest,
+  )
+  let integral_tail = n_negative_s
+    .mul_real(n_mpf, p, Nearest)
+    .div(s.sub(RawMpc::one(), p, Nearest), p, Nearest)
+  sum = sum
+    .add(integral_tail, p, Nearest)
+    .add(n_negative_s.scale_pow2(-1), p, Nearest)
+  let inverse_n = mpf_div_checked(@mpf.RawMpf::one(), n_mpf, p, Nearest)
+  let inverse_n_squared = inverse_n.mul(inverse_n, p, Nearest)
+  let mut power = n_negative_s.mul_real(inverse_n, p, Nearest)
   let mut rising = s.rounded(p, Nearest)
-  let mut fact = @mpf.RawMpf::from_int(2)
-  let max_k = {
-    let k = 6 + p / 16
-    if k < 8 {
-      8
-    } else if k > 80 {
-      80
-    } else {
-      k
-    }
-  }
-  for k in 1..<=max_k {
-    let bern = bernoulli_checked(2 * k, p, Nearest)
-    let coeff = mpf_div_checked(bern, fact, p, Nearest)
-    let term = rising.mul(pow_term, p, Nearest).mul_real(coeff, p, Nearest)
-    sum = sum.add(term, p, Nearest)
-    if k > 3 && tiny_enough_mpc(term, p, p + 8) {
+  let mut factorial_value = @mpf.RawMpf::two()
+  let max_terms = p / 2 + 4 * int_bit_length(imaginary_size + 2) + 32
+  let mut previous = @mpf.RawMpf::infinity()
+  let mut converged = false
+  for k in 1..<=max_terms {
+    let coefficient = mpf_div_checked(
+      bernoulli_checked(2 * k, p, Nearest),
+      factorial_value,
+      p,
+      Nearest,
+    )
+    let term = rising.mul(power, p, Nearest).mul_real(coefficient, p, Nearest)
+    let magnitude = term.abs(24, Nearest)
+    if k > 4 && magnitude >= previous {
       break
     }
-    pow_term = pow_term.mul_real(inv_n2, p, Nearest)
-    let a = s.add_real(@mpf.RawMpf::from_int(2 * k - 1), p, Nearest)
-    let b = s.add_real(@mpf.RawMpf::from_int(2 * k), p, Nearest)
-    rising = rising.mul(a, p, Nearest).mul(b, p, Nearest)
-    fact = fact.mul_int(2 * k + 1, p, Nearest)
-    fact = fact.mul_int(2 * k + 2, p, Nearest)
+    sum = sum.add(term, p, Nearest)
+    if k > 3 && complex_relative_tiny(term, sum, 24, (p - 48).max(32)) {
+      converged = true
+      break
+    }
+    previous = magnitude
+    power = power.mul_real(inverse_n_squared, p, Nearest)
+    rising = rising
+      .mul(s.add_real(@mpf.RawMpf::from_int(2 * k - 1), p, Nearest), p, Nearest)
+      .mul(s.add_real(@mpf.RawMpf::from_int(2 * k), p, Nearest), p, Nearest)
+    factorial_value = factorial_value
+      .mul_int(2 * k + 1, 0, Down)
+      .mul_int(2 * k + 2, 0, Down)
+  }
+  if !converged {
+    raise ConvergenceError(
+      "complex zeta Euler-Maclaurin expansion did not converge",
+    )
   }
   sum
+}
+
+///|
+fn borwein_coefficients(n : Int) -> Array[BigInt] {
+  let coefficients = Array::make(n + 1, 0N)
+  let mut d = 1N
+  let mut sum = 1N
+  coefficients[0] = sum
+  for i in 1..<=n {
+    d = d *
+      4N *
+      BigInt::from_int(n + i - 1) *
+      BigInt::from_int(n - i + 1) /
+      (BigInt::from_int(2 * i) * BigInt::from_int(2 * i - 1))
+    sum = sum + d
+    coefficients[i] = sum
+  }
+  coefficients
+}
+
+///|
+fn zeta_borwein_eta_complex(
+  s : RawMpc,
+  target_p : Int,
+) -> RawMpc raise MpcError {
+  let imaginary_size = nonnegative_ceiling_to_int(s.imag)
+  // The Borwein error is bounded by roughly 2^(2.28*|Im(s)|-2.54*n).
+  // Using 3/2 coefficients below leaves a conservative rounding margin.
+  let n = (target_p + 3 * imaginary_size + 1) / 2 + 16
+  let p = target_p + 64 + 2 * int_bit_length(n + 1)
+  let coefficients = borwein_coefficients(n)
+  let denominator = @mpf.RawMpf::from_bigint(coefficients[n])
+  let minus_s = s.negated(p, Nearest)
+  let mut sum = RawMpc::zero()
+  for k in 0..<n {
+    let weight = mpf_div_checked(
+      @mpf.RawMpf::from_bigint(coefficients[n] - coefficients[k]),
+      denominator,
+      p,
+      Nearest,
+    )
+    let base = RawMpc::new(@mpf.RawMpf::from_int(k + 1), @mpf.RawMpf::zero())
+    let term = mpc_pow_checked(base, minus_s, p, Nearest).mul_real(
+      weight,
+      p,
+      Nearest,
+    )
+    if (k & 1) == 0 {
+      sum = sum.add(term, p, Nearest)
+    } else {
+      sum = sum.sub(term, p, Nearest)
+    }
+  }
+  sum.rounded(target_p, Nearest)
+}
+
+///|
+fn zeta_right_half_plane_complex(s : RawMpc, p : Int) -> RawMpc raise MpcError {
+  let probe_p = p + 64
+  let factor_probe = zeta_alt_factor_complex(s, probe_p)
+  let factor_magnitude = factor_probe.abs(24, Nearest)
+  let factor_cancellation_bits = if factor_magnitude.is_zero() {
+    probe_p
+  } else {
+    (-(factor_magnitude.exp + factor_magnitude.bc)).max(0)
+  }
+  if factor_cancellation_bits > 16 {
+    return zeta_euler_maclaurin_complex(s, p + 64).rounded(p, Nearest)
+  }
+  let work_p = p + 32
+  let eta = zeta_borwein_eta_complex(s, work_p)
+  let factor = zeta_alt_factor_complex(s, work_p)
+  eta.div(factor, work_p, Nearest).rounded(p, Nearest)
 }
 
 ///|
@@ -829,7 +937,7 @@ fn zeta_reflection_complex(s : RawMpc, p : Int) -> RawMpc raise MpcError {
   )
   let sin_term = s.scale_pow2(-1).sin_pi(p, Nearest)
   let gamma_term = one_minus_s.gamma(p, Nearest)
-  let zeta_term = zeta_euler_maclaurin_complex(one_minus_s, p)
+  let zeta_term = zeta_right_half_plane_complex(one_minus_s, p)
   two_pow_s.mul(
     pi_pow.mul(
       sin_term.mul(gamma_term.mul(zeta_term, p, Nearest), p, Nearest),
@@ -2997,8 +3105,12 @@ pub fn RawMpc::eta(
   if s.real.is_infinite() && s.real.sign == 0 && s.imag.is_finite() {
     return RawMpc::one()
   }
+  if s.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
   let base_p = ext_prec(prec) + 32
-  let pole_distance = s.sub(RawMpc::one(), base_p, Nearest).abs(24, Nearest)
+  let delta = s.sub(RawMpc::one(), base_p, Nearest)
+  let pole_distance = delta.abs(24, Nearest)
   let cancellation_bits = if pole_distance.is_zero() {
     base_p
   } else {
@@ -3009,10 +3121,28 @@ pub fn RawMpc::eta(
       0
     }
   }
-  let p = base_p + cancellation_bits + 16
-  let zeta_value = s.zeta(p, Nearest)
-  let factor = zeta_alt_factor_complex(s, p)
-  zeta_value.mul(factor, p, Nearest).rounded(prec, rnd)
+  if cancellation_bits > (base_p + 32) / 2 {
+    let p = base_p + 48
+    let logarithm_two = ln2_constant_checked(p, Nearest)
+    let coefficient = euler_constant_checked(p, Nearest)
+      .mul(logarithm_two, p, Nearest)
+      .sub(
+        logarithm_two.mul(logarithm_two, p, Nearest).scale_pow2(-1),
+        p,
+        Nearest,
+      )
+    return delta
+      .mul_real(coefficient, p, Nearest)
+      .add_real(logarithm_two, p, Nearest)
+      .rounded(prec, rnd)
+  }
+  if s.real.sign == 1 {
+    let p = base_p + cancellation_bits + 32
+    let zeta_value = s.zeta(p, Nearest)
+    let factor = zeta_alt_factor_complex(s, p)
+    return zeta_value.mul(factor, p, Nearest).rounded(prec, rnd)
+  }
+  zeta_borwein_eta_complex(s, base_p + 16).rounded(prec, rnd)
 }
 
 ///|
@@ -3034,23 +3164,32 @@ pub fn RawMpc::zeta(
   if s.real.is_infinite() && s.real.sign == 1 {
     return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
   }
+  if s.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
   if alt {
     return s.eta(prec, rnd)
   }
-  let p0 = ext_prec(prec) + 24
-  let mut p = p0
-  let dist = s.sub(RawMpc::one(), p0, Nearest).abs(p0, Nearest)
-  if dist.is_finite() && !dist.is_zero() {
-    let bits = -(dist.exp + dist.bc)
-    if bits > 0 {
-      let extra = if bits > 512 { 512 } else { bits }
-      p = p + extra
-    }
+  let base_p = ext_prec(prec) + 24
+  let delta = s.sub(RawMpc::one(), base_p, Nearest)
+  let distance = delta.abs(24, Nearest)
+  let cancellation_bits = if distance.is_zero() {
+    base_p
+  } else {
+    (-(distance.exp + distance.bc)).max(0)
   }
+  if cancellation_bits > (base_p + 32) / 2 {
+    let p = base_p + 48
+    return delta
+      .reciprocal(p, Nearest)
+      .add_real(euler_constant_checked(p, Nearest), p, Nearest)
+      .rounded(prec, rnd)
+  }
+  let p = base_p + 16
   let z = if s.real.sign == 1 {
     zeta_reflection_complex(s, p)
   } else {
-    zeta_euler_maclaurin_complex(s, p)
+    zeta_right_half_plane_complex(s, p)
   }
   z.rounded(prec, rnd)
 }
