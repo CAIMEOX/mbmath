@@ -67,6 +67,7 @@ pub fn RawMpc::format_components(Self, dps? : Int) -> (String, String) raise Mpc
 pub fn RawMpc::fractional_part(Self, Int, @mpf.RoundMode) -> Self
 pub fn RawMpc::gamma(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::harmonic(Self, Int, @mpf.RoundMode) -> Self raise MpcError
+pub fn RawMpc::hyperfactorial(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::imaginary_error_function(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::is_infinite(Self) -> Bool
 pub fn RawMpc::is_non_finite(Self) -> Bool

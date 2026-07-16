@@ -67,3 +67,59 @@ pub fn MPContext::complex_superfactorial(
     err => raise from_mpc_error(err)
   }
 }
+
+///|
+/// Evaluate the hyperfactorial continuation on real-valued branches.
+///
+/// Some negative noninteger arguments have a genuinely complex principal
+/// value. Those inputs raise `ComplexResult`; use `complex_hyperfactorial` to
+/// request that branch explicitly.
+pub fn MPContext::hyperfactorial(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  if x.is_nan() || x == @mpf.RawMpf::negative_infinity() {
+    return @mpf.RawMpf::nan()
+  }
+  if x == @mpf.RawMpf::infinity() {
+    return x
+  }
+  let p = ratio_working_precision(self, extra=32)
+  let value = @mpc.RawMpc::new(x, @mpf.RawMpf::zero()).hyperfactorial(
+    p,
+    Nearest,
+  ) catch {
+    err => raise from_mpc_error(err)
+  }
+  if value.imag.is_zero() {
+    return value.real.rounded(self.precision(), self.round_mode())
+  }
+  let scale = {
+    let magnitude = value.real.abs(p, Nearest)
+    if magnitude < @mpf.RawMpf::one() {
+      @mpf.RawMpf::one()
+    } else {
+      magnitude
+    }
+  }
+  let target = if self.precision() > 0 { self.precision() } else { 64 }
+  let tolerance = scale.scale_pow2(-(target + 16))
+  if value.imag.abs(p, Nearest) <= tolerance {
+    value.real.rounded(self.precision(), self.round_mode())
+  } else {
+    raise ComplexResult(
+      "hyperfactorial: principal value is complex; use complex_hyperfactorial",
+    )
+  }
+}
+
+///|
+/// Evaluate the principal complex hyperfactorial continuation.
+pub fn MPContext::complex_hyperfactorial(
+  self : MPContext,
+  z : @mpc.RawMpc,
+) -> @mpc.RawMpc raise MPError {
+  z.hyperfactorial(self.precision(), self.round_mode()) catch {
+    err => raise from_mpc_error(err)
+  }
+}

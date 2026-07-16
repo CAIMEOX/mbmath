@@ -2204,6 +2204,114 @@ pub fn RawMpc::barnes_g(
 }
 
 ///|
+fn small_hyperfactorial_integer(x : @mpf.RawMpf) -> Int? {
+  if !x.is_finite() || (!x.is_zero() && x.exp < 0) {
+    return None
+  }
+  if x.is_zero() {
+    return Some(0)
+  }
+  if x.exp >= 7 {
+    return None
+  }
+  let magnitude = x.man << x.exp
+  if magnitude > 64N {
+    return None
+  }
+  let value = magnitude.to_int()
+  Some(if x.sign == 1 { -value } else { value })
+}
+
+///|
+fn exact_hyperfactorial_nonnegative(n : Int) -> @mpf.RawMpf raise MpcError {
+  let mut product = @mpf.RawMpf::one()
+  for k in 2..<=n {
+    product = product.mul(
+      mpf_pow_int_checked(@mpf.RawMpf::from_int(k), k, 0, Down),
+      0,
+      Down,
+    )
+  }
+  product
+}
+
+///|
+fn negative_integer_hyperfactorial_is_negative(x : @mpf.RawMpf) -> Bool {
+  let reflected = x.negated(0, Down).sub(@mpf.RawMpf::one(), 0, Down)
+  if reflected.is_zero() || reflected.exp >= 2 {
+    false
+  } else if reflected.exp == 1 {
+    true
+  } else {
+    (reflected.man & 3N) == 1N
+  }
+}
+
+///|
+/// Evaluate the principal hyperfactorial continuation.
+pub fn RawMpc::hyperfactorial(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  if z.imag.is_zero() {
+    match small_hyperfactorial_integer(z.real) {
+      Some(n) => {
+        if n >= 0 {
+          return RawMpc::new(
+            exact_hyperfactorial_nonnegative(n),
+            @mpf.RawMpf::zero(),
+          )
+        }
+        let value = exact_hyperfactorial_nonnegative(-n - 1)
+        return RawMpc::new(
+          if ((-n - 1) & 3) == 1 || ((-n - 1) & 3) == 2 {
+            value.negated(0, Down)
+          } else {
+            value
+          },
+          @mpf.RawMpf::zero(),
+        )
+      }
+      None => ()
+    }
+    if z.real == @mpf.RawMpf::infinity() {
+      return RawMpc::new(@mpf.RawMpf::infinity(), @mpf.RawMpf::zero())
+    }
+    if z.real.is_nan() || z.real == @mpf.RawMpf::negative_infinity() {
+      return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+    }
+    if z.real.sign == 1 && z.real.exp >= 0 {
+      let reflected = z.real.negated(0, Down).sub(@mpf.RawMpf::one(), 0, Down)
+      let value = RawMpc::new(reflected, @mpf.RawMpf::zero()).hyperfactorial(
+        prec, rnd,
+      )
+      return if negative_integer_hyperfactorial_is_negative(z.real) {
+        value.negated(prec, rnd)
+      } else {
+        value
+      }
+    }
+  }
+  if z.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  let base_p = ext_prec(prec) + 80
+  let magnitude = z.abs(base_p, Nearest)
+  let magnitude_bits = if magnitude > @mpf.RawMpf::one() {
+    magnitude.exp + magnitude.bc
+  } else {
+    0
+  }
+  let p = base_p + 2 * magnitude_bits + 24
+  let shifted = z.add_real(@mpf.RawMpf::one(), p, Nearest)
+  let numerator = z
+    .mul(shifted.loggamma(p, Nearest), p, Nearest)
+    .exp(p, Nearest)
+  numerator.div(shifted.barnes_g(p, Nearest), p, Nearest).rounded(prec, rnd)
+}
+
+///|
 pub fn RawMpc::gamma(
   z : RawMpc,
   prec : Int,
