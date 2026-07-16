@@ -1577,6 +1577,324 @@ pub fn RawMpc::e1(
 }
 
 ///|
+/// Evaluate the principal logarithmic integral continuation.
+pub fn RawMpc::logarithmic_integral(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+  offset? : Bool = false,
+) -> RawMpc raise MpcError {
+  if offset && z == RawMpc::new(@mpf.RawMpf::two(), @mpf.RawMpf::zero()) {
+    return RawMpc::zero()
+  }
+  let p = ext_prec(prec) + 64
+  let mut value = if z == RawMpc::zero() {
+    RawMpc::zero()
+  } else if z == RawMpc::one() {
+    RawMpc::new(@mpf.RawMpf::negative_infinity(), @mpf.RawMpf::zero())
+  } else {
+    z.log(p, Nearest).ei(p, Nearest)
+  }
+  if offset {
+    let two = RawMpc::new(@mpf.RawMpf::two(), @mpf.RawMpf::zero())
+    let reference = two.log(p, Nearest).ei(p, Nearest)
+    value = value.sub(reference, p, Nearest)
+  }
+  value.rounded(prec, rnd)
+}
+
+///|
+fn hyperbolic_integral_series(
+  z : RawMpc,
+  base_p : Int,
+  cosine : Bool,
+) -> RawMpc raise MpcError {
+  let p = error_series_work_precision(z, base_p)
+  let z_work = z.rounded(p, Nearest)
+  let squared = z_work.square(p, Nearest)
+  let mut degree = if cosine { 2 } else { 1 }
+  let mut factorial_term = if cosine { squared.scale_pow2(-1) } else { z_work }
+  let mut sum = factorial_term.div_real(
+    @mpf.RawMpf::from_int(degree),
+    p,
+    Nearest,
+  )
+  let mut converged = false
+  let max_terms = 4 * p + 128
+  for _ in 0..<max_terms {
+    let denominator = @mpf.RawMpf::from_int(degree + 1).mul_int(
+      degree + 2,
+      0,
+      Down,
+    )
+    factorial_term = factorial_term
+      .mul(squared, p, Nearest)
+      .div_real(denominator, p, Nearest)
+    degree += 2
+    let correction = factorial_term.div_real(
+      @mpf.RawMpf::from_int(degree),
+      p,
+      Nearest,
+    )
+    sum = sum.add(correction, p, Nearest)
+    if degree > 7 && tiny_enough_mpc(correction, p, base_p + 32) {
+      converged = true
+      break
+    }
+  }
+  if !converged {
+    raise ConvergenceError(
+      "complex hyperbolic integral series did not converge",
+    )
+  }
+  if cosine {
+    sum
+    .add(z_work.log(p, Nearest), p, Nearest)
+    .add_real(euler_constant_checked(p, Nearest), p, Nearest)
+  } else {
+    sum
+  }
+}
+
+///|
+fn should_use_hyperbolic_integral_series(z : RawMpc, p : Int) -> Bool {
+  complex_norm_squared(z, 32) <= @mpf.RawMpf::from_int(p + 64)
+}
+
+///|
+/// Evaluate the principal hyperbolic cosine integral continuation.
+pub fn RawMpc::hyperbolic_cosine_integral(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  if z == RawMpc::zero() {
+    return RawMpc::new(@mpf.RawMpf::negative_infinity(), @mpf.RawMpf::zero())
+  }
+  if z.imag.is_zero() && z.real.is_infinite() {
+    return RawMpc::new(
+      @mpf.RawMpf::infinity(),
+      if z.real.sign == 1 {
+        elefun_pi_checked(prec, rnd)
+      } else {
+        @mpf.RawMpf::zero()
+      },
+    )
+  }
+  if z.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  let base_p = ext_prec(prec) + 48
+  if should_use_hyperbolic_integral_series(z, base_p) {
+    return hyperbolic_integral_series(z, base_p, true).rounded(prec, rnd)
+  }
+  let p = base_p + 64
+  let reflected = z.negated(p, Nearest)
+  let mut value = z
+    .ei(p, Nearest)
+    .add(reflected.ei(p, Nearest), p, Nearest)
+    .scale_pow2(-1)
+  let pi = elefun_pi_checked(p, Nearest)
+  let branch = if z.imag.sign == 1 {
+    pi.scale_pow2(-1).negated(p, Nearest)
+  } else if !z.imag.is_zero() {
+    pi.scale_pow2(-1)
+  } else if z.real.sign == 1 {
+    pi
+  } else {
+    @mpf.RawMpf::zero()
+  }
+  value = value.add(RawMpc::new(@mpf.RawMpf::zero(), branch), p, Nearest)
+  value.rounded(prec, rnd)
+}
+
+///|
+/// Evaluate the entire hyperbolic sine integral.
+pub fn RawMpc::hyperbolic_sine_integral(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  if z == RawMpc::zero() {
+    return z
+  }
+  if z.imag.is_zero() && z.real.is_infinite() {
+    return z
+  }
+  if z.is_non_finite() {
+    return RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+  }
+  let base_p = ext_prec(prec) + 48
+  if should_use_hyperbolic_integral_series(z, base_p) {
+    return hyperbolic_integral_series(z, base_p, false).rounded(prec, rnd)
+  }
+  let p = base_p + 64
+  let reflected = z.negated(p, Nearest)
+  let mut value = z
+    .ei(p, Nearest)
+    .sub(reflected.ei(p, Nearest), p, Nearest)
+    .scale_pow2(-1)
+  let pi = elefun_pi_checked(p, Nearest).scale_pow2(-1)
+  let branch = if z.imag.sign == 1 {
+    pi.negated(p, Nearest)
+  } else if !z.imag.is_zero() {
+    pi
+  } else {
+    @mpf.RawMpf::zero()
+  }
+  value = value.sub(RawMpc::new(@mpf.RawMpf::zero(), branch), p, Nearest)
+  value.rounded(prec, rnd)
+}
+
+///|
+fn fresnel_integral_series(
+  z : RawMpc,
+  base_p : Int,
+) -> (RawMpc, RawMpc) raise MpcError {
+  let p = error_series_work_precision(z, base_p)
+  let z_work = z.rounded(p, Nearest)
+  let squared = z_work.square(p, Nearest)
+  let fourth_power = squared.square(p, Nearest)
+  let half_pi = elefun_pi_checked(p, Nearest).scale_pow2(-1)
+  let ratio = fourth_power.mul_real(
+    half_pi.mul(half_pi, p, Nearest).negated(p, Nearest),
+    p,
+    Nearest,
+  )
+  let mut cosine_factorial_term = z_work
+  let mut sine_factorial_term = z_work
+    .mul(squared, p, Nearest)
+    .mul_real(half_pi, p, Nearest)
+  let mut cosine = cosine_factorial_term
+  let mut sine = sine_factorial_term.div_real(
+    @mpf.RawMpf::from_int(3),
+    p,
+    Nearest,
+  )
+  let mut converged = false
+  let max_terms = 4 * p + 128
+  for k in 0..<max_terms {
+    let cosine_denominator = @mpf.RawMpf::from_int(2 * k + 1).mul_int(
+      2 * k + 2,
+      0,
+      Down,
+    )
+    cosine_factorial_term = cosine_factorial_term
+      .mul(ratio, p, Nearest)
+      .div_real(cosine_denominator, p, Nearest)
+    let cosine_correction = cosine_factorial_term.div_real(
+      @mpf.RawMpf::from_int(4 * k + 5),
+      p,
+      Nearest,
+    )
+    cosine = cosine.add(cosine_correction, p, Nearest)
+    let sine_denominator = @mpf.RawMpf::from_int(2 * k + 2).mul_int(
+      2 * k + 3,
+      0,
+      Down,
+    )
+    sine_factorial_term = sine_factorial_term
+      .mul(ratio, p, Nearest)
+      .div_real(sine_denominator, p, Nearest)
+    let sine_correction = sine_factorial_term.div_real(
+      @mpf.RawMpf::from_int(4 * k + 7),
+      p,
+      Nearest,
+    )
+    sine = sine.add(sine_correction, p, Nearest)
+    if k > 2 &&
+      tiny_enough_mpc(cosine_correction, p, base_p + 32) &&
+      tiny_enough_mpc(sine_correction, p, base_p + 32) {
+      converged = true
+      break
+    }
+  }
+  if !converged {
+    raise ConvergenceError("complex Fresnel integral series did not converge")
+  }
+  (cosine, sine)
+}
+
+///|
+/// Evaluate the complex Fresnel cosine and sine integrals as a pair.
+pub fn RawMpc::fresnel_integrals(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> (RawMpc, RawMpc) raise MpcError {
+  if z.imag.is_zero() && z.real.is_infinite() {
+    let half = if z.real.sign == 1 {
+      @mpf.RawMpf::half().negated(0, Down)
+    } else {
+      @mpf.RawMpf::half()
+    }
+    let value = RawMpc::new(half, @mpf.RawMpf::zero())
+    return (value, value)
+  }
+  if z == RawMpc::zero() {
+    return (z, z)
+  }
+  if z.is_non_finite() {
+    let value = RawMpc::new(@mpf.RawMpf::nan(), @mpf.RawMpf::nan())
+    return (value, value)
+  }
+  let base_p = ext_prec(prec) + 48
+  if complex_norm_squared(z, 32) <= @mpf.RawMpf::from_int(base_p + 64) {
+    let (cosine, sine) = fresnel_integral_series(z, base_p)
+    return (cosine.rounded(prec, rnd), sine.rounded(prec, rnd))
+  }
+  let p = error_series_work_precision(z, base_p)
+  let sqrt_pi = @libelefun.sqrt_pi(p, Nearest) catch {
+    err => raise from_libelefun_error(err)
+  }
+  let half_sqrt_pi = sqrt_pi.scale_pow2(-1)
+  let first_argument = z.mul(
+    RawMpc::new(half_sqrt_pi, half_sqrt_pi.negated(p, Nearest)),
+    p,
+    Nearest,
+  )
+  let second_argument = z.mul(
+    RawMpc::new(half_sqrt_pi, half_sqrt_pi),
+    p,
+    Nearest,
+  )
+  let half = @mpf.RawMpf::half()
+  let first = first_argument
+    .error_function(p, Nearest)
+    .mul(RawMpc::new(half, half), p, Nearest)
+  let second = second_argument
+    .error_function(p, Nearest)
+    .mul(RawMpc::new(half, half.negated(p, Nearest)), p, Nearest)
+  let cosine = first.add(second, p, Nearest).scale_pow2(-1)
+  let difference = first.sub(second, p, Nearest)
+  let sine = RawMpc::new(
+    difference.imag.scale_pow2(-1),
+    difference.real.scale_pow2(-1).negated(p, Nearest),
+  )
+  (cosine.rounded(prec, rnd), sine.rounded(prec, rnd))
+}
+
+///|
+/// Evaluate the complex Fresnel cosine integral.
+pub fn RawMpc::fresnel_cosine_integral(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  z.fresnel_integrals(prec, rnd).0
+}
+
+///|
+/// Evaluate the complex Fresnel sine integral.
+pub fn RawMpc::fresnel_sine_integral(
+  z : RawMpc,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> RawMpc raise MpcError {
+  z.fresnel_integrals(prec, rnd).1
+}
+
+///|
 pub fn RawMpc::ci_si_taylor(
   re : @mpf.RawMpf,
   im : @mpf.RawMpf,

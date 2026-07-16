@@ -95,14 +95,20 @@ pub fn MPContext::complex_exponential_integral_ei(Self, @mpc.RawMpc) -> @mpc.Raw
 pub fn MPContext::complex_factorial(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_falling_factorial(Self, @mpc.RawMpc, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_fibonacci(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_fresnel_cosine_integral(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_fresnel_integrals(Self, @mpc.RawMpc) -> (@mpc.RawMpc, @mpc.RawMpc) raise MPError
+pub fn MPContext::complex_fresnel_sine_integral(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_gamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_gamma_product(Self, ArrayView[@mpc.RawMpc], ArrayView[@mpc.RawMpc]) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_harmonic(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_hyperbolic_cosine_integral(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_hyperbolic_sine_integral(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_hyperfactorial(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_imaginary_error_function(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_integer_order_bessel_first_kind(Self, Int, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_log(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_log_gamma(Self, @mpc.RawMpc) -> @mpc.RawMpc raise MPError
+pub fn MPContext::complex_logarithmic_integral(Self, @mpc.RawMpc, offset? : Bool) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_normal_cumulative_distribution(Self, @mpc.RawMpc, mean? : @mpc.RawMpc, standard_deviation? : @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_normal_probability_density(Self, @mpc.RawMpc, mean? : @mpc.RawMpc, standard_deviation? : @mpc.RawMpc) -> @mpc.RawMpc raise MPError
 pub fn MPContext::complex_nthroot(Self, @mpc.RawMpc, Int) -> @mpc.RawMpc raise MPError
@@ -171,6 +177,9 @@ pub fn MPContext::format_complex(Self, @mpc.RawMpc, dps? : Int) -> String raise 
 pub fn MPContext::fourier(Self, (@mpf.RawMpf) -> @mpf.RawMpf raise?, (@mpf.RawMpf, @mpf.RawMpf), Int) -> (Array[@mpf.RawMpf], Array[@mpf.RawMpf]) raise
 pub fn MPContext::fourierval(Self, (Array[@mpf.RawMpf], Array[@mpf.RawMpf]), (@mpf.RawMpf, @mpf.RawMpf), @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::fprod(Self, ArrayView[@mpf.RawMpf]) -> @mpf.RawMpf
+pub fn MPContext::fresnel_cosine_integral(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
+pub fn MPContext::fresnel_integrals(Self, @mpf.RawMpf) -> (@mpf.RawMpf, @mpf.RawMpf) raise MPError
+pub fn MPContext::fresnel_sine_integral(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::from_int(Self, Int) -> @mpf.RawMpf
 pub fn MPContext::fsum(Self, ArrayView[@mpf.RawMpf], absolute? : Bool, squared? : Bool) -> @mpf.RawMpf
 pub fn MPContext::gamma(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
@@ -180,6 +189,8 @@ pub fn MPContext::golden_ratio(Self) -> @mpf.RawMpf raise MPError
 pub fn MPContext::harmonic(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::hessenberg(Self, MpfMatrix, tol? : @mpf.RawMpf) -> (MpfMatrix, MpfMatrix) raise MPError
 pub fn MPContext::hilbert(Self, Int) -> MpfMatrix raise MPError
+pub fn MPContext::hyperbolic_cosine_integral(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
+pub fn MPContext::hyperbolic_sine_integral(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::hyperfactorial(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::hypot(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::identify(Self, @mpf.RawMpf, constants? : Map[String, @mpf.RawMpf]) -> String raise MPError
@@ -200,6 +211,7 @@ pub fn MPContext::log1p(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::log2(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::log_gamma(Self, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
 pub fn MPContext::log_hypot(Self, @mpf.RawMpf, @mpf.RawMpf) -> @mpf.RawMpf raise MPError
+pub fn MPContext::logarithmic_integral(Self, @mpf.RawMpf, offset? : Bool) -> @mpf.RawMpf raise MPError
 pub fn MPContext::lu_solve(Self, MpfMatrix, ArrayView[@mpf.RawMpf]) -> Array[@mpf.RawMpf] raise MPError
 pub fn MPContext::matrix(Self, Int, Int, fill? : @mpf.RawMpf) -> MpfMatrix raise MPError
 pub fn MPContext::matrix_add(Self, MpfMatrix, MpfMatrix) -> MpfMatrix raise MPError

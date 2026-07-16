@@ -65,8 +65,13 @@ pub fn RawMpc::floor(Self, Int, @mpf.RoundMode) -> Self
 pub fn RawMpc::format(Self, dps? : Int) -> String raise MpcError
 pub fn RawMpc::format_components(Self, dps? : Int) -> (String, String) raise MpcError
 pub fn RawMpc::fractional_part(Self, Int, @mpf.RoundMode) -> Self
+pub fn RawMpc::fresnel_cosine_integral(Self, Int, @mpf.RoundMode) -> Self raise MpcError
+pub fn RawMpc::fresnel_integrals(Self, Int, @mpf.RoundMode) -> (Self, Self) raise MpcError
+pub fn RawMpc::fresnel_sine_integral(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::gamma(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::harmonic(Self, Int, @mpf.RoundMode) -> Self raise MpcError
+pub fn RawMpc::hyperbolic_cosine_integral(Self, Int, @mpf.RoundMode) -> Self raise MpcError
+pub fn RawMpc::hyperbolic_sine_integral(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::hyperfactorial(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::imaginary_error_function(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::is_infinite(Self) -> Bool
@@ -74,6 +79,7 @@ pub fn RawMpc::is_non_finite(Self) -> Bool
 pub fn RawMpc::is_nonzero(Self) -> Bool
 pub fn RawMpc::ln(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::log(Self, Int, @mpf.RoundMode) -> Self raise MpcError
+pub fn RawMpc::logarithmic_integral(Self, Int, @mpf.RoundMode, offset? : Bool) -> Self raise MpcError
 pub fn RawMpc::loggamma(Self, Int, @mpf.RoundMode) -> Self raise MpcError
 pub fn RawMpc::mul(Self, Self, Int, @mpf.RoundMode) -> Self
 pub fn RawMpc::mul_int(Self, Int, Int, @mpf.RoundMode) -> Self
