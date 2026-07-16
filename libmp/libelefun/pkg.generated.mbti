@@ -45,6 +45,8 @@ pub fn exp_i(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunErr
 
 pub fn exp_i_pi(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
+pub fn expm1(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+
 pub fn ln(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
 pub fn ln10(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
@@ -66,6 +68,8 @@ pub fn phi(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 pub fn pi(Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
 pub fn pow(@mpf.RawMpf, @mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
+
+pub fn pow_minus_one(@mpf.RawMpf, @mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 
 pub fn sin(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibElefunError
 

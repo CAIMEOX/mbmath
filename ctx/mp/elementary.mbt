@@ -343,3 +343,360 @@ pub fn MPContext::log_hypot(
 ) -> @mpf.RawMpf raise MPError {
   self.elementary_binary(x, y, @libelefun.log_hypot)
 }
+
+///|
+fn MPContext::rounded_reciprocal(
+  self : MPContext,
+  x : @mpf.RawMpf,
+  wp : Int,
+) -> @mpf.RawMpf raise MPError {
+  @mpf.RawMpf::one()
+  .div(x, wp, Nearest)
+  .rounded(self.precision(), self.round_mode()) catch {
+    err => raise from_mpf_error(err)
+  }
+}
+
+///|
+fn reciprocal_input(x : @mpf.RawMpf, wp : Int) -> @mpf.RawMpf raise MPError {
+  if x.is_infinite() {
+    return @mpf.RawMpf::zero()
+  }
+  @mpf.RawMpf::one().div(x, wp, Nearest) catch {
+    err => raise from_mpf_error(err)
+  }
+}
+
+///|
+/// Compute the real cotangent as `cos(x)/sin(x)` from one shared reduction.
+pub fn MPContext::cot(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  let wp = self.elementary_work_precision()
+  let (cosine, sine) = @libelefun.cos_sin(x, wp, Nearest) catch {
+    err => raise from_libelefun_error(err)
+  }
+  cosine.div(sine, wp, Nearest).rounded(self.precision(), self.round_mode()) catch {
+    err => raise from_mpf_error(err)
+  }
+}
+
+///|
+/// Compute the real secant `1/cos(x)`.
+pub fn MPContext::sec(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  let wp = self.elementary_work_precision()
+  let cosine = @libelefun.cos(x, wp, Nearest) catch {
+    err => raise from_libelefun_error(err)
+  }
+  self.rounded_reciprocal(cosine, wp)
+}
+
+///|
+/// Compute the real cosecant `1/sin(x)`.
+pub fn MPContext::csc(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  let wp = self.elementary_work_precision()
+  let sine = @libelefun.sin(x, wp, Nearest) catch {
+    err => raise from_libelefun_error(err)
+  }
+  self.rounded_reciprocal(sine, wp)
+}
+
+///|
+/// Compute the real hyperbolic cotangent `1/tanh(x)`.
+pub fn MPContext::coth(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  let wp = self.elementary_work_precision()
+  let value = @libelefun.tanh(x, wp, Nearest) catch {
+    err => raise from_libelefun_error(err)
+  }
+  self.rounded_reciprocal(value, wp)
+}
+
+///|
+/// Compute the real hyperbolic secant `1/cosh(x)`.
+pub fn MPContext::sech(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  let wp = self.elementary_work_precision()
+  let value = @libelefun.cosh(x, wp, Nearest) catch {
+    err => raise from_libelefun_error(err)
+  }
+  self.rounded_reciprocal(value, wp)
+}
+
+///|
+/// Compute the real hyperbolic cosecant `1/sinh(x)`.
+pub fn MPContext::csch(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  let wp = self.elementary_work_precision()
+  let value = @libelefun.sinh(x, wp, Nearest) catch {
+    err => raise from_libelefun_error(err)
+  }
+  self.rounded_reciprocal(value, wp)
+}
+
+///|
+/// Compute the principal real inverse cotangent as `atan(1/x)`.
+///
+/// Zero maps to `pi/2` and either infinity maps to zero.
+pub fn MPContext::acot(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  if x.is_zero() {
+    return self.pi().scale_pow2(-1)
+  }
+  if x.is_infinite() {
+    return @mpf.RawMpf::zero()
+  }
+  let wp = self.elementary_work_precision()
+  let reciprocal = reciprocal_input(x, wp)
+  @libelefun.atan(reciprocal, self.precision(), self.round_mode()) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+/// Compute the principal real inverse secant `acos(1/x)`.
+pub fn MPContext::asec(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  let reciprocal = reciprocal_input(x, self.elementary_work_precision())
+  self.acos(reciprocal)
+}
+
+///|
+/// Compute the principal real inverse cosecant `asin(1/x)`.
+pub fn MPContext::acsc(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  let reciprocal = reciprocal_input(x, self.elementary_work_precision())
+  self.asin(reciprocal)
+}
+
+///|
+/// Compute the principal real inverse hyperbolic cotangent `atanh(1/x)`.
+///
+/// This real-only method requires `|x| >= 1`. At zero the mathematical value
+/// is complex and `MPError::ComplexResult` is raised.
+pub fn MPContext::acoth(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  if x.is_zero() {
+    raise ComplexResult("acoth: complex result at zero")
+  }
+  let reciprocal = reciprocal_input(x, self.elementary_work_precision())
+  self.atanh(reciprocal)
+}
+
+///|
+/// Compute the principal real inverse hyperbolic secant `acosh(1/x)`.
+pub fn MPContext::asech(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  let reciprocal = reciprocal_input(x, self.elementary_work_precision())
+  self.acosh(reciprocal)
+}
+
+///|
+/// Compute the real inverse hyperbolic cosecant `asinh(1/x)`.
+pub fn MPContext::acsch(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  let reciprocal = reciprocal_input(x, self.elementary_work_precision())
+  self.asinh(reciprocal)
+}
+
+///|
+/// Return `-1`, `0`, or `1` for finite real inputs, preserving NaN.
+pub fn MPContext::sign(self : MPContext, x : @mpf.RawMpf) -> @mpf.RawMpf {
+  ignore(self)
+  if x.is_nan() {
+    @mpf.RawMpf::nan()
+  } else {
+    match x.signum() {
+      -1 => @mpf.RawMpf::negative_one()
+      1 => @mpf.RawMpf::one()
+      _ => @mpf.RawMpf::zero()
+    }
+  }
+}
+
+///|
+/// Return the principal argument of a real value: pi for negatives, zero
+/// otherwise, and NaN for NaN.
+pub fn MPContext::arg(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  @libelefun.atan2(@mpf.RawMpf::zero(), x, self.precision(), self.round_mode()) catch {
+    err => raise from_libelefun_error(err)
+  }
+}
+
+///|
+/// Compute the arithmetic-geometric mean of two non-negative real values.
+///
+/// The second argument defaults to one. Inputs whose AGM lies outside the real
+/// branch raise a structured context error.
+pub fn MPContext::agm(
+  self : MPContext,
+  a : @mpf.RawMpf,
+  b? : @mpf.RawMpf = @mpf.RawMpf::one(),
+) -> @mpf.RawMpf raise MPError {
+  @libhyper.agm(a, b, self.precision(), self.round_mode()) catch {
+    err => raise from_libhyper_error(err)
+  }
+}
+
+///|
+/// Compute the unnormalized sinc function `sin(x)/x`, with value one at zero.
+pub fn MPContext::sinc(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  if x.is_zero() {
+    return @mpf.RawMpf::one()
+  }
+  if x.is_infinite() {
+    return @mpf.RawMpf::zero()
+  }
+  let wp = self.elementary_work_precision()
+  let numerator = @libelefun.sin(x, wp, Nearest) catch {
+    err => raise from_libelefun_error(err)
+  }
+  numerator.div(x, wp, Nearest).rounded(self.precision(), self.round_mode()) catch {
+    err => raise from_mpf_error(err)
+  }
+}
+
+///|
+/// Compute the normalized sinc function `sin(pi*x)/(pi*x)`.
+///
+/// Integer zeros are exact because `sin_pi` performs exact dyadic reduction.
+pub fn MPContext::sinc_pi(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  if x.is_zero() {
+    return @mpf.RawMpf::one()
+  }
+  if x.is_infinite() {
+    return @mpf.RawMpf::zero()
+  }
+  let wp = self.elementary_work_precision()
+  let numerator = @libelefun.sin_pi(x, wp, Nearest) catch {
+    err => raise from_libelefun_error(err)
+  }
+  let denominator = @libelefun.pi(wp, Nearest).mul(x, wp, Nearest) catch {
+    err => raise from_libelefun_error(err)
+  }
+  numerator
+  .div(denominator, wp, Nearest)
+  .rounded(self.precision(), self.round_mode()) catch {
+    err => raise from_mpf_error(err)
+  }
+}
+
+///|
+/// Compute `exp(x)-1` with full relative accuracy for small `x`.
+pub fn MPContext::expm1(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  self.elementary_unary(x, @libelefun.expm1)
+}
+
+///|
+/// Compute `x^y-1` without cancellation when the result is near zero.
+pub fn MPContext::pow_minus_one(
+  self : MPContext,
+  x : @mpf.RawMpf,
+  y : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  self.elementary_binary(x, y, @libelefun.pow_minus_one)
+}
+
+///|
+/// Compute the base-ten logarithm on the real branch.
+pub fn MPContext::log10(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  self.log(x, base=@mpf.RawMpf::ten())
+}
+
+///|
+/// Compute the base-two logarithm on the real branch.
+pub fn MPContext::log2(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  self.log(x, base=@mpf.RawMpf::two())
+}
+
+///|
+/// Compute `2^x` on the real branch.
+pub fn MPContext::exp2(
+  self : MPContext,
+  x : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  self.pow(@mpf.RawMpf::two(), x)
+}
+
+///|
+/// Convert an angle in radians to degrees.
+pub fn MPContext::to_degrees(
+  self : MPContext,
+  radians : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  let wp = self.elementary_work_precision()
+  let unit = @libelefun.degree(wp, Nearest) catch {
+    err => raise from_libelefun_error(err)
+  }
+  radians.div(unit, wp, Nearest).rounded(self.precision(), self.round_mode()) catch {
+    err => raise from_mpf_error(err)
+  }
+}
+
+///|
+/// Convert an angle in degrees to radians.
+pub fn MPContext::to_radians(
+  self : MPContext,
+  degrees : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  let wp = self.elementary_work_precision()
+  let unit = @libelefun.degree(wp, Nearest) catch {
+    err => raise from_libelefun_error(err)
+  }
+  degrees.mul(unit, wp, Nearest).rounded(self.precision(), self.round_mode())
+}
+
+///|
+/// Return the floor-division remainder with the sign of the divisor.
+pub fn MPContext::modulo(
+  self : MPContext,
+  x : @mpf.RawMpf,
+  y : @mpf.RawMpf,
+) -> @mpf.RawMpf raise MPError {
+  x.modulo(y, self.precision(), self.round_mode()) catch {
+    err => raise from_mpf_error(err)
+  }
+}

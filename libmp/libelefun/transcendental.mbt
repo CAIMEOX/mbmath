@@ -196,6 +196,26 @@ fn exp_series_small(
 }
 
 ///|
+fn expm1_series_small(
+  x : @mpf.RawMpf,
+  wp : Int,
+) -> @mpf.RawMpf raise LibElefunError {
+  let mut term = x
+  let mut sum = x
+  let mut n = 2
+  while n < 50000 {
+    term = term.mul(x, wp, Nearest)
+    term = div_checked(term, @mpf.RawMpf::from_int(n), wp, Nearest)
+    sum = sum.add(term, wp, Nearest)
+    if tiny_enough(abs_mpf(term, wp), wp + 10) {
+      break
+    }
+    n += 1
+  }
+  sum
+}
+
+///|
 fn sinh_series_small(
   x : @mpf.RawMpf,
   wp : Int,
@@ -355,6 +375,36 @@ pub fn exp(
     y = y.mul(y, wp, Nearest)
   }
   y.rounded(prec, rnd)
+}
+
+///|
+/// Compute `exp(x)-1` without cancellation for small `x`.
+pub fn expm1(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise LibElefunError {
+  if x.is_nan() {
+    return @mpf.RawMpf::nan()
+  }
+  if x.is_infinite() {
+    return if x.sign == 1 {
+      @mpf.RawMpf::negative_one()
+    } else {
+      @mpf.RawMpf::infinity()
+    }
+  }
+  if x.is_zero() {
+    return @mpf.RawMpf::zero()
+  }
+  let wp = work_prec(prec) + 8
+  let ax = x.abs(wp, Nearest)
+  let value = if ax <= @mpf.RawMpf::half() {
+    expm1_series_small(x, wp)
+  } else {
+    exp(x, wp, Nearest).sub(@mpf.RawMpf::one(), wp, Nearest)
+  }
+  value.rounded(prec, rnd)
 }
 
 ///|
@@ -832,6 +882,34 @@ pub fn pow(
       exp(t, wp, Nearest).rounded(prec, rnd)
     }
   }
+}
+
+///|
+/// Compute `x^y-1`, retaining relative accuracy when the result is small.
+pub fn pow_minus_one(
+  x : @mpf.RawMpf,
+  y : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise LibElefunError {
+  if y.is_zero() {
+    return @mpf.RawMpf::zero()
+  }
+  let wp = work_prec(prec) + 16
+  if x.sign == 0 && !x.is_zero() {
+    let half = @mpf.RawMpf::half()
+    let two = @mpf.RawMpf::two()
+    let logarithm = if x >= half && x <= two {
+      let delta = x.sub(@mpf.RawMpf::one(), 0, Down)
+      log1p(delta, wp, Nearest)
+    } else {
+      ln(x, wp, Nearest)
+    }
+    let exponent = y.mul(logarithm, wp, Nearest)
+    return expm1(exponent, prec, rnd)
+  }
+  let powered = pow(x, y, wp, Nearest)
+  powered.sub(@mpf.RawMpf::one(), wp, Nearest).rounded(prec, rnd)
 }
 
 ///|
