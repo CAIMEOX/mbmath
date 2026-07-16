@@ -761,6 +761,106 @@ pub fn erf(
 }
 
 ///|
+/// Evaluate the inverse real error function on `[-1, 1]`.
+pub fn inverse_error_function(
+  x : @mpf.RawMpf,
+  prec : Int,
+  rnd : @mpf.RoundMode,
+) -> @mpf.RawMpf raise LibHyperError {
+  if x.is_nan() {
+    return @mpf.RawMpf::nan()
+  }
+  if x < @mpf.RawMpf::negative_one() || x > @mpf.RawMpf::one() {
+    raise DomainError("inverse error function is defined only on [-1, 1]")
+  }
+  if x.is_zero() {
+    return x
+  }
+  if x == @mpf.RawMpf::one() {
+    return @mpf.RawMpf::infinity()
+  }
+  if x == @mpf.RawMpf::negative_one() {
+    return @mpf.RawMpf::negative_infinity()
+  }
+  let target_precision = if prec > 0 { prec } else { 64 }
+  let p = wp(target_precision) + 80
+  let magnitude = x.abs(0, Down)
+  let sqrt_pi = sqrt_checked(pi_checked(p, Nearest), p, Nearest)
+  let central = magnitude <= @mpf.RawMpf::from_int(3).scale_pow2(-2)
+  let tail = if central {
+    @mpf.RawMpf::zero()
+  } else {
+    @mpf.RawMpf::one().sub(magnitude, p, Nearest)
+  }
+  let mut estimate = if central {
+    magnitude.mul(sqrt_pi, p, Nearest).scale_pow2(-1)
+  } else {
+    let logarithmic_tail = ln_positive_checked(tail, p, Nearest).negated(
+      p,
+      Nearest,
+    )
+    let correction = ln_positive_checked(logarithmic_tail, p, Nearest)
+      .add(ln_positive_checked(pi_checked(p, Nearest), p, Nearest), p, Nearest)
+      .scale_pow2(-1)
+    sqrt_checked(logarithmic_tail.sub(correction, p, Nearest), p, Nearest)
+  }
+  let two_over_sqrt_pi = div_checked(@mpf.RawMpf::two(), sqrt_pi, p, Nearest)
+  let mut level_count = 0
+  let mut remaining_bits = p
+  while remaining_bits > 1 {
+    level_count += 1
+    remaining_bits = remaining_bits >> 1
+  }
+  let max_steps = level_count + 16
+  let goal_bits = target_precision + 40
+  let mut converged = false
+  for _ in 0..<max_steps {
+    let square = estimate.mul(estimate, p, Nearest)
+    let gaussian = exp_checked(square.negated(p, Nearest), p, Nearest)
+    let mut derivative = two_over_sqrt_pi.mul(gaussian, p, Nearest)
+    let residual = if central {
+      erf(estimate, p, Nearest).sub(magnitude, p, Nearest)
+    } else {
+      derivative = derivative.negated(p, Nearest)
+      erfc(estimate, p, Nearest).sub(tail, p, Nearest)
+    }
+    if residual.is_zero() {
+      converged = true
+      break
+    }
+    let denominator = derivative.add(
+      estimate.mul(residual, p, Nearest),
+      p,
+      Nearest,
+    )
+    let delta = div_checked(residual, denominator, p, Nearest)
+    let candidate = estimate.sub(delta, p, Nearest)
+    estimate = if candidate.sign == 1 {
+      estimate.scale_pow2(-1)
+    } else {
+      candidate
+    }
+    let scale = if estimate < @mpf.RawMpf::one() {
+      @mpf.RawMpf::one()
+    } else {
+      estimate
+    }
+    if delta.abs(p, Nearest) <= scale.scale_pow2(-goal_bits) {
+      converged = true
+      break
+    }
+  }
+  if !converged {
+    raise ConvergenceError("inverse error function iteration did not converge")
+  }
+  if x.sign == 1 {
+    estimate.negated(prec, rnd)
+  } else {
+    estimate.rounded(prec, rnd)
+  }
+}
+
+///|
 /// Evaluate the real complementary error function without subtractive loss in
 /// the exponentially small positive tail.
 pub fn erfc(

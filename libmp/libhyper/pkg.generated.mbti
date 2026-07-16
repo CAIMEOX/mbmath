@@ -35,6 +35,8 @@ pub fn erfi(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
 
 pub fn exponential_integral(Int, @mpf.RawMpf, Int, @mpf.RoundMode, gamma? : Bool) -> @mpf.RawMpf raise LibHyperError
 
+pub fn inverse_error_function(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
+
 pub fn si(@mpf.RawMpf, Int, @mpf.RoundMode) -> @mpf.RawMpf raise LibHyperError
 
 // Errors
